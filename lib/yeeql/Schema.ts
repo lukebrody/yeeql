@@ -1,5 +1,3 @@
-import { UUID } from '../common/UUID'
-
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export class Field<Type> { }
 
@@ -20,11 +18,3 @@ export type Primitives<S extends Schema> = Pick<S, keyof {
 }>
 
 export type Filter<S extends Schema> = Partial<Row<Primitives<S>>>
-
-const mySchema = {
-    id: new Field<UUID>()
-}
-
-const filter: Filter<typeof mySchema> = {}
-
-const row: Row<typeof mySchema> = { id: UUID.create() }

@@ -1,6 +1,6 @@
 {
   "name": "yeeql",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "A SQL-like interface around Y.js",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -29,8 +29,8 @@
     "yjs": "^13.6.7"
   },
   "peerDependencies": {
-    "react": "^18.2.0",
-    "yjs": "^13.6.7"
+    "react": "^18.0.0",
+    "yjs": "^13.0.0"
   },
   "repository": {
     "type": "git",

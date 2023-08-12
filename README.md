@@ -30,9 +30,9 @@ const doc = new Y.Doc()
 const yTable = doc.getMap('dinosaurs') as Y.Map<Y.Map<unknown>>
 
 const dinosaursSchema = {
-	id: new Field<UUID>(),
+    id: new Field<UUID>(),
     genus: new Field<string>(),
-	ageInMillionsOfYears: new Field<number>(),
+    ageInMillionsOfYears: new Field<number>(),
     diet: new Field<'herbivore' | 'carnivore'>()
 }
 

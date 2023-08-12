@@ -1,4 +1,4 @@
-import { Filter, Row, Schema } from './Schema'
+import { Filter, Row, TableSchema } from './Schema'
 import { QueryRegistryEntry } from './QueryRegistry'
 import { UUID } from '../common/UUID'
 import { DefaultMap, ReadonlyDefaultMap } from '../common/DefaultMap'
@@ -8,7 +8,7 @@ export type GroupedCountQueryChange<Group> = { group: Group, change: 1 | -1 }
 
 export interface GroupedCountQuery<Group> extends Query<ReadonlyDefaultMap<Group, number>, GroupedCountQueryChange<Group>> { }
 
-export class GroupedCountQueryImpl<S extends Schema, GroupBy extends keyof S> implements QueryRegistryEntry<S>, GroupedCountQuery<Row<S>[GroupBy]> {
+export class GroupedCountQueryImpl<S extends TableSchema, GroupBy extends keyof S> implements QueryRegistryEntry<S>, GroupedCountQuery<Row<S>[GroupBy]> {
 	constructor(
 		items: ReadonlyMap<UUID, Row<S>>,
 		readonly filter: Filter<S>,

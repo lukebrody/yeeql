@@ -8,12 +8,12 @@ import { DefaultMap } from '../common/DefaultMap'
 import { YMap, YEvent } from './YInterfaces'
 import * as Y from 'yjs'
 import { Query, QueryResult, QueryChange } from './Query'
-import { Schema, Row, Primitives, Field, Filter } from './Schema'
+import { Schema, Row, Primitives, Field, Filter, TableSchema } from './Schema'
 import stringify from 'json-stable-stringify'
 
-type Sort<S extends Schema> = (a: Row<S>, b: Row<S>) => number
+type Sort<S extends TableSchema> = (a: Row<Primitives<S>>, b: Row<Primitives<S>>) => number
 
-function getSortColumns<S extends Schema>(schema: S, sort: Sort<S>): Set<keyof S> {
+function getSortColumns<S extends TableSchema>(schema: S, sort: Sort<S>): Set<keyof S> {
 	const result = new Set<keyof S>()
 	const proxy = new Proxy({} as Row<S>, {
 		get(_, p) {
@@ -28,18 +28,7 @@ function getSortColumns<S extends Schema>(schema: S, sort: Sort<S>): Set<keyof S
 	return result
 }
 
-type TableSchema = Schema & { id: Field<UUID> }
-
-type RawComparator<S extends Schema> = (a: Row<S>, b: Row<S>) => number
-
 const noSort = () => 0
-
-function makeTiebrokenIdSort<S extends TableSchema>(comparator: RawComparator<S>): RawComparator<S> {
-	return (a: Row<S>, b: Row<S>) => {
-		const result = comparator(a, b)
-		return result === 0 ? a.id.localeCompare(b.id) : result
-	}
-}
 
 export class Table<S extends TableSchema> {
 	constructor(private readonly yTable: YMap<YMap<unknown>>, private readonly schema: S) {
@@ -198,12 +187,12 @@ export class Table<S extends TableSchema> {
 		if (groupBy === undefined) {
 			result = this.getCachedQuery(
 				stringify({ filter, resolvedSelect, kind: 'linear' }), sort,
-				() => new LinearQueryImpl<S, Select>(this.items, resolvedSelect, filter, makeTiebrokenIdSort(sort))
+				() => new LinearQueryImpl<S, Select>(this.items, resolvedSelect, filter, this.makeTiebrokenIdSort(sort))
 			)
 		} else {
 			result = this.getCachedQuery(
 				stringify({ filter, resolvedSelect, groupBy, kind: 'grouped' }), sort,
-				() => new GroupedQueryImpl(this.items, resolvedSelect, filter, makeTiebrokenIdSort(sort), groupBy)
+				() => new GroupedQueryImpl(this.items, resolvedSelect, filter, this.makeTiebrokenIdSort(sort), groupBy)
 			)
 		}
 		return result
@@ -243,5 +232,12 @@ export class Table<S extends TableSchema> {
 
 	delete(id: UUID) {
 		this.yTable.delete(id)
+	}
+
+	private makeTiebrokenIdSort(comparator: Sort<S>): Sort<S> {
+		return (a, b) => {
+			const result = comparator(a, b)
+			return result === 0 ? a.id.localeCompare(b.id) : result
+		}
 	}
 }

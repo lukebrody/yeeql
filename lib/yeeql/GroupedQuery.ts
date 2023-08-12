@@ -1,5 +1,5 @@
 import { insertOrdered, removeOrdered } from '../common/array'
-import { Filter, Primitives, Row, Schema } from './Schema'
+import { Filter, Primitives, Row, TableSchema } from './Schema'
 import { QueryRegistryEntry } from './QueryRegistry'
 import { UUID } from '../common/UUID'
 import { LinearQueryChange } from './LinearQuery'
@@ -11,7 +11,7 @@ type GroupedQueryChange<Result, GroupValue> = LinearQueryChange<Result> & { grou
 export interface GroupedQuery<Result, GroupValue> extends Query<ReadonlyDefaultMap<GroupValue, ReadonlyArray<Readonly<Result>>>, GroupedQueryChange<Result, GroupValue>> { }
 
 export class GroupedQueryImpl<
-	S extends Schema,
+	S extends TableSchema,
 	Select extends keyof S,
 	GroupBy extends keyof Primitives<S>
 > implements QueryRegistryEntry<S>, GroupedQuery<Row<Pick<S, Select>>, Row<Primitives<S>>[GroupBy]> {

@@ -1,4 +1,4 @@
-import { Filter, Row, Schema } from './Schema'
+import { Filter, Row, TableSchema } from './Schema'
 import { QueryRegistryEntry } from './QueryRegistry'
 import { UUID } from '../common/UUID'
 import { Query } from './Query'
@@ -7,7 +7,7 @@ export type CountQueryChange = 1 | -1
 
 export interface CountQuery extends Query<number, CountQueryChange> { }
 
-export class CountQueryImpl<S extends Schema> implements QueryRegistryEntry<S>, CountQuery {
+export class CountQueryImpl<S extends TableSchema> implements QueryRegistryEntry<S>, CountQuery {
 	constructor(
 		items: ReadonlyMap<UUID, Row<S>>,
 		readonly filter: Filter<S>,

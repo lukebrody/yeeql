@@ -1,8 +1,8 @@
 # yeeql
 
-# [API Documentation](doc/index.md)
+# [API Documentation](https://github.com/lukebrody/yeeql/blob/main/doc/index.md)
 
-![yee dinosaur](image/yee.gif)
+![yee dinosaur](https://github.com/lukebrody/yeeql/blob/main/image/yee.gif)
 
 yeeql (pronounced yee-quel) is a wrapper atop of [`Y.js`'s `Y.Map`](https://docs.yjs.dev/api/shared-types/y.map).
 
@@ -198,7 +198,7 @@ dinoTable.update(allosaurusId, 'genus', 'Allosaurus ❤️')
 // DinoListComponent re-renders, since 'genus' is selected
 ```
 
-# [API Documentation](doc/index.md)
+# [API Documentation](https://github.com/lukebrody/yeeql/blob/main/doc/index.md)
 # Performance
 
 ## Runtimes

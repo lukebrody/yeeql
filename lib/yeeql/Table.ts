@@ -5,7 +5,7 @@ import { GroupedQuery, GroupedQueryImpl } from './GroupedQuery'
 import { CountQuery, CountQueryImpl } from './CountQuery'
 import { GroupedCountQuery, GroupedCountQueryImpl } from './GroupedCountQuery'
 import { DefaultMap } from '../common/DefaultMap'
-import { YMap, YEvent } from "./YInterfaces"
+import { YMap, YEvent } from './YInterfaces'
 import * as Y from 'yjs'
 import { Query, QueryResult, QueryChange } from './Query'
 import { Schema, Row, Primitives, Field, Filter } from './Schema'
@@ -21,7 +21,7 @@ function getSortColumns<S extends Schema>(schema: S, sort: Sort<S>): Set<keyof S
 				throw new Error(`unknown column '${p.toString()}' used in 'sort' comparator`)
 			}
 			result.add(p as keyof S)
-			return "0"
+			return '0'
 		},
 	})
 	sort(proxy, proxy)
@@ -231,7 +231,7 @@ export class Table<S extends TableSchema> {
 		return result
 	}
 
-	insert(row: Omit<Row<S>, "id">): UUID {
+	insert(row: Omit<Row<S>, 'id'>): UUID {
 		const id = UUID.create()
 		this.yTable.set(id, new Y.Map(Object.entries(row)))
 		return id

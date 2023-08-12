@@ -1,7 +1,7 @@
 import { Filter, Row, Schema } from './Schema'
 import { QueryRegistryEntry } from './QueryRegistry'
 import { UUID } from '../common/UUID'
-import { Query } from "./Query"
+import { Query } from './Query'
 
 export type CountQueryChange = 1 | -1
 

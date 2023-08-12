@@ -2,7 +2,7 @@ import { insertOrdered, removeOrdered } from '../common/array'
 import { Filter, Row, Schema } from './Schema'
 import { QueryRegistryEntry } from './QueryRegistry'
 import { UUID } from '../common/UUID'
-import { Query } from "./Query"
+import { Query } from './Query'
 
 export type LinearQueryChange<Result> =
 	{ kind: 'add', row: Readonly<Result>, newIndex: number, type: 'add' | 'update' } |

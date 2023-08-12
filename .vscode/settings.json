@@ -1,5 +1,5 @@
 {
     "editor.insertSpaces": true,
-    "javascript.preferences.quoteStyle": "double",
-    "typescript.preferences.quoteStyle": "double"
+    "javascript.preferences.quoteStyle": "single",
+    "typescript.preferences.quoteStyle": "single"
 }

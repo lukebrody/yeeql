@@ -2,7 +2,7 @@ import { Filter, Row, Schema } from './Schema'
 import { QueryRegistryEntry } from './QueryRegistry'
 import { UUID } from '../common/UUID'
 import { DefaultMap, ReadonlyDefaultMap } from '../common/DefaultMap'
-import { Query } from "./Query"
+import { Query } from './Query'
 
 export type GroupedCountQueryChange<Group> = { group: Group, change: 1 | -1 }
 

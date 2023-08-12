@@ -4,7 +4,7 @@ import { QueryRegistryEntry } from './QueryRegistry'
 import { UUID } from '../common/UUID'
 import { LinearQueryChange } from './LinearQuery'
 import { DefaultMap, ReadonlyDefaultMap } from '../common/DefaultMap'
-import { Query } from "./Query"
+import { Query } from './Query'
 
 type GroupedQueryChange<Result, GroupValue> = LinearQueryChange<Result> & { group: GroupValue }
 

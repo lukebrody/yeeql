@@ -173,19 +173,19 @@ export class Table<S extends TableSchema> {
 		filter?: Filter<S>,
 		sort?: Sort<S>,
 		groupBy: GroupBy
-	}): GroupedQuery<Row<S>, GroupBy>;
+	}): GroupedQuery<Row<S>, Row<Primitives<S>>[GroupBy]>;
 	query<Select extends keyof S, GroupBy extends keyof Primitives<S>>({ filter = {}, select, sort = noSort, groupBy }: {
 		select: ReadonlyArray<Select>,
 		filter?: Filter<S>,
 		sort?: Sort<S>,
 		groupBy: GroupBy
-	}): GroupedQuery<Row<Pick<S, Select>>, GroupBy>;
+	}): GroupedQuery<Row<Pick<S, Select>>, Row<Primitives<S>>[GroupBy]>;
 	query<Select extends keyof S, GroupBy extends keyof Primitives<S>>({ filter = {}, select, sort = noSort, groupBy }: {
 		select?: ReadonlyArray<Select>,
 		filter?: Filter<S>,
 		sort?: Sort<S>,
 		groupBy?: GroupBy
-	}): LinearQuery<Row<Pick<S, Select>>> | GroupedQuery<Row<Pick<S, Select>>, Row<S>[GroupBy]> {
+	}): LinearQuery<Row<Pick<S, Select>>> | GroupedQuery<Row<Pick<S, Select>>, Row<Primitives<S>>[GroupBy]> {
 
 		this.validateColumns([...(select ?? []), ...(groupBy ? [groupBy] : []), ...Object.keys(filter)])
 

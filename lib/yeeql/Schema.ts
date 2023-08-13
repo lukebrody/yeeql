@@ -24,7 +24,7 @@ export type Primitives<S extends TableSchema> = Pick<S, keyof {
 export type Filter<S extends TableSchema> = Partial<Row<Primitives<S>>>
 
 const mySchema = {
-    id: new Field<UUID>()
+	id: new Field<UUID>()
 }
 
 const primitive: Primitives<typeof mySchema> = mySchema

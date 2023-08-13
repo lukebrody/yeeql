@@ -1,5 +1,5 @@
 import { insertOrdered, removeOrdered } from '../common/array'
-import { Filter, Row, Schema, TableSchema } from './Schema'
+import { Filter, Row, TableSchema } from './Schema'
 import { QueryRegistryEntry } from './QueryRegistry'
 import { UUID } from '../common/UUID'
 import { Query } from './Query'
@@ -16,7 +16,7 @@ export type LinearQueryChange<Result> =
 		type: 'update'
 	}
 
-export interface LinearQuery<Result> extends Query<ReadonlyArray<Readonly<Result>>, LinearQueryChange<Result>> { }
+export type LinearQuery<Result> = Query<ReadonlyArray<Readonly<Result>>, LinearQueryChange<Result>>
 
 export class LinearQueryImpl<S extends TableSchema, Select extends keyof S> implements QueryRegistryEntry<S>, LinearQuery<Row<Pick<S, Select>>> {
 	constructor(

@@ -6,7 +6,7 @@ import { Query } from './Query'
 
 export type GroupedCountQueryChange<Group> = { group: Group, change: 1 | -1 }
 
-export interface GroupedCountQuery<Group> extends Query<ReadonlyDefaultMap<Group, number>, GroupedCountQueryChange<Group>> { }
+export type GroupedCountQuery<Group> = Query<ReadonlyDefaultMap<Group, number>, GroupedCountQueryChange<Group>>
 
 export class GroupedCountQueryImpl<S extends TableSchema, GroupBy extends keyof S> implements QueryRegistryEntry<S>, GroupedCountQuery<Row<S>[GroupBy]> {
 	constructor(

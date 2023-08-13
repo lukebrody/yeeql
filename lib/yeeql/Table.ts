@@ -8,7 +8,7 @@ import { DefaultMap } from '../common/DefaultMap'
 import { YMap, YEvent } from './YInterfaces'
 import * as Y from 'yjs'
 import { Query, QueryResult, QueryChange } from './Query'
-import { Schema, Row, Primitives, Field, Filter, TableSchema } from './Schema'
+import { Row, Primitives, Filter, TableSchema } from './Schema'
 import stringify from 'json-stable-stringify'
 
 type Sort<S extends TableSchema> = (a: Row<Primitives<S>>, b: Row<Primitives<S>>) => number
@@ -144,7 +144,7 @@ export class Table<S extends TableSchema> {
 
 	private validateColumns(cols: Array<keyof S>) {
 		const uknownCol = cols.find(col => this.schema[col] === undefined)
-		if (uknownCol) {
+		if (uknownCol !== undefined) {
 			throw new Error(`unknown column '${uknownCol.toString()}'`)
 		}
 	}
@@ -176,7 +176,7 @@ export class Table<S extends TableSchema> {
 		groupBy?: GroupBy
 	}): LinearQuery<Row<Pick<S, Select>>> | GroupedQuery<Row<Pick<S, Select>>, Row<Primitives<S>>[GroupBy]> {
 
-		this.validateColumns([...(select ?? []), ...(groupBy ? [groupBy] : []), ...Object.keys(filter)])
+		this.validateColumns([...(select ?? []), ...(groupBy !== undefined ? [groupBy] : []), ...Object.keys(filter)])
 
 		const resolvedSelect = Array.from(new Set([
 			...(select ?? Object.keys(this.schema)),
@@ -202,7 +202,7 @@ export class Table<S extends TableSchema> {
 	count<GroupBy extends keyof Primitives<S>>({ filter = {}, groupBy }: { filter?: Filter<S>, groupBy: GroupBy }): GroupedCountQuery<Row<S>[GroupBy]>;
 	count<GroupBy extends keyof Primitives<S>>({ filter = {}, groupBy }: { filter?: Filter<S>, groupBy?: GroupBy }): CountQuery | GroupedCountQuery<Row<S>[GroupBy]> {
 
-		this.validateColumns([...(groupBy ? [groupBy] : []), ...Object.keys(filter)])
+		this.validateColumns([...(groupBy !== undefined ? [groupBy] : []), ...Object.keys(filter)])
 
 		let result: CountQueryImpl<S> | GroupedCountQueryImpl<S, GroupBy>
 		if (groupBy === undefined) {

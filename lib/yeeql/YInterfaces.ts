@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 export interface YMap<V> {
     forEach(f: (v: V, k: string) => void): void
     observeDeep(observer: (events: YEvent[]) => void): void

@@ -8,7 +8,7 @@ import { Query } from './Query'
 
 type GroupedQueryChange<Result, GroupValue> = LinearQueryChange<Result> & { group: GroupValue }
 
-export interface GroupedQuery<Result, GroupValue> extends Query<ReadonlyDefaultMap<GroupValue, ReadonlyArray<Readonly<Result>>>, GroupedQueryChange<Result, GroupValue>> { }
+export type GroupedQuery<Result, GroupValue> = Query<ReadonlyDefaultMap<GroupValue, ReadonlyArray<Readonly<Result>>>, GroupedQueryChange<Result, GroupValue>>
 
 export class GroupedQueryImpl<
 	S extends TableSchema,

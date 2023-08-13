@@ -2,10 +2,6 @@ import Base256 from 'base256-encoding'
 
 export type UUID = string & { __requestId: true } // 8 bytes
 
-function makeReadonly<T>(t: T): Readonly<T> {
-	return t
-}
-
 const length = 8
 
 const result = {

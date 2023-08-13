@@ -1,6 +1,6 @@
 import { UUID } from '../common/UUID'
 import { QueryRegistryEntry, QueryRegistry, addedOrRemoved } from './QueryRegistry'
-import { Field, Row } from './Schema'
+import { Field } from './Schema'
 
 import { expect, test } from 'vitest'
 
@@ -15,23 +15,23 @@ class StubQuery implements QueryRegistryEntry<typeof schema> {
 	readonly filter = { number: 1 }
 	readonly select = new Set<'string'>(['string'])
 
-	doItemAdd(row: Row<typeof schema>): number {
+	doItemAdd(): number {
 		throw new Error('not implemented')
 	}
 
-	postItemAdd(row: Row<typeof schema>): void {
+	postItemAdd(): void {
 		throw new Error('not implemented')
 	}
 
-	doItemRemove(row: Row<typeof schema>): number {
+	doItemRemove(): number {
 		throw new Error('not implemented')
 	}
 
-	postItemRemove(row: Row<typeof schema>): void {
+	postItemRemove(): void {
 		throw new Error('not implemented')
 	}
 
-	postItemChange(row: Row<typeof schema>, oldValues: Readonly<Partial<Row<{ id: Field<UUID>; number: Field<number>; string: Field<string> }>>>): void {
+	postItemChange(): void {
 		throw new Error('not implemented')
 	}
 }

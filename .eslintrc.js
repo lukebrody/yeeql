@@ -17,14 +17,14 @@ module.exports = {
 		},
 		'ecmaVersion': 'latest',
 		'sourceType': 'module',
-		'project': 'tsconfig.json',
+		'project': 'tsconfig.lint.json',
 		'tsconfigRootDir': __dirname
 	},
 	'plugins': [
 		'react',
 		'@typescript-eslint'
 	],
-	'ignorePatterns': ['*.js'],
+	'ignorePatterns': ['dist/**/*'],
 	'rules': {
 		'indent': [
 			'error',
@@ -54,5 +54,10 @@ module.exports = {
 			}
 		],
 		'no-constant-condition': 'off'
+	},
+	'settings': {
+		'react': {
+			'version': 'detect'
+		}
 	}
 }

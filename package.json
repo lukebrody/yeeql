@@ -10,7 +10,8 @@
   "license": "MIT",
   "scripts": {
     "test": "node --expose-gc node_modules/.bin/vitest",
-    "build": "tsc"
+    "build": "tsc",
+    "lint": "eslint --fix \"./**/*.{ts, tsx, js, cjs}\""
   },
   "dependencies": {
     "base256-encoding": "^2.0.2",
@@ -23,6 +24,7 @@
     "@typescript-eslint/parser": "^5.27.1",
     "eslint": "^8.17.0",
     "eslint-plugin-import": "^2.26.0",
+    "eslint-plugin-react": "^7.33.1",
     "react": "^18.2.0",
     "typescript": "^4.6.4",
     "vitest": "^0.34.1",

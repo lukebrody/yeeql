@@ -5,7 +5,7 @@ import { Query } from './Query'
 
 export type CountQueryChange = 1 | -1
 
-export interface CountQuery extends Query<number, CountQueryChange> { }
+export type CountQuery = Query<number, CountQueryChange>
 
 export class CountQueryImpl<S extends TableSchema> implements QueryRegistryEntry<S>, CountQuery {
 	constructor(

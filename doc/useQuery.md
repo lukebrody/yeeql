@@ -12,6 +12,10 @@ function useQuery<Q extends Query<QueryResult<Q>, QueryChange<Q>>>(
 
 Use this React hook to easily use Yeeql queries inside React components.
 
+`makeQuery` is called once on the first render of the component, then called again to generate a new query whenever the dependency list (`deps`) updates. This behaviour is similar to `React.useMemo`.
+
+You can optionally pass in an `observe` function that is automatically called by the current query. For more on `observe`, see the [`Query` documentation](Query.md).
+
 ### Example
 
 ```typescript

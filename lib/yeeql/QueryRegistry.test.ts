@@ -1,5 +1,5 @@
 import { UUID } from '../common/UUID'
-import { QueryRegistryEntry, QueryRegistry, addedOrRemoved } from './QueryRegistry'
+import { QueryRegistryEntry, QueryRegistry, addedOrRemoved, _testQueryEntries } from './QueryRegistry'
 import { Field } from './Schema'
 
 import { expect, test } from 'vitest'
@@ -65,5 +65,9 @@ test('QueryRegistry memory management', async () => {
 	global.gc!()
 	await new Promise(resolve => setTimeout(resolve, 0))
 
+	_testQueryEntries.value = 0
+
 	expect(qr.queries({ id: UUID.create(), number: 1, string: '', boolean: false }, addedOrRemoved).size).toBe(0)
+
+	expect(_testQueryEntries.value).toBe(0)
 })

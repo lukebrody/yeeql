@@ -58,7 +58,7 @@ function deleteFromQueryTree<S extends TableSchema>(qt: QueryTree<S>, fields: Re
 		}
 	} else {
 		const node = qt as QueryTreeNode<S>
-		const key = fields[0] in filter ? fields[0] : notSpecified
+		const key = fields[0] in filter ? filter[fields[0] as keyof typeof filter] : notSpecified
 		const child = node.get(key)
 		deleteFromQueryTree(child, fields.slice(1), filter)
 		if (child.size == 0) {
@@ -67,12 +67,15 @@ function deleteFromQueryTree<S extends TableSchema>(qt: QueryTree<S>, fields: Re
 	}
 }
 
+export const _testQueryEntries = { value: 0}
+
 function collectFromQueryTree<S extends TableSchema>(qt: QueryTree<S>, fields: ReadonlyArray<keyof S>, row: Row<S>, changed: AddedOrRemoved | Partial<Row<S>>, result: Set<QueryRegistryEntry<S>>): void {
 	if (fields.length === 0) {
 		const leaf = qt as QueryTreeLeaf<S>
 		for (const key of changed === addedOrRemoved ? [addedOrRemoved] as Array<AddedOrRemoved> : Object.keys(changed)) {
 			for (const weakQuery of leaf.get(key)) {
 				const query = weakQuery.deref()
+				_testQueryEntries.value ++
 				if (query) {
 					result.add(query)
 				}

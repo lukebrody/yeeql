@@ -51,8 +51,9 @@ export class LinearQueryImpl<S extends TableSchema, Select extends keyof S> impl
 		this.observers.delete(observer)
 	}
 
-	private notifyObservers(change: LinearQueryChange<Row<Pick<S, Select>>>) {
-		this.observers.forEach(observer => observer(change))
+	// The values are baked into the `change` when it is constructed
+	private notifyObservers(change: LinearQueryChange<Row<Pick<S, Select>>>): () => void {
+		return () => this.observers.forEach(observer => observer(change))
 	}
 
 	private addedIndex = 0
@@ -61,8 +62,8 @@ export class LinearQueryImpl<S extends TableSchema, Select extends keyof S> impl
 		this.addedIndex = insertOrdered(this.result, row, this.sort)
 	}
 
-	postItemAdd(row: Row<S>, type: 'add' | 'update'): void {
-		this.notifyObservers({ kind: 'add', row, newIndex: this.addedIndex, type })
+	postItemAdd(row: Row<S>, type: 'add' | 'update'): () => void {
+		return this.notifyObservers({ kind: 'add', row, newIndex: this.addedIndex, type })
 	}
 
 	private removedIndex = 0
@@ -71,11 +72,11 @@ export class LinearQueryImpl<S extends TableSchema, Select extends keyof S> impl
 		this.removedIndex = removeOrdered(this.result, row, this.sort)!.index
 	}
 
-	postItemRemove(row: Row<S>, type: 'delete' | 'update'): void {
-		this.notifyObservers({ kind: 'remove', row, oldIndex: this.removedIndex, type })
+	postItemRemove(row: Row<S>, type: 'delete' | 'update'): () => void {
+		return this.notifyObservers({ kind: 'remove', row, oldIndex: this.removedIndex, type })
 	}
 
-	postItemChange(row: Row<S>, oldValues: Readonly<Partial<Row<S>>>): void {
-		this.notifyObservers({ kind: 'update', row, oldIndex: this.removedIndex, newIndex: this.addedIndex, oldValues, type: 'update' })
+	postItemChange(row: Row<S>, oldValues: Readonly<Partial<Row<S>>>): () => void {
+		return this.notifyObservers({ kind: 'update', row, oldIndex: this.removedIndex, newIndex: this.addedIndex, oldValues, type: 'update' })
 	}
 }

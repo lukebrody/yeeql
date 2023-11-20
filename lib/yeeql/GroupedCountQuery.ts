@@ -41,8 +41,8 @@ export class GroupedCountQueryImpl<S extends TableSchema, GroupBy extends keyof 
 		this.observers.delete(observer)
 	}
 
-	private notifyObservers(change: GroupedCountQueryChange<Row<S>[GroupBy]>) {
-		this.observers.forEach(observer => observer(change))
+	private notifyObservers(change: GroupedCountQueryChange<Row<S>[GroupBy]>): () => void {
+		return () => this.observers.forEach(observer => observer(change))
 	}
 
 	private addedGroup?: Row<S>[GroupBy]
@@ -52,8 +52,8 @@ export class GroupedCountQueryImpl<S extends TableSchema, GroupBy extends keyof 
 		this.result.set(this.addedGroup!, this.result.get(this.addedGroup!) + 1)
 	}
 
-	postItemAdd(): void {
-		this.notifyObservers({ group: this.addedGroup!, change: 1 })
+	postItemAdd(): () => void {
+		return this.notifyObservers({ group: this.addedGroup!, change: 1 })
 	}
 
 	private removedGroup?: Row<S>[GroupBy]
@@ -63,14 +63,20 @@ export class GroupedCountQueryImpl<S extends TableSchema, GroupBy extends keyof 
 		this.result.set(this.removedGroup!, this.result.get(this.removedGroup!) - 1)
 	}
 
-	postItemRemove(): void {
-		this.notifyObservers({ group: this.removedGroup!, change: -1 })
+	postItemRemove(): () => void {
+		return this.notifyObservers({ group: this.removedGroup!, change: -1 })
 	}
 
-	postItemChange(): void {
+	postItemChange(): () => void {
 		if (this.removedGroup! !== this.addedGroup!) {
-			this.notifyObservers({ group: this.removedGroup!, change: -1 })
-			this.notifyObservers({ group: this.addedGroup!, change: -1 })
+			const removed = this.notifyObservers({ group: this.removedGroup!, change: -1 })
+			const added = this.notifyObservers({ group: this.addedGroup!, change: -1 })
+			return () => {
+				removed()
+				added()
+			}
+		} else {
+			return () => undefined
 		}
 	}
 }

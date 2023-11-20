@@ -49,8 +49,8 @@ export class GroupedQueryImpl<
 		this.observers.delete(observer)
 	}
 
-	private notifyObservers(change: GroupedQueryChange<Row<Pick<S, Select>>, Row<S>[GroupBy]>) {
-		this.observers.forEach(observer => observer(change))
+	private notifyObservers(change: GroupedQueryChange<Row<Pick<S, Select>>, Row<S>[GroupBy]>): () => void {
+		return () => this.observers.forEach(observer => observer(change))
 	}
 
 	private added?: { group: Row<S>[GroupBy], newIndex: number }
@@ -60,8 +60,8 @@ export class GroupedQueryImpl<
 		this.added = { group, newIndex: insertOrdered(this.result.get(group), row, this.sort) }
 	}
 
-	postItemAdd(row: Row<S>, type: 'add' | 'update'): void {
-		this.notifyObservers({ kind: 'add', row, ...this.added!, type })
+	postItemAdd(row: Row<S>, type: 'add' | 'update'): () => void {
+		return this.notifyObservers({ kind: 'add', row, ...this.added!, type })
 	}
 
 	private removed?: { group: Row<S>[GroupBy], oldIndex: number }
@@ -71,16 +71,20 @@ export class GroupedQueryImpl<
 		this.removed = { group, oldIndex: removeOrdered(this.result.get(group), row, this.sort)!.index }
 	}
 
-	postItemRemove(row: Row<S>, type: 'delete' | 'update'): void {
-		this.notifyObservers({ kind: 'remove', row, ...this.removed!, type })
+	postItemRemove(row: Row<S>, type: 'delete' | 'update'): () => void {
+		return this.notifyObservers({ kind: 'remove', row, ...this.removed!, type })
 	}
 
-	postItemChange(row: Row<S>, oldValues: Readonly<Partial<Row<S>>>): void {
+	postItemChange(row: Row<S>, oldValues: Readonly<Partial<Row<S>>>): () => void {
 		if (this.removed!.group === this.added!.group) {
-			this.notifyObservers({ kind: 'update', row, oldIndex: this.removed!.oldIndex, newIndex: this.added!.newIndex, oldValues, group: this.added!.group, type: 'update' })
+			return this.notifyObservers({ kind: 'update', row, oldIndex: this.removed!.oldIndex, newIndex: this.added!.newIndex, oldValues, group: this.added!.group, type: 'update' })
 		} else {
-			this.postItemRemove(row, 'update')
-			this.postItemAdd(row, 'update')
+			const removeResult = this.postItemRemove(row, 'update')
+			const addResult = this.postItemAdd(row, 'update')
+			return () => {
+				removeResult()
+				addResult()
+			}
 		}
 	}
 }

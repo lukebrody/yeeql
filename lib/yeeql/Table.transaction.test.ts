@@ -95,3 +95,20 @@ test('Table.transaction.consistency', () => {
 	expect(observer2).toHaveBeenCalledTimes(1)
 })
 
+/*
+ Expect that tables can handle multiple insertions in a transaction correctly
+*/
+test('Table.transaction.manyInserts', () => {
+	const q1 = table1.query({ sort: (a, b) => a.number - b.number })
+	const changes1: QueryChange<typeof q1>[] = []
+	q1.observe(change => changes1.push(change))
+
+	doc.transact(() => {
+		table1.insert({ number: 1, string: 'a'})
+		table1.insert({ number: 2, string: 'b'})
+	})
+
+	expect(changes1.length).toBe(2)
+	expect(changes1[0]['newIndex']).toBe(0)
+	expect(changes1[1]['newIndex']).toBe(1)
+})

@@ -37,16 +37,16 @@ export class CountQueryImpl<S extends TableSchema> implements QueryRegistryEntry
 		this.observers.delete(observer)
 	}
 
-	private notifyObservers(change: CountQueryChange) {
-		this.observers.forEach(observer => observer(change))
+	private notifyObservers(change: CountQueryChange): () => void {
+		return () => this.observers.forEach(observer => observer(change))
 	}
 
 	doItemAdd(): void {
 		this.result++
 	}
 
-	postItemAdd(): void {
-		this.notifyObservers(1)
+	postItemAdd(): () => void {
+		return this.notifyObservers(1)
 	}
 
 
@@ -54,11 +54,12 @@ export class CountQueryImpl<S extends TableSchema> implements QueryRegistryEntry
 		this.result--
 	}
 
-	postItemRemove(): void {
-		this.notifyObservers(-1)
+	postItemRemove(): () => void {
+		return this.notifyObservers(-1)
 	}
 
-	postItemChange(): void {
+	postItemChange(): () => void {
 		// Item changing doesn't add or remove it from the count
+		return () => undefined
 	}
 }

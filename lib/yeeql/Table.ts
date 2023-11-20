@@ -40,6 +40,8 @@ export class Table<S extends TableSchema> {
 		})
 
 		yTable.observeDeep((events: YEvent[]) => {
+			const runAfterTransaction: (() => void)[] = []
+
 			for (const event of events) {
 				if (event.target === yTable) {
 					for (const [key, { action }] of event.keys) {
@@ -47,18 +49,18 @@ export class Table<S extends TableSchema> {
 							const row = this.items.get(key as UUID)!
 							this.items.delete(key as UUID)
 							const queries = this.queryRegistry.queries(row, addedOrRemoved)
-							yTable.doc!.once('afterTransaction', () => {
-								queries.forEach(query => query.doItemRemove(row))
-								queries.forEach(query => query.postItemRemove(row, action))
+							queries.forEach(query => {
+								query.doItemRemove(row)
+								runAfterTransaction.push(query.postItemRemove(row, action))
 							})
 						}
 						if (action === 'add' || action === 'update') {
 							const row = this.mapValueToRow(key as UUID, yTable.get(key)!)
 							this.items.set(key as UUID, row)
 							const queries = this.queryRegistry.queries(row, addedOrRemoved)
-							yTable.doc!.once('afterTransaction', () => {
-								queries.forEach(query => query.doItemAdd(row))
-								queries.forEach(query => query.postItemAdd(row, action))
+							queries.forEach(query => {
+								query.doItemAdd(row)
+								runAfterTransaction.push(query.postItemAdd(row, action))
 							})
 						}
 					}
@@ -85,26 +87,28 @@ export class Table<S extends TableSchema> {
 
 					const afterQueries = this.queryRegistry.queries(row, changes)
 
-					yTable.doc!.once('afterTransaction', () => {
-						for (const afterQuery of afterQueries) {
-							afterQuery.doItemAdd(row)
+					for (const afterQuery of afterQueries) {
+						afterQuery.doItemAdd(row)
+					}
+
+					for (const beforeQuery of beforeQueries) {
+						if (afterQueries.has(beforeQuery)) {
+							runAfterTransaction.push(beforeQuery.postItemChange(row, oldValues))
+							afterQueries.delete(beforeQuery)
+						} else {
+							runAfterTransaction.push(beforeQuery.postItemRemove(row, 'update'))
 						}
+					}
 	
-						for (const beforeQuery of beforeQueries) {
-							if (afterQueries.has(beforeQuery)) {
-								beforeQuery.postItemChange(row, oldValues)
-								afterQueries.delete(beforeQuery)
-							} else {
-								beforeQuery.postItemRemove(row, 'update')
-							}
-						}
-	
-						for (const afterQuery of afterQueries) {
-							afterQuery.postItemAdd(row, 'update')
-						}
-					})
+					for (const afterQuery of afterQueries) {
+						runAfterTransaction.push(afterQuery.postItemAdd(row, 'update'))
+					}
 				}
 			}
+
+			yTable.doc!.once('afterTransaction', () => {
+				runAfterTransaction.forEach(callback => callback())
+			})
 		})
 	}
 

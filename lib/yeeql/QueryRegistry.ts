@@ -120,11 +120,13 @@ export interface QueryRegistryEntry<S extends TableSchema> {
 	// We use three stages here so that observers get a consistent state across all queries
 	// As well as so all queries can share the same row instanes
 
+	// `post` methods return a callback that is run after the transaction
+
 	doItemAdd(row: Row<S>): void
-	postItemAdd(row: Row<S>, type: 'add' | 'update'): void
+	postItemAdd(row: Row<S>, type: 'add' | 'update'): () => void
 
 	doItemRemove(row: Row<S>): void // From this query, if it's moving somewhere else
-	postItemRemove(row: Row<S>, type: 'delete' | 'update'): void
+	postItemRemove(row: Row<S>, type: 'delete' | 'update'): () => void
 
-	postItemChange(row: Row<S>, oldValues: Readonly<Partial<Row<S>>>): void // Notify observers
+	postItemChange(row: Row<S>, oldValues: Readonly<Partial<Row<S>>>): () => void // Notify observers
 }

@@ -2,7 +2,7 @@ import { insertOrdered, removeOrdered } from '../common/array'
 import { Filter, Row, TableSchema } from './Schema'
 import { QueryRegistryEntry } from './QueryRegistry'
 import { UUID } from '../common/UUID'
-import { Query } from './Query'
+import { InternalChangeCallback, Query } from './Query'
 
 export type LinearQueryChange<Result> =
 	{ kind: 'add', row: Readonly<Result>, newIndex: number, type: 'add' | 'update' } |
@@ -17,11 +17,6 @@ export type LinearQueryChange<Result> =
 	}
 
 export type LinearQuery<Result> = Query<ReadonlyArray<Readonly<Result>>, LinearQueryChange<Result>>
-
-type PrivateChangeCallback<S extends TableSchema, Select extends keyof S> = {
-	willChange: () => void
-	didChange: (change: LinearQueryChange<Row<Pick<S, Select>>>) => void
-}
 
 export class LinearQueryImpl<S extends TableSchema, Select extends keyof S> implements QueryRegistryEntry<S>, LinearQuery<Row<Pick<S, Select>>> {
 	constructor(
@@ -58,15 +53,19 @@ export class LinearQueryImpl<S extends TableSchema, Select extends keyof S> impl
 
 	// The values are baked into the `change` when it is constructed
 	private notifyObservers(change: LinearQueryChange<Row<Pick<S, Select>>>): () => void {
-		this.privateObservers.forEach(({ didChange }) => didChange(change))
+		const internalObserverNotifications: (() => void)[] = []
+		this.internalObservers.forEach(({ didChange }) => internalObserverNotifications.push(didChange(change)))
 
 		const result: Array<() => void> = []
 		result.push(() => this.observers.forEach(observer => observer(change)))
-		return () => result.forEach(callback => callback())
+		return () => {
+			result.forEach(callback => callback())
+			internalObserverNotifications.forEach(notify => notify())
+		}
 	}
 
 	preChange(): void {
-		this.privateObservers.forEach(({ willChange }) => willChange())
+		this.internalObservers.forEach(({ willChange }) => willChange())
 	}
 
 	private addedIndex = 0
@@ -93,6 +92,13 @@ export class LinearQueryImpl<S extends TableSchema, Select extends keyof S> impl
 		return this.notifyObservers({ kind: 'update', row, oldIndex: this.removedIndex, newIndex: this.addedIndex, oldValues, type: 'update' })
 	}
 
-	// Used so queries (joins) can talk to each other before the transaction finishes
-	readonly privateObservers = new Set<PrivateChangeCallback<S, Select>>()
+	readonly internalObservers: Set<InternalChangeCallback<LinearQueryChange<Row<Pick<S, Select>>>>> = new Set()
+
+	internalObserve(callback: InternalChangeCallback<LinearQueryChange<Row<Pick<S, Select>>>>): void {
+		this.internalObservers.add(callback)
+	}
+
+	internalUnobserve(callback: InternalChangeCallback<LinearQueryChange<Row<Pick<S, Select>>>>): void {
+		this.internalObservers.delete(callback)
+	}
 }

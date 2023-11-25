@@ -50,6 +50,7 @@ export class Table<S extends TableSchema> {
 							this.items.delete(key as UUID)
 							const queries = this.queryRegistry.queries(row, addedOrRemoved)
 							queries.forEach(query => {
+								query.preChange()
 								query.doItemRemove(row)
 								runAfterTransaction.push(query.postItemRemove(row, action))
 							})
@@ -59,6 +60,7 @@ export class Table<S extends TableSchema> {
 							this.items.set(key as UUID, row)
 							const queries = this.queryRegistry.queries(row, addedOrRemoved)
 							queries.forEach(query => {
+								query.preChange()
 								query.doItemAdd(row)
 								runAfterTransaction.push(query.postItemAdd(row, action))
 							})
@@ -80,6 +82,7 @@ export class Table<S extends TableSchema> {
 					const beforeQueries = this.queryRegistry.queries(row, changes)
 
 					for (const beforeQuery of beforeQueries) {
+						beforeQuery.preChange()
 						beforeQuery.doItemRemove(row)
 					}
 
@@ -88,6 +91,9 @@ export class Table<S extends TableSchema> {
 					const afterQueries = this.queryRegistry.queries(row, changes)
 
 					for (const afterQuery of afterQueries) {
+						if (!beforeQueries.has(afterQuery)) {
+							afterQuery.preChange()
+						}
 						afterQuery.doItemAdd(row)
 					}
 

@@ -122,6 +122,8 @@ export interface QueryRegistryEntry<S extends TableSchema> {
 
 	// `post` methods return a callback that is run after the transaction
 
+	preChange(): void
+	
 	doItemAdd(row: Row<S>): void
 	postItemAdd(row: Row<S>, type: 'add' | 'update'): () => void
 

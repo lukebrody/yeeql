@@ -18,6 +18,11 @@ export type LinearQueryChange<Result> =
 
 export type LinearQuery<Result> = Query<ReadonlyArray<Readonly<Result>>, LinearQueryChange<Result>>
 
+type PrivateChangeCallback<S extends TableSchema, Select extends keyof S> = {
+	willChange: () => void
+	didChange: (change: LinearQueryChange<Row<Pick<S, Select>>>) => void
+}
+
 export class LinearQueryImpl<S extends TableSchema, Select extends keyof S> implements QueryRegistryEntry<S>, LinearQuery<Row<Pick<S, Select>>> {
 	constructor(
 		items: ReadonlyMap<UUID, Row<S>>,
@@ -53,7 +58,15 @@ export class LinearQueryImpl<S extends TableSchema, Select extends keyof S> impl
 
 	// The values are baked into the `change` when it is constructed
 	private notifyObservers(change: LinearQueryChange<Row<Pick<S, Select>>>): () => void {
-		return () => this.observers.forEach(observer => observer(change))
+		this.privateObservers.forEach(({ didChange }) => didChange(change))
+
+		const result: Array<() => void> = []
+		result.push(() => this.observers.forEach(observer => observer(change)))
+		return () => result.forEach(callback => callback())
+	}
+
+	preChange(): void {
+		this.privateObservers.forEach(({ willChange }) => willChange())
 	}
 
 	private addedIndex = 0
@@ -79,4 +92,7 @@ export class LinearQueryImpl<S extends TableSchema, Select extends keyof S> impl
 	postItemChange(row: Row<S>, oldValues: Readonly<Partial<Row<S>>>): () => void {
 		return this.notifyObservers({ kind: 'update', row, oldIndex: this.removedIndex, newIndex: this.addedIndex, oldValues, type: 'update' })
 	}
+
+	// Used so queries (joins) can talk to each other before the transaction finishes
+	readonly privateObservers = new Set<PrivateChangeCallback<S, Select>>()
 }

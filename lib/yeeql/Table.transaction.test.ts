@@ -35,9 +35,9 @@ test('Table.transaction.changes', () => {
 
 	const changes1: QueryChange<typeof q1>[] = []
 	const changes2: QueryChange<typeof q2>[] = []
-	
-	q1.observe(change => changes1.push(change))
-	q2.observe(change => changes2.push(change))
+
+	q1.observe((change) => changes1.push(change))
+	q2.observe((change) => changes2.push(change))
 
 	doc.transact(() => {
 		table1.insert({ number: 1, string: 'a' })
@@ -50,7 +50,7 @@ test('Table.transaction.changes', () => {
 
 	expect(changes1.length).toBe(2)
 	expect(changes2.length).toBe(1)
-	
+
 	expect(changes2[0].kind).toBe('add')
 	expect(changes2[0].row.string).toBe('b2')
 })
@@ -68,21 +68,21 @@ test('Table.transaction.consistency', () => {
 
 	const observer1 = vi.fn(() => {
 		expect(table1.count({}).result).toBe(2)
-		expect(table1.query({ filter: { id: zeroId}}).result[0].string).toBe('0')
+		expect(table1.query({ filter: { id: zeroId } }).result[0].string).toBe('0')
 		expect(table2.count({}).result).toBe(1)
 	})
 	q1.observe(observer1)
 
 	const observer2 = vi.fn(() => {
 		expect(table1.count({}).result).toBe(2)
-		expect(table1.query({ filter: { id: zeroId }}).result[0].string).toBe('0')
+		expect(table1.query({ filter: { id: zeroId } }).result[0].string).toBe('0')
 		expect(table2.count({}).result).toBe(1)
 	})
 	q2.observe(observer2)
 
 	doc.transact(() => {
-		table1.insert({ number: 1, string: 'a'})
-		const bId = table2.insert({ number: 2, string: 'b'})
+		table1.insert({ number: 1, string: 'a' })
+		const bId = table2.insert({ number: 2, string: 'b' })
 		table2.update(bId, 'string', 'b2')
 		table1.update(zeroId, 'string', '0')
 		table1.delete(negativeOneId)
@@ -90,7 +90,7 @@ test('Table.transaction.consistency', () => {
 
 	// Once when inserting 1, again when updating 0, again when removing -1
 	expect(observer1).toHaveBeenCalledTimes(3)
-	
+
 	// Once when inserting 2 (update is combined)
 	expect(observer2).toHaveBeenCalledTimes(1)
 })
@@ -101,11 +101,11 @@ test('Table.transaction.consistency', () => {
 test('Table.transaction.manyInserts', () => {
 	const q1 = table1.query({ sort: (a, b) => a.number - b.number })
 	const changes1: QueryChange<typeof q1>[] = []
-	q1.observe(change => changes1.push(change))
+	q1.observe((change) => changes1.push(change))
 
 	doc.transact(() => {
-		table1.insert({ number: 1, string: 'a'})
-		table1.insert({ number: 2, string: 'b'})
+		table1.insert({ number: 1, string: 'a' })
+		table1.insert({ number: 2, string: 'b' })
 	})
 
 	expect(changes1.length).toBe(2)

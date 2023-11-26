@@ -5,17 +5,24 @@ import { DefaultMap, ReadonlyDefaultMap } from '../common/DefaultMap'
 import { Query } from './Query'
 import { QueryBase } from './QueryBase'
 
-export type GroupedCountQueryChange<Group> = { group: Group, change: 1 | -1 }
+export type GroupedCountQueryChange<Group> = { group: Group; change: 1 | -1 }
 
-export type GroupedCountQuery<Group> = Query<ReadonlyDefaultMap<Group, number>, GroupedCountQueryChange<Group>>
+export type GroupedCountQuery<Group> = Query<
+	ReadonlyDefaultMap<Group, number>,
+	GroupedCountQueryChange<Group>
+>
 
-export class GroupedCountQueryImpl<S extends TableSchema, GroupBy extends keyof S> 
+export class GroupedCountQueryImpl<
+		S extends TableSchema,
+		GroupBy extends keyof S,
+	>
 	extends QueryBase<GroupedCountQueryChange<Row<S>[GroupBy]>>
-	implements QueryRegistryEntry<S>, GroupedCountQuery<Row<S>[GroupBy]> {
+	implements QueryRegistryEntry<S>, GroupedCountQuery<Row<S>[GroupBy]>
+{
 	constructor(
 		items: ReadonlyMap<UUID, Row<S>>,
 		readonly filter: Filter<S>,
-		readonly groupBy: GroupBy
+		readonly groupBy: GroupBy,
 	) {
 		super()
 		this.result = new DefaultMap(() => 0)
@@ -59,8 +66,14 @@ export class GroupedCountQueryImpl<S extends TableSchema, GroupBy extends keyof 
 
 	postItemChange(): () => void {
 		if (this.removedGroup! !== this.addedGroup!) {
-			const removed = this.notifyObservers({ group: this.removedGroup!, change: -1 })
-			const added = this.notifyObservers({ group: this.addedGroup!, change: -1 })
+			const removed = this.notifyObservers({
+				group: this.removedGroup!,
+				change: -1,
+			})
+			const added = this.notifyObservers({
+				group: this.addedGroup!,
+				change: -1,
+			})
 			return () => {
 				removed()
 				added()

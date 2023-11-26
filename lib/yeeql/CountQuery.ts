@@ -10,8 +10,8 @@ export type CountQuery = Query<number, CountQueryChange>
 
 export class CountQueryImpl<S extends TableSchema>
 	extends QueryBase<CountQueryChange>
-	implements QueryRegistryEntry<S>, CountQuery {
-
+	implements QueryRegistryEntry<S>, CountQuery
+{
 	constructor(
 		items: ReadonlyMap<UUID, Row<S>>,
 		readonly filter: Filter<S>,
@@ -39,7 +39,6 @@ export class CountQueryImpl<S extends TableSchema>
 	postItemAdd(): () => void {
 		return this.notifyObservers(1)
 	}
-
 
 	doItemRemove(): void {
 		this.result--

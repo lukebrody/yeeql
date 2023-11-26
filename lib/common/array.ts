@@ -1,4 +1,8 @@
-function findIndex<T, I>(sortedArray: readonly T[], item: I, comparator: (a: I, b: T) => number): number {
+function findIndex<T, I>(
+	sortedArray: readonly T[],
+	item: I,
+	comparator: (a: I, b: T) => number,
+): number {
 	let low = 0
 	let high = sortedArray.length
 	while (low < high) {
@@ -12,25 +16,40 @@ function findIndex<T, I>(sortedArray: readonly T[], item: I, comparator: (a: I, 
 	return low
 }
 
-export function getOrderedIndex<T, I>(sortedArray: readonly T[], item: I, comparator: (a: I, b: T) => number): number | undefined {
+export function getOrderedIndex<T, I>(
+	sortedArray: readonly T[],
+	item: I,
+	comparator: (a: I, b: T) => number,
+): number | undefined {
 	const index = findIndex(sortedArray, item, comparator)
-	if (index < sortedArray.length && comparator(item, sortedArray[index]) === 0) {
+	if (
+		index < sortedArray.length &&
+		comparator(item, sortedArray[index]) === 0
+	) {
 		return index
 	}
 }
 
-export function insertOrdered<T>(sortedArray: T[], newItem: T, comparator: (a: T, b: T) => number): number {
+export function insertOrdered<T>(
+	sortedArray: T[],
+	newItem: T,
+	comparator: (a: T, b: T) => number,
+): number {
 	const index = findIndex(sortedArray, newItem, comparator)
 	sortedArray.splice(index, 0, newItem)
 	return index
 }
 
-export function removeOrdered<T, I>(sortedArray: T[], item: I, comparator: (a: I, b: T) => number): { index: number, item: T } | undefined {
+export function removeOrdered<T, I>(
+	sortedArray: T[],
+	item: I,
+	comparator: (a: I, b: T) => number,
+): { index: number; item: T } | undefined {
 	const index = getOrderedIndex(sortedArray, item, comparator)
 	if (index !== undefined && comparator(item, sortedArray[index]) === 0) {
 		return {
 			index,
-			item: sortedArray.splice(index, 1)[0]
+			item: sortedArray.splice(index, 1)[0],
 		}
 	}
 }

@@ -1,41 +1,44 @@
 {
-  "name": "yeeql",
-  "version": "1.0.7",
-  "description": "A SQL-like interface around Y.js",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "files": [
-    "/dist"
-  ],
-  "license": "MIT",
-  "scripts": {
-    "test": "node --expose-gc node_modules/.bin/vitest",
-    "build": "tsc",
-    "lint": "eslint --fix \"./**/*.{ts, tsx, js, cjs}\""
-  },
-  "dependencies": {
-    "base256-encoding": "^2.0.2",
-    "json-stable-stringify": "^1.0.2"
-  },
-  "devDependencies": {
-    "@types/json-stable-stringify": "^1.0.34",
-    "@types/react": "^18.2.18",
-    "@typescript-eslint/eslint-plugin": "^5.27.1",
-    "@typescript-eslint/parser": "^5.27.1",
-    "eslint": "^8.17.0",
-    "eslint-plugin-import": "^2.26.0",
-    "eslint-plugin-react": "^7.33.1",
-    "react": "^18.2.0",
-    "typescript": "^5.3.2",
-    "vitest": "^0.34.1",
-    "yjs": "^13.6.7"
-  },
-  "peerDependencies": {
-    "react": "^18.0.0",
-    "yjs": "^13.0.0"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/lukebrody/yeeql.git"
-  }
+	"name": "yeeql",
+	"version": "1.0.7",
+	"description": "A SQL-like interface around Y.js",
+	"main": "dist/index.js",
+	"types": "dist/index.d.ts",
+	"files": [
+		"/dist"
+	],
+	"license": "MIT",
+	"scripts": {
+		"test": "node --expose-gc node_modules/.bin/vitest",
+		"build": "tsc",
+		"lint": "prettier . --write && eslint --fix \"./**/*.{ts, tsx, js, cjs}\""
+	},
+	"dependencies": {
+		"base256-encoding": "^2.0.2",
+		"json-stable-stringify": "^1.0.2"
+	},
+	"devDependencies": {
+		"@types/json-stable-stringify": "^1.0.34",
+		"@types/react": "^18.2.18",
+		"@typescript-eslint/eslint-plugin": "^5.27.1",
+		"@typescript-eslint/parser": "^5.27.1",
+		"@typescript-eslint/typescript-estree": "^6.12.0",
+		"eslint": "^8.17.0",
+		"eslint-config-prettier": "^9.0.0",
+		"eslint-plugin-import": "^2.26.0",
+		"eslint-plugin-react": "^7.33.1",
+		"prettier": "^3.1.0",
+		"react": "^18.2.0",
+		"typescript": "~5.1.0",
+		"vitest": "^0.34.1",
+		"yjs": "^13.6.7"
+	},
+	"peerDependencies": {
+		"react": "^18.0.0",
+		"yjs": "^13.0.0"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/lukebrody/yeeql.git"
+	}
 }

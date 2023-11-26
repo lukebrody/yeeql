@@ -18,15 +18,14 @@ let table: Table<typeof schema>
 beforeEach(() => {
 	doc = new Y.Doc()
 	yTable = doc.getMap('table') as Y.Map<Y.Map<unknown>>
-	table = new Table(yTable, schema);
-	[
+	table = new Table(yTable, schema)
+	;[
 		{ number: 1, string: 'a' },
 		{ number: 2, string: 'b' },
-	].forEach(row => table.insert(row))
+	].forEach((row) => table.insert(row))
 })
 
 test('simple grouped query', () => {
 	const query = table.query({ groupBy: 'number' })
 	expect(query.result.get(1)[0].string).toBe('a')
 })
-

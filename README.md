@@ -30,36 +30,36 @@ const doc = new Y.Doc()
 const yTable = doc.getMap('dinosaurs') as Y.Map<Y.Map<unknown>>
 
 const dinosaursSchema = {
-    id: new Field<UUID>(),
-    genus: new Field<string>(),
-    ageInMillionsOfYears: new Field<number>(),
-    diet: new Field<'herbivore' | 'carnivore'>()
+	id: new Field<UUID>(),
+	genus: new Field<string>(),
+	ageInMillionsOfYears: new Field<number>(),
+	diet: new Field<'herbivore' | 'carnivore'>(),
 }
 
 const dinoTable = new Table(yTable, dinosaursSchema)
 
 dinoTable.insert({
-    genus: 'Tyrannosaurus',
-    ageInMillionsOfYears: 67,
-    diet: 'carnivore'
+	genus: 'Tyrannosaurus',
+	ageInMillionsOfYears: 67,
+	diet: 'carnivore',
 })
 
 dinoTable.insert({
-    genus: 'Stegosaurus',
-    ageInMillionsOfYears: 152,
-    diet: 'herbivore'
+	genus: 'Stegosaurus',
+	ageInMillionsOfYears: 152,
+	diet: 'herbivore',
 })
 
 dinoTable.insert({
-    genus: 'Triceratops',
-    ageInMillionsOfYears: 66,
-    diet: 'herbivore'
+	genus: 'Triceratops',
+	ageInMillionsOfYears: 66,
+	diet: 'herbivore',
 })
 
 const herbivoresByAge = dinoTable.query({
-    select: ['genus', 'ageInMillionsOfYears'],
-    filter: { diet: 'herbivore' },
-    sort: (a, b) => a.ageInMillionsOfYears - b.ageInMillionsOfYears
+	select: ['genus', 'ageInMillionsOfYears'],
+	filter: { diet: 'herbivore' },
+	sort: (a, b) => a.ageInMillionsOfYears - b.ageInMillionsOfYears,
 })
 
 herbivoresByAge.result /* [
@@ -68,16 +68,18 @@ herbivoresByAge.result /* [
 ] */
 
 import { QueryChange } from 'yeeql'
-const herbivoresByAgeObserver = (change: QueryChange<typeof herbivoresByAge>) => {
-    console.log(`herbivoresByAge change ${change}`)
+const herbivoresByAgeObserver = (
+	change: QueryChange<typeof herbivoresByAge>,
+) => {
+	console.log(`herbivoresByAge change ${change}`)
 }
 
 herbivoresByAge.observe(herbivorseByAgeObserver)
 
 dinoTable.insert({
-    genus: 'Brachiosaurus',
-    ageInMillionsOfYears: 150,
-    diet: 'herbivore'
+	genus: 'Brachiosaurus',
+	ageInMillionsOfYears: 150,
+	diet: 'herbivore',
 })
 
 /*
@@ -97,9 +99,9 @@ herbivoresByAge.result /* [
 ] */
 
 const velociraptorId: UUID = dinoTable.insert({
-    genus: 'Velociraptor',
-    ageInMillionsOfYears: 72,
-    diet: 'carnivore'
+	genus: 'Velociraptor',
+	ageInMillionsOfYears: 72,
+	diet: 'carnivore',
 })
 
 // herbivoresByAgeObserver does not log, since the Velociraptor is not a herbivore
@@ -172,7 +174,7 @@ function DinoListComponent({ diet }: { diet: 'herbivore' | 'carnivore' }) {
             ${dino.genus}
         </p>
     ))
-    
+
     return (
         <>
             <h1>
@@ -199,11 +201,13 @@ dinoTable.update(allosaurusId, 'genus', 'Allosaurus ❤️')
 ```
 
 # [API Documentation](https://github.com/lukebrody/yeeql/blob/main/doc/index.md)
+
 # Performance
 
 ## Runtimes
 
 yeeql has a `O(QD)` runtime when a row is inserted, updated, or deleted, where:
+
 - `Q` is the number of queries whose result is affected by the operation.
 - `D` is the number of fields of the row.
 
@@ -220,16 +224,17 @@ The `Table` weakly caches queries, and returns the same instance for duplicate q
 ### Example
 
 ```typescript
-const genusSort = (a: { genus: string }, b: { genus: string }) => a.genus.localeCompare(b.genus)
+const genusSort = (a: { genus: string }, b: { genus: string }) =>
+	a.genus.localeCompare(b.genus)
 
 const queryA = dinoTable.query({
-    select: ['genus', 'diet'],
-    sort: genusSort
+	select: ['genus', 'diet'],
+	sort: genusSort,
 })
 
 const queryB = dinoTable.query({
-    select: ['genus', 'diet'],
-    sort: genusSort
+	select: ['genus', 'diet'],
+	sort: genusSort,
 })
 
 console.log(queryA === queryB) // Prints `true`

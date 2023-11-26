@@ -4,9 +4,9 @@
 
 ```typescript
 function useQuery<Q extends Query<QueryResult<Q>, QueryChange<Q>>>(
-    makeQuery: () => Q,
-    deps: React.DependencyList | undefined,
-    observe?: (change: QueryChange<Q>) => void
+	makeQuery: () => Q,
+	deps: React.DependencyList | undefined,
+	observe?: (change: QueryChange<Q>) => void,
 ): QueryResult<Q>
 ```
 
@@ -24,7 +24,7 @@ import { useQuery, Table } from 'yeeql'
 
 const genusSort = (a: { genus: string }, b: { genus: string }) => a.genus.localeCompare(b.genus)
 
-function DinoListComponent({ diet, dinoTable }: { 
+function DinoListComponent({ diet, dinoTable }: {
     diet: 'herbivore' | 'carnivore',
     dinoTable: Table<typof dinosaursSchema>
 }) {
@@ -39,7 +39,7 @@ function DinoListComponent({ diet, dinoTable }: {
             ${dino.genus}
         </p>
     ))
-    
+
     return (
         <>
             <h1>

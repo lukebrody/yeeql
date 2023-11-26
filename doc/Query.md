@@ -9,6 +9,7 @@ Contains the result of the query. Automatically updates when the underlying data
 You can use the `QueryResult` utility type to get the rersult type from a `Query` type.
 
 ### Example
+
 ```typescript
 const query = table.query({ select: ['id'] })
 
@@ -20,22 +21,23 @@ QueryResult<typeof query> // ReadonlyArray<{ id: UUID }>
 Pass a function to observe changes to the query's result.
 
 ### Example
+
 ```typescript
 const songsSchema = {
-    id: new Field<UUID>(),
-    title: new Field<string>(),
-    genre: new Field<'jazz' | 'electronic' | 'pop' | 'folk'>()
+	id: new Field<UUID>(),
+	title: new Field<string>(),
+	genre: new Field<'jazz' | 'electronic' | 'pop' | 'folk'>(),
 }
 
 const songsTable = new Table(yTable, songsSchema)
 
-const titles = songTable.query({ 
-    select: ['id', 'title'],
-    sort: (a, b) => a.title.localeCompare(b.title)
+const titles = songTable.query({
+	select: ['id', 'title'],
+	sort: (a, b) => a.title.localeCompare(b.title),
 })
 
 const titlesObserver = (change: QueryChange<typeof titles>) => {
-    console.log(change)
+	console.log(change)
 }
 
 titles.observe(titlesObserver)
@@ -60,16 +62,16 @@ As shown above, you can use the `QueryChange` untility type to get the type of a
 Queries that return rows have the following change type:
 
 ```typescript
-{ 
-    kind: 'add', 
+{
+    kind: 'add',
     row: Readonly<Result>,
     newIndex: number, // The index in the query result array where the row was inserted
     type: 'add' | 'update' // 'add' if the row is newly added to the table, 'update' if an update caused it to come into scope of this query
 } |
-{ 
-    kind: 'remove', 
-    row: Readonly<Result>, 
-    oldIndex: number, 
+{
+    kind: 'remove',
+    row: Readonly<Result>,
+    oldIndex: number,
     type: 'delete' | 'update'
 } |
 {
@@ -85,14 +87,15 @@ Queries that return rows have the following change type:
 For row queries that use `groupBy`, their changes are the same as above but include a `group` parameter.
 
 ### Example
+
 ```typescript
-const byGenre = songsTable.query({ 
-    groupBy: 'genre',
-    sort: (a, b) => b.title.localeCompare(a.title) // Reverse alphabetical order
+const byGenre = songsTable.query({
+	groupBy: 'genre',
+	sort: (a, b) => b.title.localeCompare(a.title), // Reverse alphabetical order
 })
 
-byGenre.observe(change => {
-    console.log(change)
+byGenre.observe((change) => {
+	console.log(change)
 })
 
 songsTable.update(byGenre.result.get('electronic')[0].id, 'genre', 'pop')
@@ -122,7 +125,6 @@ it's called again with:
 ### Example
 
 ```typescript
-
 songsTable.insert({ title: 'Beat It', genre: 'pop' })
 
 /*
@@ -173,6 +175,7 @@ byGenre observer logs:
 For `count` queries, without a group, the `Change` is simply either `1` or `-1`.
 
 `count` queries with a `groupBy` take the following format:
+
 ```typescript
 { group: Group, change: 1 | -1 }
 ```
@@ -180,11 +183,11 @@ For `count` queries, without a group, the `Change` is simply either `1` or `-1`.
 ### Example
 
 ```typescript
-const popSongs = songsTable.count({ filter: { genre: 'pop' }})
+const popSongs = songsTable.count({ filter: { genre: 'pop' } })
 const genreCounts = songsTable.count({ groupBy: 'genre' })
 
-popSongs.observe(change => console.log(change))
-genreCounts.observe(change => console.log(change))
+popSongs.observe((change) => console.log(change))
+genreCounts.observe((change) => console.log(change))
 
 // Remove 'Around the World'
 songsTable.delete(titles.result[0].id)
@@ -246,7 +249,7 @@ genreCounts observer logs: { group: 'electronic', change: 1 }
 
 ## On Observation Order and Consistency
 
-When change are made to a table, all observers are called __after__ all changes are complete.
+When change are made to a table, all observers are called **after** all changes are complete.
 
 This ensures that when each query's observers are called, all observers of all queries have a consistent view of the table.
 
@@ -255,13 +258,16 @@ If you access Query A's result from Query B's observer, Query A's result will al
 You should expect no other guarantees of observer execution order.
 
 ### Example
+
 ```typescript
 // Assuming we've removed all previous observers
 
-const electronicSongs = songsTable.count({ filter: { genre: 'electronic' }})
+const electronicSongs = songsTable.count({ filter: { genre: 'electronic' } })
 
 const printReport = () => {
-    console.log(`There are ${popSongs.result} pop songs and ${electronicSongs.result} electronic songs`)
+	console.log(
+		`There are ${popSongs.result} pop songs and ${electronicSongs.result} electronic songs`,
+	)
 }
 
 popSongs.observe(printReport)

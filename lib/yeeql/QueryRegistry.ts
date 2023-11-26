@@ -7,21 +7,35 @@ type NotSpecified = typeof notSpecified
 export const addedOrRemoved = Symbol()
 type AddedOrRemoved = typeof addedOrRemoved
 
-type QueryTreeNode<S extends TableSchema> = DefaultMap<unknown | NotSpecified, QueryTree<S>>
-type QueryTreeLeaf<S extends TableSchema> = DefaultMap<keyof S | AddedOrRemoved, Array<WeakRef<QueryRegistryEntry<S>>>>
+type QueryTreeNode<S extends TableSchema> = DefaultMap<
+	unknown | NotSpecified,
+	QueryTree<S>
+>
+type QueryTreeLeaf<S extends TableSchema> = DefaultMap<
+	keyof S | AddedOrRemoved,
+	Array<WeakRef<QueryRegistryEntry<S>>>
+>
 type QueryTree<S extends TableSchema> = QueryTreeNode<S> | QueryTreeLeaf<S>
 
-function buildQueryTree<S extends TableSchema>(fields: ReadonlyArray<keyof S>): QueryTree<S> {
+function buildQueryTree<S extends TableSchema>(
+	fields: ReadonlyArray<keyof S>,
+): QueryTree<S> {
 	if (fields.length == 0) {
 		const result: QueryTreeLeaf<S> = new DefaultMap(() => [])
 		return result
 	} else {
-		const result: QueryTreeNode<S> = new DefaultMap(() => buildQueryTree(fields.slice(1)))
+		const result: QueryTreeNode<S> = new DefaultMap(() =>
+			buildQueryTree(fields.slice(1)),
+		)
 		return result
 	}
 }
 
-function insertIntoQueryTree<S extends TableSchema>(qt: QueryTree<S>, fields: ReadonlyArray<keyof S>, query: QueryRegistryEntry<S>): void {
+function insertIntoQueryTree<S extends TableSchema>(
+	qt: QueryTree<S>,
+	fields: ReadonlyArray<keyof S>,
+	query: QueryRegistryEntry<S>,
+): void {
 	if (fields.length == 0) {
 		const leaf = qt as QueryTreeLeaf<S>
 		const weakRef = new WeakRef(query)
@@ -36,16 +50,23 @@ function insertIntoQueryTree<S extends TableSchema>(qt: QueryTree<S>, fields: Re
 		}
 	} else {
 		const node = qt as QueryTreeNode<S>
-		const key = fields[0] in query.filter ? query.filter[fields[0] as keyof typeof query.filter] : notSpecified
+		const key =
+			fields[0] in query.filter
+				? query.filter[fields[0] as keyof typeof query.filter]
+				: notSpecified
 		insertIntoQueryTree(node.get(key), fields.slice(1), query)
 	}
 }
 
-function deleteFromQueryTree<S extends TableSchema>(qt: QueryTree<S>, fields: ReadonlyArray<keyof S>, filter: Filter<S>): void {
+function deleteFromQueryTree<S extends TableSchema>(
+	qt: QueryTree<S>,
+	fields: ReadonlyArray<keyof S>,
+	filter: Filter<S>,
+): void {
 	if (fields.length == 0) {
 		const leaf = qt as QueryTreeLeaf<S>
 		for (const [key, arr] of leaf) {
-			for (let i = 0; i < arr.length;) {
+			for (let i = 0; i < arr.length; ) {
 				if (arr[i].deref() === undefined) {
 					arr.splice(i, 1)
 				} else {
@@ -58,7 +79,10 @@ function deleteFromQueryTree<S extends TableSchema>(qt: QueryTree<S>, fields: Re
 		}
 	} else {
 		const node = qt as QueryTreeNode<S>
-		const key = fields[0] in filter ? filter[fields[0] as keyof typeof filter] : notSpecified
+		const key =
+			fields[0] in filter
+				? filter[fields[0] as keyof typeof filter]
+				: notSpecified
 		const child = node.get(key)
 		deleteFromQueryTree(child, fields.slice(1), filter)
 		if (child.size == 0) {
@@ -67,15 +91,23 @@ function deleteFromQueryTree<S extends TableSchema>(qt: QueryTree<S>, fields: Re
 	}
 }
 
-export const _testQueryEntries = { value: 0}
+export const _testQueryEntries = { value: 0 }
 
-function collectFromQueryTree<S extends TableSchema>(qt: QueryTree<S>, fields: ReadonlyArray<keyof S>, row: Row<S>, changed: AddedOrRemoved | Partial<Row<S>>, result: Set<QueryRegistryEntry<S>>): void {
+function collectFromQueryTree<S extends TableSchema>(
+	qt: QueryTree<S>,
+	fields: ReadonlyArray<keyof S>,
+	row: Row<S>,
+	changed: AddedOrRemoved | Partial<Row<S>>,
+	result: Set<QueryRegistryEntry<S>>,
+): void {
 	if (fields.length === 0) {
 		const leaf = qt as QueryTreeLeaf<S>
-		for (const key of changed === addedOrRemoved ? [addedOrRemoved] as Array<AddedOrRemoved> : Object.keys(changed)) {
+		for (const key of changed === addedOrRemoved
+			? ([addedOrRemoved] as Array<AddedOrRemoved>)
+			: Object.keys(changed)) {
 			for (const weakQuery of leaf.get(key)) {
 				const query = weakQuery.deref()
-				_testQueryEntries.value ++
+				_testQueryEntries.value++
 				if (query) {
 					result.add(query)
 				}
@@ -83,15 +115,29 @@ function collectFromQueryTree<S extends TableSchema>(qt: QueryTree<S>, fields: R
 		}
 	} else {
 		const node = qt as QueryTreeNode<S>
-		collectFromQueryTree(node.get(notSpecified), fields.slice(1), row, changed, result)
+		collectFromQueryTree(
+			node.get(notSpecified),
+			fields.slice(1),
+			row,
+			changed,
+			result,
+		)
 		if (node.has(row[fields[0]])) {
-			return collectFromQueryTree(node.get(row[fields[0]]), fields.slice(1), row, changed, result)
+			return collectFromQueryTree(
+				node.get(row[fields[0]]),
+				fields.slice(1),
+				row,
+				changed,
+				result,
+			)
 		}
 	}
 }
 
 export class QueryRegistry<S extends TableSchema> {
-	private readonly finalizer = new FinalizationRegistry<Filter<S>>(filter => deleteFromQueryTree(this.qt, this.fields, filter))
+	private readonly finalizer = new FinalizationRegistry<Filter<S>>((filter) =>
+		deleteFromQueryTree(this.qt, this.fields, filter),
+	)
 
 	constructor(schema: S) {
 		this.fields = Object.keys(schema).sort()
@@ -106,7 +152,10 @@ export class QueryRegistry<S extends TableSchema> {
 		this.finalizer.register(query, query.filter)
 	}
 
-	queries(row: Row<S>, changes: Partial<Row<S>> | AddedOrRemoved): Set<QueryRegistryEntry<S>> {
+	queries(
+		row: Row<S>,
+		changes: Partial<Row<S>> | AddedOrRemoved,
+	): Set<QueryRegistryEntry<S>> {
 		const result = new Set<QueryRegistryEntry<S>>()
 		collectFromQueryTree(this.qt, this.fields, row, changes, result)
 		return result
@@ -114,7 +163,7 @@ export class QueryRegistry<S extends TableSchema> {
 }
 
 export interface QueryRegistryEntry<S extends TableSchema> {
-	readonly filter: Readonly<Filter<S>>, // Values that old or new need to match
+	readonly filter: Readonly<Filter<S>> // Values that old or new need to match
 	readonly select: ReadonlySet<keyof S> // Other fields that we care about changing
 
 	// We use three stages here so that observers get a consistent state across all queries
@@ -123,7 +172,7 @@ export interface QueryRegistryEntry<S extends TableSchema> {
 	// `post` methods return a callback that is run after the transaction
 
 	preChange(): void
-	
+
 	doItemAdd(row: Row<S>, oldValues: Readonly<Partial<Row<S>>> | undefined): void
 	postItemAdd(row: Row<S>, type: 'add' | 'update'): () => void
 

@@ -7,24 +7,33 @@ import { DefaultMap, ReadonlyDefaultMap } from '../common/DefaultMap'
 import { Query } from './Query'
 import { QueryBase } from './QueryBase'
 
-type GroupedQueryChange<Result, GroupValue> = LinearQueryChange<Result> & { group: GroupValue }
+type GroupedQueryChange<Result, GroupValue> = LinearQueryChange<Result> & {
+	group: GroupValue
+}
 
-export type GroupedQuery<Result, GroupValue> = Query<ReadonlyDefaultMap<GroupValue, ReadonlyArray<Readonly<Result>>>, GroupedQueryChange<Result, GroupValue>>
+export type GroupedQuery<Result, GroupValue> = Query<
+	ReadonlyDefaultMap<GroupValue, ReadonlyArray<Readonly<Result>>>,
+	GroupedQueryChange<Result, GroupValue>
+>
 
 export class GroupedQueryImpl<
-	S extends TableSchema,
-	Select extends keyof S,
-	GroupBy extends keyof Primitives<S>
-> 
-	extends QueryBase<GroupedQueryChange<Row<Pick<S, Select>>, Row<Primitives<S>>[GroupBy]>>
-	implements QueryRegistryEntry<S>, GroupedQuery<Row<Pick<S, Select>>, Row<Primitives<S>>[GroupBy]> {
-	
+		S extends TableSchema,
+		Select extends keyof S,
+		GroupBy extends keyof Primitives<S>,
+	>
+	extends QueryBase<
+		GroupedQueryChange<Row<Pick<S, Select>>, Row<Primitives<S>>[GroupBy]>
+	>
+	implements
+		QueryRegistryEntry<S>,
+		GroupedQuery<Row<Pick<S, Select>>, Row<Primitives<S>>[GroupBy]>
+{
 	constructor(
 		items: ReadonlyMap<UUID, Row<S>>,
 		select: ReadonlyArray<Select>,
 		readonly filter: Filter<S>,
 		readonly sort: (a: Row<S>, b: Row<S>) => number,
-		readonly groupBy: GroupBy
+		readonly groupBy: GroupBy,
 	) {
 		super()
 		this.result = new DefaultMap(() => [])
@@ -44,31 +53,53 @@ export class GroupedQueryImpl<
 
 	readonly result: DefaultMap<Row<S>[GroupBy], Row<S>[]>
 
-	private added?: { group: Row<S>[GroupBy], newIndex: number }
+	private added?: { group: Row<S>[GroupBy]; newIndex: number }
 
 	doItemAdd(row: Row<S>): void {
 		const group = row[this.groupBy]
-		this.added = { group, newIndex: insertOrdered(this.result.get(group), row, this.sort) }
+		this.added = {
+			group,
+			newIndex: insertOrdered(this.result.get(group), row, this.sort),
+		}
 	}
 
 	postItemAdd(row: Row<S>, type: 'add' | 'update'): () => void {
 		return this.notifyObservers({ kind: 'add', row, ...this.added!, type })
 	}
 
-	private removed?: { group: Row<S>[GroupBy], oldIndex: number }
+	private removed?: { group: Row<S>[GroupBy]; oldIndex: number }
 
 	doItemRemove(row: Row<S>): void {
 		const group = row[this.groupBy]
-		this.removed = { group, oldIndex: removeOrdered(this.result.get(group), row, this.sort)!.index }
+		this.removed = {
+			group,
+			oldIndex: removeOrdered(this.result.get(group), row, this.sort)!.index,
+		}
 	}
 
 	postItemRemove(row: Row<S>, type: 'delete' | 'update'): () => void {
-		return this.notifyObservers({ kind: 'remove', row, ...this.removed!, type })
+		return this.notifyObservers({
+			kind: 'remove',
+			row,
+			...this.removed!,
+			type,
+		})
 	}
 
-	postItemChange(row: Row<S>, oldValues: Readonly<Partial<Row<S>>>): () => void {
+	postItemChange(
+		row: Row<S>,
+		oldValues: Readonly<Partial<Row<S>>>,
+	): () => void {
 		if (this.removed!.group === this.added!.group) {
-			return this.notifyObservers({ kind: 'update', row, oldIndex: this.removed!.oldIndex, newIndex: this.added!.newIndex, oldValues, group: this.added!.group, type: 'update' })
+			return this.notifyObservers({
+				kind: 'update',
+				row,
+				oldIndex: this.removed!.oldIndex,
+				newIndex: this.added!.newIndex,
+				oldValues,
+				group: this.added!.group,
+				type: 'update',
+			})
 		} else {
 			const removeResult = this.postItemRemove(row, 'update')
 			const addResult = this.postItemAdd(row, 'update')

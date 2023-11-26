@@ -1,7 +1,6 @@
 import { InternalChangeCallback } from './Query'
 
 export class QueryBase<Change> {
-
 	private readonly observers = new Set<(change: Change) => void>()
 
 	observe(observer: (change: Change) => void): void {
@@ -14,17 +13,20 @@ export class QueryBase<Change> {
 
 	protected notifyObservers(change: Change): () => void {
 		const internalObserverNotifications: (() => void)[] = []
-		this.internalObservers.forEach(({ didChange }) => internalObserverNotifications.push(didChange(change)))
+		this.internalObservers.forEach(({ didChange }) =>
+			internalObserverNotifications.push(didChange(change)),
+		)
 
 		const result: Array<() => void> = []
-		result.push(() => this.observers.forEach(observer => observer(change)))
+		result.push(() => this.observers.forEach((observer) => observer(change)))
 		return () => {
-			result.forEach(callback => callback())
-			internalObserverNotifications.forEach(notify => notify())
+			result.forEach((callback) => callback())
+			internalObserverNotifications.forEach((notify) => notify())
 		}
 	}
 
-	private readonly internalObservers: Set<InternalChangeCallback<Change>> = new Set()
+	private readonly internalObservers: Set<InternalChangeCallback<Change>> =
+		new Set()
 
 	internalObserve(callback: InternalChangeCallback<Change>): void {
 		this.internalObservers.add(callback)

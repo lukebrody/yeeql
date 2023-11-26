@@ -1,18 +1,13 @@
 {
-  "compilerOptions": {
-    "outDir": "./dist",
-    "target": "ES2021",
-    "strict": true,
-    "declaration": true,
-    "moduleResolution": "Node",
-    "module": "ESNext",
-    "lib": [
-      "DOM",
-      "ES2021"
-    ],
-    "allowSyntheticDefaultImports": true
-  },
-  "exclude": [
-    "dist/**/*"
-  ]
+	"compilerOptions": {
+		"outDir": "./dist",
+		"target": "ES2021",
+		"strict": true,
+		"declaration": true,
+		"moduleResolution": "Node",
+		"module": "ESNext",
+		"lib": ["DOM", "ES2021"],
+		"allowSyntheticDefaultImports": true
+	},
+	"exclude": ["dist/**/*"]
 }

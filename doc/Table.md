@@ -7,6 +7,7 @@ The core of yeeql, the `Table` class wraps a Y.js `Y.Map`, and allows you to run
 Construct a new `Table` with some `Schema`, based on a `Y.Map`.
 
 ### Example of `Table` usage:
+
 ```typescript
 import { Field, Table, UUID } from 'yeeql'
 
@@ -38,9 +39,9 @@ Use this method to insert a row into your table.
 
 ```typescript
 const kaylaId: UUID = scoresTable.insert({
-    game: 'pinball',
-    playerName: 'Kayla',
-    score: 900
+	game: 'pinball',
+	playerName: 'Kayla',
+	score: 900,
 })
 ```
 
@@ -54,12 +55,12 @@ Modifications to tables are compatible with `Y.UndoManager`
 
 ```typescript
 doc.transact(() => {
-    [
-        { game: 'skeeball', playerName: 'Andreas', score: 800 },
-        { game: 'pinball',  playerName: 'Maytal',  score: 1200 },
-        { game: 'skeeball', playerName: 'Tomi',    score: 700 },
-        { game: 'pinball', playerName: 'Kayla', score: 1000 }
-    ].forEach(row => scoresTable.insert(row))
+	;[
+		{ game: 'skeeball', playerName: 'Andreas', score: 800 },
+		{ game: 'pinball', playerName: 'Maytal', score: 1200 },
+		{ game: 'skeeball', playerName: 'Tomi', score: 700 },
+		{ game: 'pinball', playerName: 'Kayla', score: 1000 },
+	].forEach((row) => scoresTable.insert(row))
 })
 ```
 
@@ -91,11 +92,12 @@ table.delete(kaylaId)
 Gets or creates a query on the `table`.
 
 ### Example Usage:
+
 ```typescript
 const highestPinballScores = table.query({
-    select: ['score'],
-    filter: { game: 'pinball' },
-    sort: (a, b) => b.score - a.score
+	select: ['score'],
+	filter: { game: 'pinball' },
+	sort: (a, b) => b.score - a.score,
 })
 
 highestPinballScores.result // [ { score: 1200 }, { score: 1000 } ]
@@ -109,9 +111,9 @@ Gets or creates a grouped query on the `table`.
 
 ```typescript
 const bestPlayersByGame = table.query({
-    select: ['playerName'],
-    sort: (a, b) => b.score - a.score,
-    groupBy: 'game'
+	select: ['playerName'],
+	sort: (a, b) => b.score - a.score,
+	groupBy: 'game',
 })
 
 bestPlayersByGame.get('skeeball') // [ { playerName: 'Andreas' }, { playerName: 'Tomi' } ]
@@ -128,7 +130,7 @@ If no filter is specificed, returns a query whose result is the number of rows i
 ### Example
 
 ```typescript
-table.count({filter: { game: 'pinball' }}).result // 2
+table.count({ filter: { game: 'pinball' } }).result // 2
 table.count({}) // 4
 ```
 
@@ -137,6 +139,7 @@ table.count({}) // 4
 Like normal `count`, but splits the counts into groups.
 
 ### Example
+
 ```typescript
 table.count({ groupBy: 'game' }).result.get('skeeball') // 2
 ```
@@ -150,6 +153,7 @@ If you exclude the `filter` parameter, the query returns all rows.
 If you exclude the `sort` parameter, the rows will be sorted by `id`.
 
 Only the columns extending the Javascript primitive types can be used for `filter`, `sort`, and `groupBy`. This is because:
+
 - yeeql does not monitor Y data types or other objects for deep changes.
 - Objects and Y data types are not generally equatable, especially different instances created over the network.
 
@@ -160,16 +164,17 @@ The `Table` weakly caches queries, and returns the same instance for duplicate q
 ### Example
 
 ```typescript
-const genusSort = (a: { genus: string }, b: { genus: string }) => a.genus.localeCompare(b.genus)
+const genusSort = (a: { genus: string }, b: { genus: string }) =>
+	a.genus.localeCompare(b.genus)
 
 const queryA = dinoTable.query({
-    select: ['genus', 'diet'],
-    sort: genusSort
+	select: ['genus', 'diet'],
+	sort: genusSort,
 })
 
 const queryB = dinoTable.query({
-    select: ['genus', 'diet'],
-    sort: genusSort
+	select: ['genus', 'diet'],
+	sort: genusSort,
 })
 
 console.log(queryA === queryB) // Prints `true`
@@ -185,17 +190,16 @@ For example:
 
 ```typescript
 const queryA = dinoTable.query({
-    select: ['diet'],
-    sort: genusSort
+	select: ['diet'],
+	sort: genusSort,
 })
 
 const queryB = dinoTable.query({
-    select: ['diet', 'genus'],
-    sort: genusSort
+	select: ['diet', 'genus'],
+	sort: genusSort,
 })
 
 console.log(queryA === queryB) // Prints `true`
 ```
 
 Even though `queryA` doesn't select the `genus` column, its sort relies on `genus`. Therefore, `queryA` and `queryB` always return the same set of data, and update when the same columns change.
-

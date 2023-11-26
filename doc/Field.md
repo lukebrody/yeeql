@@ -19,6 +19,7 @@ const schema = {
 ```
 
 Only the columns extending the Javascript primitive types can be used for `filter`, `sort`, and `groupBy`. This is because:
+
 - yeeql does not monitor Y data types or other objects for deep changes.
 - Objects and Y data types are not generally equatable, especially different instances created over the network.
 

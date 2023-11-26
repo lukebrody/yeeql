@@ -22,12 +22,11 @@ beforeEach(() => {
 })
 
 test('Table.insert', () => {
-
 	const aId = table.insert({ number: 1, string: 'a' })
 
 	const queryAll = table.query({
 		select: ['id', 'number', 'string'],
-		sort: (a, b) => a.number - b.number
+		sort: (a, b) => a.number - b.number,
 	})
 
 	expect(queryAll.result).toStrictEqual([{ id: aId, number: 1, string: 'a' }])
@@ -36,44 +35,45 @@ test('Table.insert', () => {
 
 	expect(queryAll.result).toStrictEqual([
 		{ id: aId, number: 1, string: 'a' },
-		{ id: bId, number: 2, string: 'b' }
+		{ id: bId, number: 2, string: 'b' },
 	])
 
 	table.update(aId, 'number', 3)
 
 	expect(queryAll.result).toStrictEqual([
 		{ id: bId, number: 2, string: 'b' },
-		{ id: aId, number: 3, string: 'a' }
+		{ id: aId, number: 3, string: 'a' },
 	])
-
 })
 
 test('Table.multipleQueries', () => {
-
 	const bId = table.insert({ number: 1, string: 'b' })
 
 	const sortByNumber = table.query({
 		select: ['id', 'number', 'string'],
-		sort: (a, b) => a.number - b.number
+		sort: (a, b) => a.number - b.number,
 	})
 	const sortByString = table.query({
 		select: ['id', 'number', 'string'],
-		sort: (a, b) => a.string.localeCompare(b.string)
+		sort: (a, b) => a.string.localeCompare(b.string),
 	})
 
-
-	expect(sortByNumber.result).toStrictEqual([{ id: bId, number: 1, string: 'b' }])
-	expect(sortByString.result).toStrictEqual([{ id: bId, number: 1, string: 'b' }])
+	expect(sortByNumber.result).toStrictEqual([
+		{ id: bId, number: 1, string: 'b' },
+	])
+	expect(sortByString.result).toStrictEqual([
+		{ id: bId, number: 1, string: 'b' },
+	])
 
 	const aId = table.insert({ number: 2, string: 'a' })
 
 	expect(sortByNumber.result).toStrictEqual([
 		{ id: bId, number: 1, string: 'b' },
-		{ id: aId, number: 2, string: 'a' }
+		{ id: aId, number: 2, string: 'a' },
 	])
 	expect(sortByString.result).toStrictEqual([
 		{ id: aId, number: 2, string: 'a' },
-		{ id: bId, number: 1, string: 'b' }
+		{ id: bId, number: 1, string: 'b' },
 	])
 
 	table.update(bId, 'number', 3)
@@ -81,23 +81,22 @@ test('Table.multipleQueries', () => {
 
 	expect(sortByNumber.result).toStrictEqual([
 		{ id: aId, number: 2, string: 'a' },
-		{ id: bId, number: 3, string: '0' }
+		{ id: bId, number: 3, string: '0' },
 	])
 	expect(sortByString.result).toStrictEqual([
 		{ id: bId, number: 3, string: '0' },
-		{ id: aId, number: 2, string: 'a' }
+		{ id: aId, number: 2, string: 'a' },
 	])
 })
 
 test('Table.filter', () => {
-
 	const aId = table.insert({ number: 1, string: 'a' })
 	table.insert({ number: 2, string: 'b' })
 
 	const onlyOnes = table.query({
 		select: ['id', 'number', 'string'],
 		filter: { number: 1 },
-		sort: (a, b) => a.string.localeCompare(b.string)
+		sort: (a, b) => a.string.localeCompare(b.string),
 	})
 
 	expect(onlyOnes.result).toStrictEqual([{ id: aId, number: 1, string: 'a' }])
@@ -110,17 +109,16 @@ test('Table.filter', () => {
 
 	expect(onlyOnes.result).toStrictEqual([
 		{ id: aId, number: 1, string: 'a' },
-		{ id: dId, number: 1, string: 'd' }
+		{ id: dId, number: 1, string: 'd' },
 	])
 })
 
 test('Table.select', () => {
-
 	const aId = table.insert({ number: 1, string: 'a' })
 
 	const excludeString = table.query({
 		select: ['id', 'number'],
-		sort: (a, b) => a.number - b.number
+		sort: (a, b) => a.number - b.number,
 	})
 
 	const observer = vi.fn()
@@ -137,29 +135,28 @@ test('Table.select', () => {
 })
 
 test('Table.categoryHopping', () => {
-
 	const aId = table.insert({ number: 1, string: 'a' })
 	const bId = table.insert({ number: 2, string: 'b' })
 
 	const onlyOnes = table.query({
 		select: ['id', 'number', 'string'],
 		filter: { number: 1 },
-		sort: (a, b) => a.string.localeCompare(b.string)
+		sort: (a, b) => a.string.localeCompare(b.string),
 	})
 
 	let onesChanges: string[] = []
-	onlyOnes.observe(change => {
+	onlyOnes.observe((change) => {
 		onesChanges.push(JSON.stringify(change))
 	})
 
 	const onlyTwos = table.query({
 		select: ['id', 'number', 'string'],
 		filter: { number: 2 },
-		sort: (a, b) => a.string.localeCompare(b.string)
+		sort: (a, b) => a.string.localeCompare(b.string),
 	})
 
 	let twosChanges: string[] = []
-	onlyTwos.observe(change => twosChanges.push(JSON.stringify(change)))
+	onlyTwos.observe((change) => twosChanges.push(JSON.stringify(change)))
 
 	expect(onlyOnes.result).toStrictEqual([{ id: aId, number: 1, string: 'a' }])
 	expect(onlyTwos.result).toStrictEqual([{ id: bId, number: 2, string: 'b' }])
@@ -167,21 +164,28 @@ test('Table.categoryHopping', () => {
 	table.update(aId, 'number', 2)
 
 	expect(onlyOnes.result).toStrictEqual([])
-	expect(onlyTwos.result).toStrictEqual([{ id: aId, number: 2, string: 'a' }, { id: bId, number: 2, string: 'b' }])
+	expect(onlyTwos.result).toStrictEqual([
+		{ id: aId, number: 2, string: 'a' },
+		{ id: bId, number: 2, string: 'b' },
+	])
 
-	expect(onesChanges).toStrictEqual([JSON.stringify({
-		kind: 'remove',
-		row: { id: aId, number: 2, string: 'a' },
-		oldIndex: 0,
-		type: 'update'
-	})])
+	expect(onesChanges).toStrictEqual([
+		JSON.stringify({
+			kind: 'remove',
+			row: { id: aId, number: 2, string: 'a' },
+			oldIndex: 0,
+			type: 'update',
+		}),
+	])
 
-	expect(twosChanges).toStrictEqual([JSON.stringify({
-		kind: 'add',
-		row: { id: aId, number: 2, string: 'a' },
-		newIndex: 0,
-		type: 'update'
-	})])
+	expect(twosChanges).toStrictEqual([
+		JSON.stringify({
+			kind: 'add',
+			row: { id: aId, number: 2, string: 'a' },
+			newIndex: 0,
+			type: 'update',
+		}),
+	])
 
 	onesChanges = []
 	twosChanges = []
@@ -193,19 +197,20 @@ test('Table.categoryHopping', () => {
 
 	expect(onesChanges).toStrictEqual([])
 
-	expect(twosChanges).toStrictEqual([JSON.stringify({
-		kind: 'remove',
-		row: { id: bId, number: 0, string: 'b' },
-		oldIndex: 1,
-		type: 'update'
-	})])
+	expect(twosChanges).toStrictEqual([
+		JSON.stringify({
+			kind: 'remove',
+			row: { id: bId, number: 0, string: 'b' },
+			oldIndex: 1,
+			type: 'update',
+		}),
+	])
 })
 
 test('Table.cachedQueries', () => {
-
 	const queryA = table.query({
 		select: ['id'],
-		filter: { number: 3 }
+		filter: { number: 3 },
 	})
 
 	const queryB = table.query({
@@ -215,27 +220,27 @@ test('Table.cachedQueries', () => {
 
 	expect(queryA).toBe(queryB)
 
-	const sort = (a: { number: number }, b: { number: number }) => a.number - b.number
+	const sort = (a: { number: number }, b: { number: number }) =>
+		a.number - b.number
 
 	const queryC = table.query({
 		select: ['id', 'string', 'number'],
 		filter: { number: 3 },
 		sort,
-		groupBy: 'string'
+		groupBy: 'string',
 	})
 
 	const queryD = table.query({
 		select: ['string', 'id'],
 		filter: { number: 3 },
 		sort,
-		groupBy: 'string'
+		groupBy: 'string',
 	})
 
 	expect(queryC).toBe(queryD)
 
 	expect(queryA).not.toBe(queryC)
 	expect(queryB).not.toBe(queryD)
-
 })
 
 test('Table.selectTypeChecking', () => {
@@ -243,7 +248,7 @@ test('Table.selectTypeChecking', () => {
 		table.query({
 			// @ts-expect-error Can't select unknown column id2
 			select: ['id2'],
-		})
+		}),
 	).toThrow('unknown column \'id2\'')
 })
 
@@ -252,8 +257,8 @@ test('Table.filterTypeChecking', () => {
 		table.query({
 			select: ['id'],
 			// @ts-expect-error Can't filter by unknown column number2
-			filter: { number2: 1 }
-		})
+			filter: { number2: 1 },
+		}),
 	).toThrow('unknown column \'number2\'')
 })
 
@@ -261,8 +266,8 @@ test('Table.groupByTypeChecking', () => {
 	expect(() =>
 		table.count({
 			// @ts-expect-error Can't group by uknown column string2
-			groupBy: 'string2'
-		})
+			groupBy: 'string2',
+		}),
 	).toThrow('unknown column \'string2\'')
 })
 
@@ -271,8 +276,8 @@ test('Table.sortTypeChecking', () => {
 		table.query({
 			select: [],
 			// @ts-expect-error Can't sort by unknown column string2
-			sort: (a, b) => a.string2.localeCompare(b.string2)
-		})
+			sort: (a, b) => a.string2.localeCompare(b.string2),
+		}),
 	).toThrow('unknown column \'string2\' used in \'sort\' comparator')
 })
 
@@ -288,7 +293,7 @@ test('Table.sorting', () => {
 			} else {
 				return a.string.localeCompare(b.string)
 			}
-		}
+		},
 	})
 
 	// @ts-expect-error number was not selecgted
@@ -299,7 +304,7 @@ test('Table.sorting', () => {
 
 	expect(query.result).toStrictEqual([
 		{ id: bId, number: 1, string: 'b' },
-		{ id: aId, number: 2, string: 'a' }
+		{ id: aId, number: 2, string: 'a' },
 	])
 
 	table.update(aId, 'number', 1)
@@ -327,13 +332,13 @@ test('Table.groupByTransfer', () => {
 		row: { id: rowId, number: 2, string: 'a' },
 		oldIndex: 0,
 		type: 'update',
-		group: 1
+		group: 1,
 	})
 	expect(observer).toHaveBeenNthCalledWith(2, {
 		kind: 'add',
 		row: { id: rowId, number: 2, string: 'a' },
 		newIndex: 0,
 		type: 'update',
-		group: 2
+		group: 2,
 	})
 })

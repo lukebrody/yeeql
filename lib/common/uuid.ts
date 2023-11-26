@@ -17,10 +17,12 @@ const result = {
 	decode(data: Uint8Array): UUID {
 		const string = Base256.encode(data)
 		if (string.length !== length) {
-			throw new Error(`Encoded UUID of length ${string.length} was unexpected. Expected length is ${length}`)
+			throw new Error(
+				`Encoded UUID of length ${string.length} was unexpected. Expected length is ${length}`,
+			)
 		}
 		return string as UUID
-	}
+	},
 }
 
 export const UUID: Readonly<typeof result> = result

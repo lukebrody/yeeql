@@ -5,6 +5,7 @@ import { UUID } from '../common/UUID'
 import { LinearQueryChange } from './LinearQuery'
 import { DefaultMap, ReadonlyDefaultMap } from '../common/DefaultMap'
 import { Query } from './Query'
+import { QueryBase } from './QueryBase'
 
 type GroupedQueryChange<Result, GroupValue> = LinearQueryChange<Result> & { group: GroupValue }
 
@@ -14,7 +15,10 @@ export class GroupedQueryImpl<
 	S extends TableSchema,
 	Select extends keyof S,
 	GroupBy extends keyof Primitives<S>
-> implements QueryRegistryEntry<S>, GroupedQuery<Row<Pick<S, Select>>, Row<Primitives<S>>[GroupBy]> {
+> 
+	extends QueryBase<GroupedQueryChange<Row<Pick<S, Select>>, Row<Primitives<S>>[GroupBy]>>
+	implements QueryRegistryEntry<S>, GroupedQuery<Row<Pick<S, Select>>, Row<Primitives<S>>[GroupBy]> {
+	
 	constructor(
 		items: ReadonlyMap<UUID, Row<S>>,
 		select: ReadonlyArray<Select>,
@@ -22,6 +26,7 @@ export class GroupedQueryImpl<
 		readonly sort: (a: Row<S>, b: Row<S>) => number,
 		readonly groupBy: GroupBy
 	) {
+		super()
 		this.result = new DefaultMap(() => [])
 		addItem: for (const [, row] of items) {
 			for (const [key, value] of Object.entries(filter)) {
@@ -38,20 +43,6 @@ export class GroupedQueryImpl<
 	readonly select: ReadonlySet<keyof S>
 
 	readonly result: DefaultMap<Row<S>[GroupBy], Row<S>[]>
-
-	private readonly observers = new Set<(change: GroupedQueryChange<Row<Pick<S, Select>>, Row<S>[GroupBy]>) => void>()
-
-	observe(observer: (change: GroupedQueryChange<Row<Pick<S, Select>>, Row<S>[GroupBy]>) => void): void {
-		this.observers.add(observer)
-	}
-
-	unobserve(observer: (change: GroupedQueryChange<Row<Pick<S, Select>>, Row<S>[GroupBy]>) => void): void {
-		this.observers.delete(observer)
-	}
-
-	private notifyObservers(change: GroupedQueryChange<Row<Pick<S, Select>>, Row<S>[GroupBy]>): () => void {
-		return () => this.observers.forEach(observer => observer(change))
-	}
 
 	private added?: { group: Row<S>[GroupBy], newIndex: number }
 

@@ -2,7 +2,8 @@ import { insertOrdered, removeOrdered } from '../common/array'
 import { Filter, Row, TableSchema } from './Schema'
 import { QueryRegistryEntry } from './QueryRegistry'
 import { UUID } from '../common/UUID'
-import { InternalChangeCallback, Query } from './Query'
+import { Query } from './Query'
+import { QueryBase } from './QueryBase'
 
 export type LinearQueryChange<Result> =
 	{ kind: 'add', row: Readonly<Result>, newIndex: number, type: 'add' | 'update' } |
@@ -18,13 +19,17 @@ export type LinearQueryChange<Result> =
 
 export type LinearQuery<Result> = Query<ReadonlyArray<Readonly<Result>>, LinearQueryChange<Result>>
 
-export class LinearQueryImpl<S extends TableSchema, Select extends keyof S> implements QueryRegistryEntry<S>, LinearQuery<Row<Pick<S, Select>>> {
+export class LinearQueryImpl<S extends TableSchema, Select extends keyof S> 
+	extends QueryBase<LinearQueryChange<Row<Pick<S, Select>>>> 
+	implements QueryRegistryEntry<S>, LinearQuery<Row<Pick<S, Select>>> {
+
 	constructor(
 		items: ReadonlyMap<UUID, Row<S>>,
 		select: ReadonlyArray<Select>,
 		readonly filter: Filter<S>,
 		readonly sort: (a: Row<S>, b: Row<S>) => number
 	) {
+		super()
 		this.result = []
 		addItem: for (const [, row] of items) {
 			for (const [key, value] of Object.entries(filter)) {
@@ -40,33 +45,6 @@ export class LinearQueryImpl<S extends TableSchema, Select extends keyof S> impl
 	readonly select: ReadonlySet<keyof S>
 
 	readonly result: Row<S>[]
-
-	private readonly observers = new Set<(change: LinearQueryChange<Row<Pick<S, Select>>>) => void>()
-
-	observe(observer: (change: LinearQueryChange<Row<Pick<S, Select>>>) => void): void {
-		this.observers.add(observer)
-	}
-
-	unobserve(observer: (change: LinearQueryChange<Row<Pick<S, Select>>>) => void): void {
-		this.observers.delete(observer)
-	}
-
-	// The values are baked into the `change` when it is constructed
-	private notifyObservers(change: LinearQueryChange<Row<Pick<S, Select>>>): () => void {
-		const internalObserverNotifications: (() => void)[] = []
-		this.internalObservers.forEach(({ didChange }) => internalObserverNotifications.push(didChange(change)))
-
-		const result: Array<() => void> = []
-		result.push(() => this.observers.forEach(observer => observer(change)))
-		return () => {
-			result.forEach(callback => callback())
-			internalObserverNotifications.forEach(notify => notify())
-		}
-	}
-
-	preChange(): void {
-		this.internalObservers.forEach(({ willChange }) => willChange())
-	}
 
 	private addedIndex = 0
 
@@ -90,15 +68,5 @@ export class LinearQueryImpl<S extends TableSchema, Select extends keyof S> impl
 
 	postItemChange(row: Row<S>, oldValues: Readonly<Partial<Row<S>>>): () => void {
 		return this.notifyObservers({ kind: 'update', row, oldIndex: this.removedIndex, newIndex: this.addedIndex, oldValues, type: 'update' })
-	}
-
-	readonly internalObservers: Set<InternalChangeCallback<LinearQueryChange<Row<Pick<S, Select>>>>> = new Set()
-
-	internalObserve(callback: InternalChangeCallback<LinearQueryChange<Row<Pick<S, Select>>>>): void {
-		this.internalObservers.add(callback)
-	}
-
-	internalUnobserve(callback: InternalChangeCallback<LinearQueryChange<Row<Pick<S, Select>>>>): void {
-		this.internalObservers.delete(callback)
 	}
 }

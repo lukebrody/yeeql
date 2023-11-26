@@ -2,6 +2,7 @@ import { UUID } from '../common/UUID'
 import { insertOrdered, removeOrdered } from '../common/array'
 import { LinearQueryChange } from './LinearQuery'
 import { InternalChangeCallback, Query } from './Query'
+import { QueryBase } from './QueryBase'
 import { QueryRegistryEntry } from './QueryRegistry'
 import { TableSchema, Row, Filter } from './Schema'
 
@@ -75,7 +76,10 @@ export class LinearJoinQueryImpl<
 	S extends TableSchema, 
 	Select extends keyof S, 
 	Joins extends JoinsDescriptor<S, Select>
-> implements QueryRegistryEntry<S>, LinearJoinQuery<JoinRow<S, Select, Joins>, Change<S, Select, Joins>> {
+> 	
+	extends QueryBase<Change<S, Select, Joins>>
+	implements QueryRegistryEntry<S>, LinearJoinQuery<JoinRow<S, Select, Joins>, Change<S, Select, Joins>> {
+	
 	constructor(
 		items: ReadonlyMap<UUID, Row<S>>,
 		select: ReadonlyArray<Select>,
@@ -86,6 +90,7 @@ export class LinearJoinQueryImpl<
 		) => number,
 		readonly joins: JoinsDescriptor<S, Select>
 	) {
+		super()
 		this.result = []
 		addItem: for (const [, row] of items) {
 			for (const [key, value] of Object.entries(filter)) {
@@ -111,21 +116,6 @@ export class LinearJoinQueryImpl<
 	readonly select: ReadonlySet<keyof S>
 
 	readonly result: (Row<S> & JoinsResults<S, Select, Joins>)[]
-
-	private readonly observers = new Set<(change: Change<S, Select, Joins>) => void>()
-
-	observe(observer: (change: Change<S, Select, Joins>) => void): void {
-		this.observers.add(observer)
-	}
-
-	unobserve(observer: (change: Change<S, Select, Joins>) => void): void {
-		this.observers.delete(observer)
-	}
-
-	// The values are baked into the `change` when it is constructed
-	private notifyObservers(change: Change<S, Select, Joins>): () => void {
-		return () => this.observers.forEach(observer => observer(change))
-	}
 
 	private addedIndex = 0
 
@@ -196,19 +186,5 @@ export class LinearJoinQueryImpl<
 			oldValues: oldValues as Readonly<Partial<JoinRow<S, Select, Joins>>>,
 			type: 'update' 
 		})
-	}
-
-	readonly internalObservers: Set<InternalChangeCallback<Change<S, Select, Joins>>> = new Set()
-
-	internalObserve(callback: InternalChangeCallback<Change<S, Select, Joins>>): void {
-		this.internalObservers.add(callback)
-	}
-
-	internalUnobserve(callback: InternalChangeCallback<Change<S, Select, Joins>>): void {
-		this.internalObservers.delete(callback)
-	}
-
-	preChange(): void {
-		this.internalObservers.forEach(({ willChange }) => willChange())
 	}
 }

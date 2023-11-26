@@ -3,17 +3,21 @@ import { QueryRegistryEntry } from './QueryRegistry'
 import { UUID } from '../common/UUID'
 import { DefaultMap, ReadonlyDefaultMap } from '../common/DefaultMap'
 import { Query } from './Query'
+import { QueryBase } from './QueryBase'
 
 export type GroupedCountQueryChange<Group> = { group: Group, change: 1 | -1 }
 
 export type GroupedCountQuery<Group> = Query<ReadonlyDefaultMap<Group, number>, GroupedCountQueryChange<Group>>
 
-export class GroupedCountQueryImpl<S extends TableSchema, GroupBy extends keyof S> implements QueryRegistryEntry<S>, GroupedCountQuery<Row<S>[GroupBy]> {
+export class GroupedCountQueryImpl<S extends TableSchema, GroupBy extends keyof S> 
+	extends QueryBase<GroupedCountQueryChange<Row<S>[GroupBy]>>
+	implements QueryRegistryEntry<S>, GroupedCountQuery<Row<S>[GroupBy]> {
 	constructor(
 		items: ReadonlyMap<UUID, Row<S>>,
 		readonly filter: Filter<S>,
 		readonly groupBy: GroupBy
 	) {
+		super()
 		this.result = new DefaultMap(() => 0)
 		addItem: for (const [, row] of items) {
 			for (const [key, value] of Object.entries(filter)) {
@@ -30,20 +34,6 @@ export class GroupedCountQueryImpl<S extends TableSchema, GroupBy extends keyof 
 	readonly select: ReadonlySet<keyof S>
 
 	result: DefaultMap<Row<S>[GroupBy], number>
-
-	private readonly observers = new Set<(change: GroupedCountQueryChange<Row<S>[GroupBy]>) => void>()
-
-	observe(observer: (change: GroupedCountQueryChange<Row<S>[GroupBy]>) => void): void {
-		this.observers.add(observer)
-	}
-
-	unobserve(observer: (change: GroupedCountQueryChange<Row<S>[GroupBy]>) => void): void {
-		this.observers.delete(observer)
-	}
-
-	private notifyObservers(change: GroupedCountQueryChange<Row<S>[GroupBy]>): () => void {
-		return () => this.observers.forEach(observer => observer(change))
-	}
 
 	private addedGroup?: Row<S>[GroupBy]
 

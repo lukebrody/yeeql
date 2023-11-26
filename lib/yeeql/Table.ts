@@ -61,7 +61,7 @@ export class Table<S extends TableSchema> {
 							const queries = this.queryRegistry.queries(row, addedOrRemoved)
 							queries.forEach(query => {
 								query.preChange()
-								query.doItemAdd(row)
+								query.doItemAdd(row, undefined)
 								runAfterTransaction.push(query.postItemAdd(row, action))
 							})
 						}
@@ -94,20 +94,18 @@ export class Table<S extends TableSchema> {
 						if (!beforeQueries.has(afterQuery)) {
 							afterQuery.preChange()
 						}
-						afterQuery.doItemAdd(row)
+						afterQuery.doItemAdd(row, oldValues)
+						if (!beforeQueries.has(afterQuery)) {
+							runAfterTransaction.push(afterQuery.postItemAdd(row, 'update'))
+						}
 					}
 
 					for (const beforeQuery of beforeQueries) {
 						if (afterQueries.has(beforeQuery)) {
 							runAfterTransaction.push(beforeQuery.postItemChange(row, oldValues))
-							afterQueries.delete(beforeQuery)
 						} else {
 							runAfterTransaction.push(beforeQuery.postItemRemove(row, 'update'))
 						}
-					}
-	
-					for (const afterQuery of afterQueries) {
-						runAfterTransaction.push(afterQuery.postItemAdd(row, 'update'))
 					}
 				}
 			}

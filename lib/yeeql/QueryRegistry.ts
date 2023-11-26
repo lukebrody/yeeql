@@ -124,7 +124,7 @@ export interface QueryRegistryEntry<S extends TableSchema> {
 
 	preChange(): void
 	
-	doItemAdd(row: Row<S>): void
+	doItemAdd(row: Row<S>, oldValues: Readonly<Partial<Row<S>>> | undefined): void
 	postItemAdd(row: Row<S>, type: 'add' | 'update'): () => void
 
 	doItemRemove(row: Row<S>): void // From this query, if it's moving somewhere else

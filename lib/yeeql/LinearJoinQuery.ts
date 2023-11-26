@@ -17,10 +17,7 @@ export type LinearJoinQueryChange<Result, SubChange> =
 		type: 'update'
 	} 
 
-type JoinDescriptor<S extends TableSchema, Select extends keyof S, Result, Change> = {
-	dependencies: Set<Select>,
-	makeQuery: (row: Row<S>) => Query<Result, Change>
-}
+type JoinDescriptor<S extends TableSchema, Select extends keyof S, Result, Change> =  (row: Row<Pick<S, Select>>) => Query<Result, Change>
 
 type JoinsDescriptor<S extends TableSchema, Select extends keyof S> = {
 	[key: string]: JoinDescriptor<S, Select, unknown, unknown>
@@ -40,22 +37,6 @@ type JoinsChanges<S extends TableSchema, Select extends keyof S, J extends Joins
 type JoinsChange<T extends object> = 
   { [K in keyof T]: { key: K, change: T[K] } }[keyof T]
 
-// const schema: TableSchema = {
-// 	id: new Field<UUID>()
-// }
-
-// type J =  { j1: JoinDescriptor<typeof schema, 'id', 'result1', 'change1'>, j2: JoinDescriptor<typeof schema, 'id', 'result2', 'change2'> }
-// let jc: JoinsChange<JoinsChanges<typeof schema, 'id', J>>
-
-// jc = { key: 'j1', subChange: 'change1' }
-// jc = { key: 'j2', subChange: 'change2' }
-
-// console.log(jc)
-
-// const ch: Change<typeof schema, 'id', J> = { kind: 'subquery', row: { id: UUID.create(), j1: 'result1', j2: 'result2' }, oldIndex: 0, newIndex: 0, key: 'j1', subChange: 'change1', type: 'update' }
-
-// console.log(ch)
-
 type MapValueType<A> = A extends Map<unknown, infer V> ? V : never
 
 export type LinearJoinQuery<Result, SubChange> = Query<ReadonlyArray<Readonly<Result>>, SubChange>
@@ -67,9 +48,9 @@ type Change<
 > = LinearJoinQueryChange<Row<Pick<S, Select>> & JoinsResults<S, Select, Joins>, JoinsChange<JoinsChanges<S, Select, Joins>>>
 
 type JoinRow<
-S extends TableSchema, 
-Select extends keyof S, 
-Joins extends JoinsDescriptor<S, Select>
+	S extends TableSchema, 
+	Select extends keyof S, 
+	Joins extends JoinsDescriptor<S, Select>
 > = Row<Pick<S, Select>> & JoinsResults<S, Select, Joins>
 
 export class LinearJoinQueryImpl<
@@ -98,7 +79,7 @@ export class LinearJoinQueryImpl<
 					continue addItem
 				}
 			}
-			
+			this.doItemAdd(row, undefined)
 		}
 		this.select = new Set(select)
 	}
@@ -119,11 +100,34 @@ export class LinearJoinQueryImpl<
 
 	private addedIndex = 0
 
-	doItemAdd(row: Row<S>): void {
-		const augmentedRow = { ...row } as typeof this.result[0]
-		const joinQueries = {} as MapValueType<typeof this.rowMap>['joinQueries']
-		for (const [key, { makeQuery }] of Object.entries(this.joins) as [keyof Joins, Joins[keyof Joins]][]) {
+	doItemAdd(row: Row<S>,  oldValues: Readonly<Partial<Row<S>>> | undefined): void {
+		let augmentedRow: typeof this.result[0]
+		let joinQueries: MapValueType<typeof this.rowMap>['joinQueries']
+		if (oldValues !== undefined) {
+			({ augmentedRow, joinQueries } = this.rowMap.get(row)!)
+			for (const key of Object.keys(oldValues) as Array<keyof Row<S>>) {
+				augmentedRow[key] = row[key] as typeof augmentedRow[typeof key]
+			}
+		}
+		else {
+			augmentedRow = { ...row } as typeof this.result[0]
+			joinQueries = {} as typeof joinQueries
+			this.rowMap.set(row, {
+				augmentedRow,
+				joinQueries
+			})
+		}
+
+		updateQuery: for (const [key, makeQuery] of Object.entries(this.joins) as [keyof Joins, Joins[keyof Joins]][]) {
 			const query = makeQuery(row) as Query<JoinResult<S, Select, Joins[keyof Joins]>, JoinChange<S, Select, Joins[keyof Joins]>>
+			if (oldValues !== undefined) {
+				const { query: oldQuery, callback: oldCallback } = joinQueries[key]
+				if (query === oldQuery) {
+					continue updateQuery
+				}
+				oldQuery.internalUnobserve(oldCallback)
+			}
+
 			augmentedRow[key] = query.result as typeof augmentedRow[typeof key]
 
 			let removedIndex: number
@@ -150,10 +154,7 @@ export class LinearJoinQueryImpl<
 				callback
 			}
 		}
-		this.rowMap.set(row, {
-			augmentedRow,
-			joinQueries
-		})
+		
 		this.addedIndex = insertOrdered(this.result, augmentedRow, this.sort)
 	}
 
@@ -164,17 +165,19 @@ export class LinearJoinQueryImpl<
 	private removedIndex = 0
 
 	doItemRemove(row: Row<S>): void {
-		const { augmentedRow, joinQueries } = this.rowMap.get(row)!
+		const { augmentedRow } = this.rowMap.get(row)!
 		this.removedIndex = removeOrdered(this.result, augmentedRow, this.sort)!.index
-		for (const [, { query, callback }] of Object.entries(joinQueries)) {
-			query.unobserve(callback)
-		}
 	}
 
 	postItemRemove(row: Row<S>, type: 'delete' | 'update'): () => void {
-		const result = this.notifyObservers({ kind: 'remove', row: this.rowMap.get(row)!.augmentedRow, oldIndex: this.removedIndex, type })
+		const { augmentedRow, joinQueries } = this.rowMap.get(row)!
+		
+		for (const [, { query, callback }] of Object.entries(joinQueries)) {
+			query.unobserve(callback)
+		}
 		this.rowMap.delete(row)
-		return result
+
+		return this.notifyObservers({ kind: 'remove', row: augmentedRow, oldIndex: this.removedIndex, type })
 	}
 
 	postItemChange(row: Row<S>, oldValues: Readonly<Partial<Row<S>>>): () => void {

@@ -185,6 +185,12 @@ export class Table<S extends TableSchema> {
 		filter?: Filter<S>,
 		sort?: Sort<S, {}>
 	}): LinearQuery<Row<Pick<S, Select>>>;
+	query<Select extends keyof S, Q extends SubqueryGenerators<S>>({ filter = {}, select, sort = noSort }: {
+		select?: ReadonlyArray<Select>,
+		filter?: Filter<S>,
+		sort?: Sort<S, {}>,
+		subqueries: SubqueryGenerators<S>
+	}): LinearQueryWithSubqueries<S, Select, Q>;
 	query<GroupBy extends keyof Primitives<S>>({ filter = {}, sort = noSort, groupBy }: {
 		filter?: Filter<S>,
 		sort?: Sort<S, {}>,

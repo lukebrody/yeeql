@@ -176,33 +176,20 @@ export class Table<S extends TableSchema> {
 		}
 	}
 
-	query({ filter = {}, sort = noSort }: {
-		filter?: Filter<S>,
-		sort?: Sort<S, {}>
-	}): LinearQuery<Row<S>>;
 	query<Select extends keyof S>(_: {
-		select: ReadonlyArray<Select>,
-		filter?: Filter<S>,
-		sort?: Sort<S, {}>
-	}): LinearQuery<Row<Pick<S, Select>>>;
-	query<Q extends SubqueryGenerators<S>>(_: {
-		filter?: Filter<S>,
-		sort?: Sort<S, Q>,
-		subqueries: Q
-	}): LinearQueryWithSubqueries<S, keyof S, Q>;
-	query<Select extends keyof S, Q extends SubqueryGenerators<S>>(_: {
-		select: ReadonlyArray<Select>,
-		filter?: Filter<S>,
-		sort?: Sort<S, Q>,
-		subqueries: Q
-	}): LinearQueryWithSubqueries<S, Select, Q>;
-	query<GroupBy extends keyof Primitives<S>>(_: {
+		select?: ReadonlyArray<Select>,
 		filter?: Filter<S>,
 		sort?: Sort<S, {}>,
-		groupBy: GroupBy
-	}): GroupedQuery<Row<S>, Row<Primitives<S>>[GroupBy]>;
+		subqueries?: undefined // Need this so TypeScript doesn't get confused??
+	}): LinearQuery<Row<Pick<S, Select>>>;
+	query<Select extends keyof S, Q extends SubqueryGenerators<S>>(_: {
+		select?: ReadonlyArray<Select>,
+		filter?: Filter<S>,
+		subqueries: Q,
+		sort?: Sort<S,Q>
+	}): LinearQueryWithSubqueries<S, keyof S, Q>;
 	query<Select extends keyof S, GroupBy extends keyof Primitives<S>>(_: {
-		select: ReadonlyArray<Select>,
+		select?: ReadonlyArray<Select>,
 		filter?: Filter<S>,
 		sort?: Sort<S, {}>,
 		groupBy: GroupBy
@@ -230,6 +217,12 @@ export class Table<S extends TableSchema> {
 					() => new LinearQueryImpl<S, Select>(this.items, resolvedSelect, filter, this.makeTiebrokenIdSort(sort as Sort<S, {}>))
 				)
 			} else {
+				for (const subqueryKey of Object.keys(subqueries)) {
+					if (subqueryKey in this.schema) {
+						throw new Error(`key '${subqueryKey}' may not be reused for a subquery, since it's already in the schema`)
+					}
+				}
+
 				result = this.getCachedQuery(
 					stringify({ filter, resolvedSelect, kind: 'linearSubqueries' }), sort, subqueries,
 					() => new LinearQueryWithSubqueriesImpl<S, Select, Q>(this.items, resolvedSelect, filter, this.makeTiebrokenIdSort(sort), subqueries)
@@ -244,8 +237,8 @@ export class Table<S extends TableSchema> {
 		return result
 	}
 
-	count({ filter = {} }: { filter?: Filter<S> }): CountQuery;
-	count<GroupBy extends keyof Primitives<S>>({ filter = {}, groupBy }: { filter?: Filter<S>, groupBy: GroupBy }): GroupedCountQuery<Row<S>[GroupBy]>;
+	count(_: { filter?: Filter<S> }): CountQuery;
+	count<GroupBy extends keyof Primitives<S>>(_ : { filter?: Filter<S>, groupBy: GroupBy }): GroupedCountQuery<Row<S>[GroupBy]>;
 	count<GroupBy extends keyof Primitives<S>>({ filter = {}, groupBy }: { filter?: Filter<S>, groupBy?: GroupBy }): CountQuery | GroupedCountQuery<Row<S>[GroupBy]> {
 
 		this.validateColumns([...(groupBy !== undefined ? [groupBy] : []), ...Object.keys(filter)])

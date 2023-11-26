@@ -19,7 +19,7 @@ class StubQuery implements QueryRegistryEntry<typeof schema> {
 		throw new Error('not implemented')
 	}
 
-	postItemAdd(): void {
+	postItemAdd(): () => void {
 		throw new Error('not implemented')
 	}
 
@@ -27,11 +27,15 @@ class StubQuery implements QueryRegistryEntry<typeof schema> {
 		throw new Error('not implemented')
 	}
 
-	postItemRemove(): void {
+	postItemRemove(): () => void {
 		throw new Error('not implemented')
 	}
 
-	postItemChange(): void {
+	postItemChange(): () => void {
+		throw new Error('not implemented')
+	}
+
+	preChange(): void {
 		throw new Error('not implemented')
 	}
 }

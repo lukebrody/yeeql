@@ -63,9 +63,9 @@ test('Table.subqueryUpdate', () => {
 test('Table.subquerySort', () => {
 	const query = parents.query({ 
 		subqueries: {
-			children: parent => children.query({ filter: { parentId: parent.id }})
+			children: (parent) => children.query({ filter: { parentId: parent.id } })
 		},
-		sort: (a, b) => a.children.length - b.children.length 
+		sort: (a, b) => a.children.length - b.children.length
 	})
 	
 	const parentA = parents.insert({})

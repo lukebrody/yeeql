@@ -4,7 +4,7 @@ import { LinearQueryChange } from './LinearQuery'
 import { InternalChangeCallback, Query } from './Query'
 import { QueryBase } from './QueryBase'
 import { QueryRegistryEntry } from './QueryRegistry'
-import { TableSchema, Row, Filter } from './Schema'
+import { TableSchema, Row, Filter, SubqueryGenerator, SubqueryGenerators, SubqueriesResults, SubqueryResult } from './Schema'
 
 export type LinearQueryWithSubqueriesChange<Result, SubChange> =
 	LinearQueryChange<Result> | 
@@ -17,21 +17,10 @@ export type LinearQueryWithSubqueriesChange<Result, SubChange> =
 		type: 'update'
 	} 
 
-type SubqueryGenerator<S extends TableSchema, Select extends keyof S, Result, Change> = (row: Row<Pick<S, Select>>) => Query<Result, Change>
+type SubqueryChange<S extends TableSchema, Q extends SubqueryGenerator<S, unknown, unknown>> = Q extends SubqueryGenerator<S, unknown, infer Change> ? Change : never
 
-type SubqueryGenerators<S extends TableSchema, Select extends keyof S> = {
-	[key: string]: SubqueryGenerator<S, Select, unknown, unknown>
-}
-
-type SubqueryResult<S extends TableSchema, Select extends keyof S, J extends SubqueryGenerator<S, Select, unknown, unknown>> = J extends SubqueryGenerator<S, Select, infer Result, unknown> ? Result : never
-type SubqueryChange<S extends TableSchema, Select extends keyof S, J extends SubqueryGenerator<S, Select, unknown, unknown>> = J extends SubqueryGenerator<S, Select, unknown, infer Change> ? Change : never
-
-type SubqueriesResults<S extends TableSchema, Select extends keyof S, J extends SubqueryGenerators<S, Select>> = {
-	[K in keyof J]: SubqueryResult<S, Select, J[K]>
-}
-
-type SubqueriesChanges<S extends TableSchema, Select extends keyof S, J extends SubqueryGenerators<S, Select>> = {
-	[K in keyof J]: SubqueryChange<S, Select, J[K]>
+type SubqueriesChanges<S extends TableSchema, Q extends SubqueryGenerators<S>> = {
+	[K in keyof Q]: SubqueryChange<S, Q[K]>
 }
 
 type SubqueriesChange<T extends object> = 
@@ -39,37 +28,37 @@ type SubqueriesChange<T extends object> =
 
 type MapValueType<A> = A extends Map<unknown, infer V> ? V : never
 
-export type LinearyQueryWithSubqueries<Result, SubChange> = Query<ReadonlyArray<Readonly<Result>>, SubChange>
+export type LinearQueryWithSubqueries<S extends TableSchema, Select extends keyof S, Q extends SubqueryGenerators<S>> = Query<ReadonlyArray<Readonly<RowWithSubqueries<S, Select, Q>>>, Change<S, Select, Q>>
 
 type Change<
 	S extends TableSchema, 
 	Select extends keyof S, 
-	Joins extends SubqueryGenerators<S, Select>
-> = LinearQueryWithSubqueriesChange<Row<Pick<S, Select>> & SubqueriesResults<S, Select, Joins>, SubqueriesChange<SubqueriesChanges<S, Select, Joins>>>
+	Q extends SubqueryGenerators<S>
+> = LinearQueryWithSubqueriesChange<Row<Pick<S, Select>> & SubqueriesResults<S, Q>, SubqueriesChange<SubqueriesChanges<S, Q>>>
 
 type RowWithSubqueries<
 	S extends TableSchema, 
 	Select extends keyof S, 
-	Joins extends SubqueryGenerators<S, Select>
-> = Row<Pick<S, Select>> & SubqueriesResults<S, Select, Joins>
+	Q extends SubqueryGenerators<S>
+> = Row<Pick<S, Select>> & SubqueriesResults<S, Q>
 
-export class LinearyQueryWithSubqueriesImpl<
+export class LinearQueryWithSubqueriesImpl<
 	S extends TableSchema, 
 	Select extends keyof S, 
-	Joins extends SubqueryGenerators<S, Select>
+	Q extends SubqueryGenerators<S>
 > 	
-	extends QueryBase<Change<S, Select, Joins>>
-	implements QueryRegistryEntry<S>, LinearyQueryWithSubqueries<RowWithSubqueries<S, Select, Joins>, Change<S, Select, Joins>> {
+	extends QueryBase<Change<S, Select, Q>>
+	implements QueryRegistryEntry<S>, LinearQueryWithSubqueries<S, Select, Q> {
 	
 	constructor(
 		items: ReadonlyMap<UUID, Row<S>>,
 		select: ReadonlyArray<Select>,
 		readonly filter: Filter<S>,
 		readonly sort: (
-			a: RowWithSubqueries<S, Select, Joins>, 
-			b: RowWithSubqueries<S, Select, Joins>
+			a: RowWithSubqueries<S, keyof S, Q>, 
+			b: RowWithSubqueries<S, keyof S, Q>
 		) => number,
-		readonly subQueries: SubqueryGenerators<S, Select>
+		readonly subQueries: SubqueryGenerators<S>
 	) {
 		super()
 		this.result = []
@@ -85,18 +74,18 @@ export class LinearyQueryWithSubqueriesImpl<
 	}
 
 	private readonly rowMap = new Map<Row<Pick<S, Select>>, {
-		augmentedRow: (Row<S> & SubqueriesResults<S, Select, Joins>),
+		augmentedRow: (Row<S> & SubqueriesResults<S, Q>),
 		subQueries: {
-			[K in keyof Joins]: {
-				query: (Query<SubqueryResult<S, Select, Joins[K]>, SubqueryChange<S, Select, Joins[K]>>)
-				callback: (InternalChangeCallback<SubqueryChange<S, Select, Joins[K]>>)
+			[K in keyof Q]: {
+				query: (Query<SubqueryResult<S, Q[K]>, SubqueryChange<S, Q[K]>>)
+				callback: (InternalChangeCallback<SubqueryChange<S, Q[K]>>)
 			}
 		}
 	}>()
 
 	readonly select: ReadonlySet<keyof S>
 
-	readonly result: (Row<S> & SubqueriesResults<S, Select, Joins>)[]
+	readonly result: (Row<S> & SubqueriesResults<S, Q>)[]
 
 	private addedIndex = 0
 
@@ -118,8 +107,8 @@ export class LinearyQueryWithSubqueriesImpl<
 			})
 		}
 
-		updateQuery: for (const [key, makeQuery] of Object.entries(this.subQueries) as [keyof Joins, Joins[keyof Joins]][]) {
-			const query = makeQuery(row) as Query<SubqueryResult<S, Select, Joins[keyof Joins]>, SubqueryChange<S, Select, Joins[keyof Joins]>>
+		updateQuery: for (const [key, makeQuery] of Object.entries(this.subQueries) as [keyof Q, Q[keyof Q]][]) {
+			const query = makeQuery(row) as Query<SubqueryResult<S, Q[keyof Q]>, SubqueryChange<S, Q[keyof Q]>>
 			if (oldValues !== undefined) {
 				const { query: oldQuery, callback: oldCallback } = subQueries[key]
 				if (query === oldQuery) {
@@ -131,7 +120,7 @@ export class LinearyQueryWithSubqueriesImpl<
 			augmentedRow[key] = query.result as typeof augmentedRow[typeof key]
 
 			let removedIndex: number
-			const callback: InternalChangeCallback<SubqueryChange<S, Select, Joins[typeof key]>> = {
+			const callback: InternalChangeCallback<SubqueryChange<S, Q[typeof key]>> = {
 				willChange: () => {
 					removedIndex = removeOrdered(this.result, augmentedRow as typeof this.result[0], this.sort)!.index
 				},
@@ -149,7 +138,7 @@ export class LinearyQueryWithSubqueriesImpl<
 				}
 			}
 			query.internalObserve(callback)
-			subQueries[key as keyof Joins] = {
+			subQueries[key as keyof Q] = {
 				query,
 				callback
 			}
@@ -186,7 +175,7 @@ export class LinearyQueryWithSubqueriesImpl<
 			row: this.rowMap.get(row)!.augmentedRow, 
 			oldIndex: this.removedIndex, 
 			newIndex: this.addedIndex, 
-			oldValues: oldValues as Readonly<Partial<RowWithSubqueries<S, Select, Joins>>>,
+			oldValues: oldValues as Readonly<Partial<RowWithSubqueries<S, Select, Q>>>,
 			type: 'update' 
 		})
 	}

@@ -13,3 +13,5 @@ Post-change: Add back rows (in forward order, to preserve indices)
 Send notifications of row movement
 
 How to get pre-result??? Send the change down
+
+TODO: Filter by subqueries?

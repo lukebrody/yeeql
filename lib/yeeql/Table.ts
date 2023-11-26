@@ -8,23 +8,34 @@ import { DefaultMap } from '../common/DefaultMap'
 import { YMap, YEvent } from './YInterfaces'
 import * as Y from 'yjs'
 import { Query, QueryResult, QueryChange } from './Query'
-import { Row, Primitives, Filter, TableSchema } from './Schema'
+import { Row, Primitives, Filter, TableSchema, SubqueryGenerators, SubqueriesResults } from './Schema'
 import stringify from 'json-stable-stringify'
+import { LinearQueryWithSubqueries, LinearQueryWithSubqueriesImpl } from './LinearQueryWithSubqueries'
 
-type Sort<S extends TableSchema> = (a: Row<Primitives<S>>, b: Row<Primitives<S>>) => number
+type Sort<S extends TableSchema, Q extends SubqueryGenerators<S>> = (a: Row<Primitives<S>> & SubqueriesResults<S, Q>, b: Row<Primitives<S>> & SubqueriesResults<S, Q>) => number
 
-function getSortColumns<S extends TableSchema>(schema: S, sort: Sort<S>): Set<keyof S> {
+function getSortSubqueriesColumns<S extends TableSchema, Q extends SubqueryGenerators<S>>(schema: S, sort: Sort<S, Q>, subqueries?: Q): Set<keyof S> {
 	const result = new Set<keyof S>()
-	const proxy = new Proxy({} as Row<S>, {
+	const proxy = new Proxy({} as Row<S> & SubqueriesResults<S, Q>, {
 		get(_, p) {
-			if (!(p in schema)) {
+			if (!(p in schema) && (subqueries === undefined || !(p in subqueries))) {
 				throw new Error(`unknown column '${p.toString()}' used in 'sort' comparator`)
 			}
-			result.add(p as keyof S)
+			if (p in schema) {
+				result.add(p as keyof S)
+			}
 			return '0'
 		},
 	})
+	
 	sort(proxy, proxy)
+	
+	if (subqueries !== undefined) {
+		for(const subquery of Object.values(subqueries)) {
+			subquery(proxy)
+		}
+	}
+
 	return result
 }
 
@@ -137,19 +148,22 @@ export class Table<S extends TableSchema> {
 		return result as Row<S>
 	}
 
-	private readonly queryCache = new DefaultMap<string, Map<object | null, WeakRef<Query<unknown, unknown>>>>(() => new Map())
+	// TODO: Use finalization to keep the cache clean
+	private readonly queryCache = new DefaultMap<string, Map<object | null, Map<object | undefined | null, WeakRef<Query<unknown, unknown>>>>>(() => new Map())
 
 	private getCachedQuery<Q extends Query<QueryResult<Q>, QueryChange<Q>> & QueryRegistryEntry<S>>(
 		key: string,
 		sort: object | null,
+		subqueries: object | null,
 		makeQuery: () => Q
 	): Q {
-		const cached = this.queryCache.get(key).get(sort)?.deref()
+		const cached = this.queryCache.get(key).get(sort)?.get(subqueries)?.deref()
 		if (cached) {
 			return cached as Q
 		} else {
 			const result = makeQuery()
-			this.queryCache.get(key).set(sort, new WeakRef(result))
+			this.queryCache.get(key).set(sort, new Map())
+			this.queryCache.get(key).get(sort)!.set(subqueries, new WeakRef(result))
 			this.queryRegistry.register(result)
 			return result
 		}
@@ -164,48 +178,56 @@ export class Table<S extends TableSchema> {
 
 	query({ filter = {}, sort = noSort }: {
 		filter?: Filter<S>,
-		sort?: Sort<S>
+		sort?: Sort<S, {}>
 	}): LinearQuery<Row<S>>;
 	query<Select extends keyof S>({ filter = {}, select, sort = noSort }: {
 		select: ReadonlyArray<Select>,
 		filter?: Filter<S>,
-		sort?: Sort<S>
+		sort?: Sort<S, {}>
 	}): LinearQuery<Row<Pick<S, Select>>>;
 	query<GroupBy extends keyof Primitives<S>>({ filter = {}, sort = noSort, groupBy }: {
 		filter?: Filter<S>,
-		sort?: Sort<S>,
+		sort?: Sort<S, {}>,
 		groupBy: GroupBy
 	}): GroupedQuery<Row<S>, Row<Primitives<S>>[GroupBy]>;
 	query<Select extends keyof S, GroupBy extends keyof Primitives<S>>({ filter = {}, select, sort = noSort, groupBy }: {
 		select: ReadonlyArray<Select>,
 		filter?: Filter<S>,
-		sort?: Sort<S>,
+		sort?: Sort<S, {}>,
 		groupBy: GroupBy
 	}): GroupedQuery<Row<Pick<S, Select>>, Row<Primitives<S>>[GroupBy]>;
-	query<Select extends keyof S, GroupBy extends keyof Primitives<S>>({ filter = {}, select, sort = noSort, groupBy }: {
+	query<Select extends keyof S, GroupBy extends keyof Primitives<S>, Q extends SubqueryGenerators<S>>({ filter = {}, select, sort = noSort, groupBy, subqueries }: {
 		select?: ReadonlyArray<Select>,
 		filter?: Filter<S>,
-		sort?: Sort<S>,
-		groupBy?: GroupBy
-	}): LinearQuery<Row<Pick<S, Select>>> | GroupedQuery<Row<Pick<S, Select>>, Row<Primitives<S>>[GroupBy]> {
+		sort?: Sort<S, Q>,
+		groupBy?: GroupBy,
+		subqueries?: Q
+	}): LinearQuery<Row<Pick<S, Select>>> | GroupedQuery<Row<Pick<S, Select>>, Row<Primitives<S>>[GroupBy]> | LinearQueryWithSubqueries<S, Select, Q> {
 
 		this.validateColumns([...(select ?? []), ...(groupBy !== undefined ? [groupBy] : []), ...Object.keys(filter)])
 
 		const resolvedSelect = Array.from(new Set([
 			...(select ?? Object.keys(this.schema)),
-			...getSortColumns(this.schema, sort)
+			...getSortSubqueriesColumns(this.schema, sort, subqueries)
 		])).sort() as unknown as ReadonlyArray<Select>
 
-		let result: LinearQueryImpl<S, Select> | GroupedQueryImpl<S, Select, GroupBy>
+		let result: LinearQueryImpl<S, Select> | GroupedQueryImpl<S, Select, GroupBy> | LinearQueryWithSubqueriesImpl<S, Select, Q>
 		if (groupBy === undefined) {
-			result = this.getCachedQuery(
-				stringify({ filter, resolvedSelect, kind: 'linear' }), sort,
-				() => new LinearQueryImpl<S, Select>(this.items, resolvedSelect, filter, this.makeTiebrokenIdSort(sort))
-			)
+			if (subqueries === undefined) {
+				result = this.getCachedQuery(
+					stringify({ filter, resolvedSelect, kind: 'linear' }), sort, null,
+					() => new LinearQueryImpl<S, Select>(this.items, resolvedSelect, filter, this.makeTiebrokenIdSort(sort as Sort<S, {}>))
+				)
+			} else {
+				result = this.getCachedQuery(
+					stringify({ filter, resolvedSelect, kind: 'linearSubqueries' }), sort, subqueries,
+					() => new LinearQueryWithSubqueriesImpl<S, Select, Q>(this.items, resolvedSelect, filter, this.makeTiebrokenIdSort(sort), subqueries)
+				)
+			}
 		} else {
 			result = this.getCachedQuery(
-				stringify({ filter, resolvedSelect, groupBy, kind: 'grouped' }), sort,
-				() => new GroupedQueryImpl(this.items, resolvedSelect, filter, this.makeTiebrokenIdSort(sort), groupBy)
+				stringify({ filter, resolvedSelect, groupBy, kind: 'grouped' }), sort, null,
+				() => new GroupedQueryImpl(this.items, resolvedSelect, filter, this.makeTiebrokenIdSort(sort as Sort<S, {}>), groupBy)
 			)
 		}
 		return result
@@ -220,12 +242,12 @@ export class Table<S extends TableSchema> {
 		let result: CountQueryImpl<S> | GroupedCountQueryImpl<S, GroupBy>
 		if (groupBy === undefined) {
 			result = this.getCachedQuery(
-				stringify({ filter, kind: 'count' }), null,
+				stringify({ filter, kind: 'count' }), null, null,
 				() => new CountQueryImpl(this.items, filter)
 			)
 		} else {
 			result = this.getCachedQuery(
-				stringify({ filter, groupBy, kind: 'groupCount' }), null,
+				stringify({ filter, groupBy, kind: 'groupCount' }), null, null,
 				() => new GroupedCountQueryImpl(this.items, filter, groupBy)
 			)
 		}
@@ -246,8 +268,8 @@ export class Table<S extends TableSchema> {
 	delete(id: UUID) {
 		this.yTable.delete(id)
 	}
-
-	private makeTiebrokenIdSort(comparator: Sort<S>): Sort<S> {
+	
+	private makeTiebrokenIdSort<T extends { id: UUID }>(comparator: (a: T, b: T) => number): (a: T, b: T) => number {
 		return (a, b) => {
 			const result = comparator(a, b)
 			return result === 0 ? a.id.localeCompare(b.id) : result

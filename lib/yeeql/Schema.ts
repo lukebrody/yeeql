@@ -1,4 +1,5 @@
 import { UUID } from '../common/UUID'
+import { Query } from './Query'
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export class Field<Type> { }
@@ -22,3 +23,15 @@ export type Primitives<S extends TableSchema> = Pick<S, keyof {
 }> & { id: Field<UUID> }
 
 export type Filter<S extends TableSchema> = Partial<Row<Primitives<S>>>
+
+export type SubqueryGenerator<S extends TableSchema, Result, Change> = (row: Row<S>) => Query<Result, Change>
+
+export type SubqueryGenerators<S extends TableSchema> = {
+	[key: string]: SubqueryGenerator<S, unknown, unknown>
+}
+
+export type SubqueryResult<S extends TableSchema, Q extends SubqueryGenerator<S, unknown, unknown>> = Q extends SubqueryGenerator<S, infer Result, unknown> ? Result : never
+
+export type SubqueriesResults<S extends TableSchema, Q extends SubqueryGenerators<S>> = {
+	[K in keyof Q]: SubqueryResult<S, Q[K]>
+}

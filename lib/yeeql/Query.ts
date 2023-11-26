@@ -8,7 +8,7 @@ export interface Query<Result, Change> {
 	 * Observers here are called while the query is updating during a transaction.
 	 * Use these hooks to perform updates during the transaction so that data may be in a consistent state when observers are called at the end of the transaction.
 	 * 
-	 * For example, yeeql uses this mechanism internally to update joined subqueries.
+	 * For example, yeeql uses this mechanism internally to update subqueries.
 	 * 
 	 * Call the returned function to remove
 	*/

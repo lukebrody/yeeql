@@ -6,7 +6,7 @@ import { QueryBase } from './QueryBase'
 import { QueryRegistryEntry } from './QueryRegistry'
 import { TableSchema, Row, Filter } from './Schema'
 
-export type LinearJoinQueryChange<Result, SubChange> =
+export type LinearQueryWithSubqueriesChange<Result, SubChange> =
 	LinearQueryChange<Result> | 
 	{ 
 		kind: 'subquery',
@@ -17,59 +17,59 @@ export type LinearJoinQueryChange<Result, SubChange> =
 		type: 'update'
 	} 
 
-type JoinDescriptor<S extends TableSchema, Select extends keyof S, Result, Change> =  (row: Row<Pick<S, Select>>) => Query<Result, Change>
+type SubqueryGenerator<S extends TableSchema, Select extends keyof S, Result, Change> = (row: Row<Pick<S, Select>>) => Query<Result, Change>
 
-type JoinsDescriptor<S extends TableSchema, Select extends keyof S> = {
-	[key: string]: JoinDescriptor<S, Select, unknown, unknown>
+type SubqueryGenerators<S extends TableSchema, Select extends keyof S> = {
+	[key: string]: SubqueryGenerator<S, Select, unknown, unknown>
 }
 
-type JoinResult<S extends TableSchema, Select extends keyof S, J extends JoinDescriptor<S, Select, unknown, unknown>> = J extends JoinDescriptor<S, Select, infer Result, unknown> ? Result : never
-type JoinChange<S extends TableSchema, Select extends keyof S, J extends JoinDescriptor<S, Select, unknown, unknown>> = J extends JoinDescriptor<S, Select, unknown, infer Change> ? Change : never
+type SubqueryResult<S extends TableSchema, Select extends keyof S, J extends SubqueryGenerator<S, Select, unknown, unknown>> = J extends SubqueryGenerator<S, Select, infer Result, unknown> ? Result : never
+type SubqueryChange<S extends TableSchema, Select extends keyof S, J extends SubqueryGenerator<S, Select, unknown, unknown>> = J extends SubqueryGenerator<S, Select, unknown, infer Change> ? Change : never
 
-type JoinsResults<S extends TableSchema, Select extends keyof S, J extends JoinsDescriptor<S, Select>> = {
-	[K in keyof J]: JoinResult<S, Select, J[K]>
+type SubqueriesResults<S extends TableSchema, Select extends keyof S, J extends SubqueryGenerators<S, Select>> = {
+	[K in keyof J]: SubqueryResult<S, Select, J[K]>
 }
 
-type JoinsChanges<S extends TableSchema, Select extends keyof S, J extends JoinsDescriptor<S, Select>> = {
-	[K in keyof J]: JoinChange<S, Select, J[K]>
+type SubqueriesChanges<S extends TableSchema, Select extends keyof S, J extends SubqueryGenerators<S, Select>> = {
+	[K in keyof J]: SubqueryChange<S, Select, J[K]>
 }
 
-type JoinsChange<T extends object> = 
+type SubqueriesChange<T extends object> = 
   { [K in keyof T]: { key: K, change: T[K] } }[keyof T]
 
 type MapValueType<A> = A extends Map<unknown, infer V> ? V : never
 
-export type LinearJoinQuery<Result, SubChange> = Query<ReadonlyArray<Readonly<Result>>, SubChange>
+export type LinearyQueryWithSubqueries<Result, SubChange> = Query<ReadonlyArray<Readonly<Result>>, SubChange>
 
 type Change<
 	S extends TableSchema, 
 	Select extends keyof S, 
-	Joins extends JoinsDescriptor<S, Select>
-> = LinearJoinQueryChange<Row<Pick<S, Select>> & JoinsResults<S, Select, Joins>, JoinsChange<JoinsChanges<S, Select, Joins>>>
+	Joins extends SubqueryGenerators<S, Select>
+> = LinearQueryWithSubqueriesChange<Row<Pick<S, Select>> & SubqueriesResults<S, Select, Joins>, SubqueriesChange<SubqueriesChanges<S, Select, Joins>>>
 
-type JoinRow<
+type RowWithSubqueries<
 	S extends TableSchema, 
 	Select extends keyof S, 
-	Joins extends JoinsDescriptor<S, Select>
-> = Row<Pick<S, Select>> & JoinsResults<S, Select, Joins>
+	Joins extends SubqueryGenerators<S, Select>
+> = Row<Pick<S, Select>> & SubqueriesResults<S, Select, Joins>
 
-export class LinearJoinQueryImpl<
+export class LinearyQueryWithSubqueriesImpl<
 	S extends TableSchema, 
 	Select extends keyof S, 
-	Joins extends JoinsDescriptor<S, Select>
+	Joins extends SubqueryGenerators<S, Select>
 > 	
 	extends QueryBase<Change<S, Select, Joins>>
-	implements QueryRegistryEntry<S>, LinearJoinQuery<JoinRow<S, Select, Joins>, Change<S, Select, Joins>> {
+	implements QueryRegistryEntry<S>, LinearyQueryWithSubqueries<RowWithSubqueries<S, Select, Joins>, Change<S, Select, Joins>> {
 	
 	constructor(
 		items: ReadonlyMap<UUID, Row<S>>,
 		select: ReadonlyArray<Select>,
 		readonly filter: Filter<S>,
 		readonly sort: (
-			a: JoinRow<S, Select, Joins>, 
-			b: JoinRow<S, Select, Joins>
+			a: RowWithSubqueries<S, Select, Joins>, 
+			b: RowWithSubqueries<S, Select, Joins>
 		) => number,
-		readonly joins: JoinsDescriptor<S, Select>
+		readonly subQueries: SubqueryGenerators<S, Select>
 	) {
 		super()
 		this.result = []
@@ -85,43 +85,43 @@ export class LinearJoinQueryImpl<
 	}
 
 	private readonly rowMap = new Map<Row<Pick<S, Select>>, {
-		augmentedRow: (Row<S> & JoinsResults<S, Select, Joins>),
-		joinQueries: {
+		augmentedRow: (Row<S> & SubqueriesResults<S, Select, Joins>),
+		subQueries: {
 			[K in keyof Joins]: {
-				query: (Query<JoinResult<S, Select, Joins[K]>, JoinChange<S, Select, Joins[K]>>)
-				callback: (InternalChangeCallback<JoinChange<S, Select, Joins[K]>>)
+				query: (Query<SubqueryResult<S, Select, Joins[K]>, SubqueryChange<S, Select, Joins[K]>>)
+				callback: (InternalChangeCallback<SubqueryChange<S, Select, Joins[K]>>)
 			}
 		}
 	}>()
 
 	readonly select: ReadonlySet<keyof S>
 
-	readonly result: (Row<S> & JoinsResults<S, Select, Joins>)[]
+	readonly result: (Row<S> & SubqueriesResults<S, Select, Joins>)[]
 
 	private addedIndex = 0
 
 	doItemAdd(row: Row<S>,  oldValues: Readonly<Partial<Row<S>>> | undefined): void {
 		let augmentedRow: typeof this.result[0]
-		let joinQueries: MapValueType<typeof this.rowMap>['joinQueries']
+		let subQueries: MapValueType<typeof this.rowMap>['subQueries']
 		if (oldValues !== undefined) {
-			({ augmentedRow, joinQueries } = this.rowMap.get(row)!)
+			({ augmentedRow, subQueries } = this.rowMap.get(row)!)
 			for (const key of Object.keys(oldValues) as Array<keyof Row<S>>) {
 				augmentedRow[key] = row[key] as typeof augmentedRow[typeof key]
 			}
 		}
 		else {
 			augmentedRow = { ...row } as typeof this.result[0]
-			joinQueries = {} as typeof joinQueries
+			subQueries = {} as typeof subQueries
 			this.rowMap.set(row, {
 				augmentedRow,
-				joinQueries
+				subQueries
 			})
 		}
 
-		updateQuery: for (const [key, makeQuery] of Object.entries(this.joins) as [keyof Joins, Joins[keyof Joins]][]) {
-			const query = makeQuery(row) as Query<JoinResult<S, Select, Joins[keyof Joins]>, JoinChange<S, Select, Joins[keyof Joins]>>
+		updateQuery: for (const [key, makeQuery] of Object.entries(this.subQueries) as [keyof Joins, Joins[keyof Joins]][]) {
+			const query = makeQuery(row) as Query<SubqueryResult<S, Select, Joins[keyof Joins]>, SubqueryChange<S, Select, Joins[keyof Joins]>>
 			if (oldValues !== undefined) {
-				const { query: oldQuery, callback: oldCallback } = joinQueries[key]
+				const { query: oldQuery, callback: oldCallback } = subQueries[key]
 				if (query === oldQuery) {
 					continue updateQuery
 				}
@@ -131,7 +131,7 @@ export class LinearJoinQueryImpl<
 			augmentedRow[key] = query.result as typeof augmentedRow[typeof key]
 
 			let removedIndex: number
-			const callback: InternalChangeCallback<JoinChange<S, Select, Joins[typeof key]>> = {
+			const callback: InternalChangeCallback<SubqueryChange<S, Select, Joins[typeof key]>> = {
 				willChange: () => {
 					removedIndex = removeOrdered(this.result, augmentedRow as typeof this.result[0], this.sort)!.index
 				},
@@ -149,7 +149,7 @@ export class LinearJoinQueryImpl<
 				}
 			}
 			query.internalObserve(callback)
-			joinQueries[key as keyof Joins] = {
+			subQueries[key as keyof Joins] = {
 				query,
 				callback
 			}
@@ -170,9 +170,9 @@ export class LinearJoinQueryImpl<
 	}
 
 	postItemRemove(row: Row<S>, type: 'delete' | 'update'): () => void {
-		const { augmentedRow, joinQueries } = this.rowMap.get(row)!
+		const { augmentedRow, subQueries } = this.rowMap.get(row)!
 		
-		for (const [, { query, callback }] of Object.entries(joinQueries)) {
+		for (const [, { query, callback }] of Object.entries(subQueries)) {
 			query.unobserve(callback)
 		}
 		this.rowMap.delete(row)
@@ -186,7 +186,7 @@ export class LinearJoinQueryImpl<
 			row: this.rowMap.get(row)!.augmentedRow, 
 			oldIndex: this.removedIndex, 
 			newIndex: this.addedIndex, 
-			oldValues: oldValues as Readonly<Partial<JoinRow<S, Select, Joins>>>,
+			oldValues: oldValues as Readonly<Partial<RowWithSubqueries<S, Select, Joins>>>,
 			type: 'update' 
 		})
 	}

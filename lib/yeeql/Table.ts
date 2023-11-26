@@ -25,6 +25,7 @@ import {
 	LinearQueryWithSubqueries,
 	LinearQueryWithSubqueriesImpl,
 } from './LinearQueryWithSubqueries'
+import { compareStrings } from '../common/string'
 
 type Sort<S extends TableSchema, Q extends SubqueryGenerators<S>> = (
 	a: Row<Primitives<S>> & SubqueriesResults<S, Q>,
@@ -383,7 +384,11 @@ export class Table<S extends TableSchema> {
 	): (a: T, b: T) => number {
 		return (a, b) => {
 			const result = comparator(a, b)
-			return result === 0 ? a.id.localeCompare(b.id) : result
+			if (result === 0) {
+				return compareStrings(a.id, b.id)
+			} else {
+				return result
+			}
 		}
 	}
 }

@@ -158,11 +158,13 @@ export class LinearQueryWithSubqueriesImpl<
 			const callback: InternalChangeCallback<SubqueryChange<S, Q[typeof key]>> =
 				{
 					willChange: () => {
+						console.trace()
 						removedIndex = removeOrdered(
 							this.result,
 							augmentedRow as (typeof this.result)[0],
 							this.sort,
 						)!.index
+						console.log('success')
 					},
 					didChange: (change) => {
 						augmentedRow[key] =
@@ -205,6 +207,7 @@ export class LinearQueryWithSubqueriesImpl<
 
 	doItemRemove(row: Row<S>): void {
 		const { augmentedRow } = this.rowMap.get(row)!
+		console.trace()
 		this.removedIndex = removeOrdered(
 			this.result,
 			augmentedRow,

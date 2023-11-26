@@ -180,23 +180,28 @@ export class Table<S extends TableSchema> {
 		filter?: Filter<S>,
 		sort?: Sort<S, {}>
 	}): LinearQuery<Row<S>>;
-	query<Select extends keyof S>({ filter = {}, select, sort = noSort }: {
+	query<Select extends keyof S>(_: {
 		select: ReadonlyArray<Select>,
 		filter?: Filter<S>,
 		sort?: Sort<S, {}>
 	}): LinearQuery<Row<Pick<S, Select>>>;
-	query<Select extends keyof S, Q extends SubqueryGenerators<S>>({ filter = {}, select, sort = noSort }: {
-		select?: ReadonlyArray<Select>,
+	query<Q extends SubqueryGenerators<S>>(_: {
 		filter?: Filter<S>,
-		sort?: Sort<S, {}>,
-		subqueries: SubqueryGenerators<S>
+		sort?: Sort<S, Q>,
+		subqueries: Q
+	}): LinearQueryWithSubqueries<S, keyof S, Q>;
+	query<Select extends keyof S, Q extends SubqueryGenerators<S>>(_: {
+		select: ReadonlyArray<Select>,
+		filter?: Filter<S>,
+		sort?: Sort<S, Q>,
+		subqueries: Q
 	}): LinearQueryWithSubqueries<S, Select, Q>;
-	query<GroupBy extends keyof Primitives<S>>({ filter = {}, sort = noSort, groupBy }: {
+	query<GroupBy extends keyof Primitives<S>>(_: {
 		filter?: Filter<S>,
 		sort?: Sort<S, {}>,
 		groupBy: GroupBy
 	}): GroupedQuery<Row<S>, Row<Primitives<S>>[GroupBy]>;
-	query<Select extends keyof S, GroupBy extends keyof Primitives<S>>({ filter = {}, select, sort = noSort, groupBy }: {
+	query<Select extends keyof S, GroupBy extends keyof Primitives<S>>(_: {
 		select: ReadonlyArray<Select>,
 		filter?: Filter<S>,
 		sort?: Sort<S, {}>,

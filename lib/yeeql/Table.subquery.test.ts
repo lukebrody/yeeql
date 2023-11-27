@@ -487,3 +487,72 @@ test('Table.subquery.onSelf', () => {
 		},
 	])
 })
+
+test('Table.subQuery.deep', () => {
+	const query = parents.query({
+		subqueries: {
+			children: (parent) =>
+				children.query({
+					filter: { parentId: parent.id },
+					subqueries: {
+						parents: (child) =>
+							parents.query({ filter: { id: child.parentId } }),
+					},
+				}),
+		},
+		sort: (a, b) => a.order - b.order,
+	})
+
+	const parentA = parents.insert({ order: 0 })
+	const child1 = children.insert({ parentId: parentA, order: 0 })
+
+	expect(query.result).toStrictEqual([
+		{
+			id: parentA,
+			order: 0,
+			children: [
+				{
+					id: child1,
+					order: 0,
+					parentId: parentA,
+					parents: [
+						{
+							id: parentA,
+							order: 0,
+						},
+					],
+				},
+			],
+		},
+	])
+
+	const parentB = parents.insert({ order: 1 })
+
+	children.update(child1, 'parentId', parentB)
+
+	expect(query.result).toStrictEqual([
+		{ id: parentA, order: 0, children: [] },
+		{
+			id: parentB,
+			order: 1,
+			children: [
+				{
+					id: child1,
+					order: 0,
+					parentId: parentB,
+					parents: [
+						{
+							id: parentB,
+							order: 1,
+						},
+					],
+				},
+			],
+		},
+	])
+
+	const changes: QueryChange<typeof query>[] = []
+	query.observe((change) => changes.push(JSON.parse(JSON.stringify(change))))
+
+	children.update(child1, 'parentId', parentA)
+})

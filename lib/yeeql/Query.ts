@@ -28,9 +28,10 @@ export type QueryChange<Q extends Query<unknown, unknown>> = Q extends Query<
 	? Change
 	: never
 
-export interface InternalChangeCallback<Change> {
-	willChange(): void
-
-	/** Returns a callback that is called during the normal post-transaction observe step */
-	didChange(change: Change): () => void
-}
+/** Callback used for queries that depend on other queries to
+ * 1. Prepare for updates to the query they're subscribed to
+ * 2. Call `ready` (required) so that other dependent queries can do this process
+ * 3. Make their own modifications based on the new state of their dependency.
+ * 4. Return a changes callback as part of the dependent's change callback.
+ */
+export type InternalChangeCallback<Change> = (ready: () => Change) => () => void

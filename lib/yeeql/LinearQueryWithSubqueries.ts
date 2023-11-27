@@ -93,7 +93,7 @@ export class LinearQueryWithSubqueriesImpl<
 					continue addItem
 				}
 			}
-			this.doItemAdd(row, undefined)
+			this.addRow(row, 'add')
 		}
 		this.select = new Set(select)
 	}
@@ -115,135 +115,150 @@ export class LinearQueryWithSubqueriesImpl<
 
 	readonly result: (Row<S> & SubqueriesResults<S, Q>)[]
 
-	private addedIndex = 0
+	addRow(row: Row<S>, type: 'add' | 'update'): () => void {
+		const augmentedRow = { ...row } as (typeof this.result)[0]
+		const subQueries = {} as MapValueType<typeof this.rowMap>['subQueries']
+		this.rowMap.set(row, {
+			augmentedRow,
+			subQueries,
+		})
 
-	doItemAdd(
-		row: Row<S>,
-		oldValues: Readonly<Partial<Row<S>>> | undefined,
-	): void {
-		let augmentedRow: (typeof this.result)[0]
-		let subQueries: MapValueType<typeof this.rowMap>['subQueries']
-		if (oldValues !== undefined) {
-			;({ augmentedRow, subQueries } = this.rowMap.get(row)!)
-			for (const key of Object.keys(oldValues) as Array<keyof Row<S>>) {
-				augmentedRow[key] = row[key] as (typeof augmentedRow)[typeof key]
-			}
-		} else {
-			augmentedRow = { ...row } as (typeof this.result)[0]
-			subQueries = {} as typeof subQueries
-			this.rowMap.set(row, {
-				augmentedRow,
-				subQueries,
-			})
-		}
-
-		updateQuery: for (const [key, makeQuery] of Object.entries(
-			this.subQueries,
-		) as [keyof Q, Q[keyof Q]][]) {
+		for (const [key, makeQuery] of Object.entries(this.subQueries) as [
+			keyof Q,
+			Q[keyof Q],
+		][]) {
 			const query = makeQuery(row) as Query<
 				SubqueryResult<S, Q[keyof Q]>,
 				SubqueryChange<S, Q[keyof Q]>
 			>
-			if (oldValues !== undefined) {
-				const { query: oldQuery, callback: oldCallback } = subQueries[key]
-				if (query === oldQuery) {
-					continue updateQuery
-				}
-				oldQuery.internalUnobserve(oldCallback)
-			}
 
 			augmentedRow[key] = query.result as (typeof augmentedRow)[typeof key]
 
-			let removedIndex: number
-			const callback: InternalChangeCallback<SubqueryChange<S, Q[typeof key]>> =
-				{
-					willChange: () => {
-						console.trace()
-						removedIndex = removeOrdered(
-							this.result,
-							augmentedRow as (typeof this.result)[0],
-							this.sort,
-						)!.index
-						console.log('success')
-					},
-					didChange: (change) => {
-						augmentedRow[key] =
-							query.result as (typeof augmentedRow)[typeof key]
-						const insertedIndex = insertOrdered(
-							this.result,
-							augmentedRow,
-							this.sort,
-						)
-						return this.notifyObservers({
-							kind: 'subquery',
-							row: augmentedRow,
-							oldIndex: removedIndex,
-							newIndex: insertedIndex,
-							subChange: { key, change },
-							type: 'update',
-						})
-					},
-				}
+			const callback = this.makeInternalCallback(key, augmentedRow, query)
 			query.internalObserve(callback)
-			subQueries[key as keyof Q] = {
-				query,
-				callback,
+			subQueries[key] = { query, callback }
+		}
+
+		return this.makeChange(() => {
+			const addedIndex = insertOrdered(this.result, augmentedRow, this.sort)
+			return {
+				kind: 'add',
+				row: this.rowMap.get(row)!.augmentedRow,
+				newIndex: addedIndex,
+				type,
 			}
-		}
-
-		this.addedIndex = insertOrdered(this.result, augmentedRow, this.sort)
-	}
-
-	postItemAdd(row: Row<S>, type: 'add' | 'update'): () => void {
-		return this.notifyObservers({
-			kind: 'add',
-			row: this.rowMap.get(row)!.augmentedRow,
-			newIndex: this.addedIndex,
-			type,
 		})
 	}
 
-	private removedIndex = 0
-
-	doItemRemove(row: Row<S>): void {
-		const { augmentedRow } = this.rowMap.get(row)!
-		console.trace()
-		this.removedIndex = removeOrdered(
-			this.result,
-			augmentedRow,
-			this.sort,
-		)!.index
+	private makeInternalCallback<Key extends keyof Q>(
+		key: Key,
+		augmentedRow: (typeof this.result)[0],
+		query: Query<SubqueryResult<S, Q[Key]>, SubqueryChange<S, Q[Key]>>,
+	): InternalChangeCallback<SubqueryChange<S, Q[Key]>> {
+		return (ready) => {
+			return this.makeChange(() => {
+				const removedIndex = removeOrdered(
+					this.result,
+					augmentedRow as (typeof this.result)[0],
+					this.sort,
+				)!.index
+				const change = ready()
+				augmentedRow[key] = query.result as (typeof augmentedRow)[Key]
+				const insertedIndex = insertOrdered(
+					this.result,
+					augmentedRow,
+					this.sort,
+				)
+				return {
+					kind: 'subquery',
+					row: augmentedRow,
+					oldIndex: removedIndex,
+					newIndex: insertedIndex,
+					subChange: { key, change },
+					type: 'update',
+				}
+			})
+		}
 	}
 
-	postItemRemove(row: Row<S>, type: 'delete' | 'update'): () => void {
-		const { augmentedRow, subQueries } = this.rowMap.get(row)!
+	removeRow(row: Row<S>, type: 'delete' | 'update'): () => void {
+		return this.makeChange(() => {
+			const { augmentedRow, subQueries } = this.rowMap.get(row)!
+			for (const [, { query, callback }] of Object.entries(subQueries)) {
+				query.unobserve(callback)
+			}
+			this.rowMap.delete(row)
 
-		for (const [, { query, callback }] of Object.entries(subQueries)) {
-			query.unobserve(callback)
-		}
-		this.rowMap.delete(row)
+			const removedIndex = removeOrdered(
+				this.result,
+				augmentedRow,
+				this.sort,
+			)!.index
 
-		return this.notifyObservers({
-			kind: 'remove',
-			row: augmentedRow,
-			oldIndex: this.removedIndex,
-			type,
+			return {
+				kind: 'remove',
+				row: augmentedRow,
+				oldIndex: removedIndex,
+				type,
+			}
 		})
 	}
 
-	postItemChange(
-		row: Row<S>,
+	changeRow(
+		oldRow: Row<S>,
+		newRow: Row<S>,
 		oldValues: Readonly<Partial<Row<S>>>,
 	): () => void {
-		return this.notifyObservers({
-			kind: 'update',
-			row: this.rowMap.get(row)!.augmentedRow,
-			oldIndex: this.removedIndex,
-			newIndex: this.addedIndex,
-			oldValues: oldValues as Readonly<
-				Partial<RowWithSubqueries<S, Select, Q>>
-			>,
-			type: 'update',
+		return this.makeChange(() => {
+			const { augmentedRow, subQueries } = this.rowMap.get(newRow)!
+
+			const removedIndex = removeOrdered(
+				this.result,
+				augmentedRow,
+				this.sort,
+			)!.index
+
+			for (const key of Object.keys(oldValues) as Array<keyof Row<S>>) {
+				augmentedRow[key] = newRow[key] as (typeof augmentedRow)[typeof key]
+			}
+
+			updateQuery: for (const [key, makeQuery] of Object.entries(
+				this.subQueries,
+			) as [keyof Q, Q[keyof Q]][]) {
+				const query = makeQuery(newRow) as Query<
+					SubqueryResult<S, Q[keyof Q]>,
+					SubqueryChange<S, Q[keyof Q]>
+				>
+				if (oldValues !== undefined) {
+					const { query: oldQuery, callback: oldCallback } = subQueries[key]
+					if (query === oldQuery) {
+						continue updateQuery
+					}
+					oldQuery.internalUnobserve(oldCallback)
+				}
+
+				augmentedRow[key] = query.result as (typeof augmentedRow)[typeof key]
+
+				const callback = this.makeInternalCallback(key, augmentedRow, query)
+				query.internalObserve(callback)
+				subQueries[key] = {
+					query,
+					callback,
+				}
+			}
+
+			const addedIndex = insertOrdered(this.result, augmentedRow, this.sort)
+
+			return {
+				kind: 'update',
+				row: augmentedRow,
+				oldIndex: removedIndex,
+				newIndex: addedIndex,
+				oldValues: oldValues as Readonly<
+					Partial<RowWithSubqueries<S, Select, Q>>
+				>,
+				type: 'update',
+			}
 		})
 	}
 }

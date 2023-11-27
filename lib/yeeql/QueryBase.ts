@@ -11,20 +11,6 @@ export abstract class QueryBase<Change> {
 		this.observers.delete(observer)
 	}
 
-	private notifyObservers(change: Change): () => void {
-		const internalObserverNotifications: (() => void)[] = []
-		this.internalObservers.forEach(({ didChange }) =>
-			internalObserverNotifications.push(didChange(change)),
-		)
-
-		const result: Array<() => void> = []
-		result.push(() => this.observers.forEach((observer) => observer(change)))
-		return () => {
-			result.forEach((callback) => callback())
-			internalObserverNotifications.forEach((notify) => notify())
-		}
-	}
-
 	private readonly internalObservers: Set<InternalChangeCallback<Change>> =
 		new Set()
 
@@ -36,13 +22,27 @@ export abstract class QueryBase<Change> {
 		this.internalObservers.delete(callback)
 	}
 
-	private preChange(): void {
-		this.internalObservers.forEach(({ willChange }) => willChange())
-	}
-
 	protected makeChange(block: () => Change): () => void {
-		this.preChange()
-		const change = block()
-		return this.notifyObservers(change)
+		const internalObservers = Array.from(this.internalObservers)
+		const internalObserverNotifications: (() => void)[] = []
+
+		let change: Change
+		const callObserver = (i: number) => {
+			if (i < internalObservers.length) {
+				internalObserverNotifications.push(
+					internalObservers[i](() => callObserver(i + 1)),
+				)
+			} else {
+				change = block()
+			}
+			return change
+		}
+
+		callObserver(0)
+
+		return () => {
+			this.observers.forEach((callback) => callback(change))
+			internalObserverNotifications.forEach((notify) => notify())
+		}
 	}
 }

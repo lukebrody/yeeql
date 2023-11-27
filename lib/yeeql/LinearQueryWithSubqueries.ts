@@ -61,7 +61,7 @@ type Change<
 	SubqueriesChange<SubqueriesChanges<S, Q>>
 >
 
-type RowWithSubqueries<
+export type RowWithSubqueries<
 	S extends TableSchema,
 	Select extends keyof S,
 	Q extends SubqueryGenerators<S>,

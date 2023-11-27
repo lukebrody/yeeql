@@ -4,7 +4,6 @@ import { Table } from './Table'
 import * as Y from 'yjs'
 
 import { beforeEach, expect, test } from 'vitest'
-import { compareStrings } from '../common/string'
 import { QueryChange } from './Query'
 
 const child = {

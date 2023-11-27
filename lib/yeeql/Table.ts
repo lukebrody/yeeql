@@ -8,7 +8,7 @@ import { LinearQuery, LinearQueryImpl } from './LinearQuery'
 import { GroupedQuery, GroupedQueryImpl } from './GroupedQuery'
 import { CountQuery, CountQueryImpl } from './CountQuery'
 import { GroupedCountQuery, GroupedCountQueryImpl } from './GroupedCountQuery'
-import { DefaultMap } from '../common/DefaultMap'
+import { DefaultMap, ReadonlyDefaultMap } from '../common/DefaultMap'
 import { YMap, YEvent } from './YInterfaces'
 import * as Y from 'yjs'
 import { Query, QueryResult, QueryChange } from './Query'
@@ -18,26 +18,61 @@ import {
 	Filter,
 	TableSchema,
 	SubqueryGenerators,
-	SubqueriesResults,
+	SubqueryResult,
 } from './Schema'
 import stringify from 'json-stable-stringify'
 import {
 	LinearQueryWithSubqueries,
 	LinearQueryWithSubqueriesImpl,
+	RowWithSubqueries,
 } from './LinearQueryWithSubqueries'
 import { compareStrings } from '../common/string'
 
 type Sort<S extends TableSchema, Q extends SubqueryGenerators<S>> = (
-	a: Row<Primitives<S>> & SubqueriesResults<S, Q>,
-	b: Row<Primitives<S>> & SubqueriesResults<S, Q>,
+	a: Row<Primitives<S>> & PrimitiveSubqueriesResults<S, Q>,
+	b: Row<Primitives<S>> & PrimitiveSubqueriesResults<S, Q>,
 ) => number
+
+type PrimitiveQueryResult<QueryResult> =
+	// Linear query
+	QueryResult extends ReadonlyArray<Readonly<Row<infer Schema>>>
+		? ReadonlyArray<Readonly<Row<Primitives<Schema>>>>
+		: // Linear query with subqueries
+		  QueryResult extends ReadonlyArray<
+					Readonly<RowWithSubqueries<infer S, infer Select, infer Q>>
+		    >
+		  ? Row<Primitives<Pick<S, Select>>> & PrimitiveSubqueriesResults<S, Q>
+		  : // Grouped query
+		    QueryResult extends ReadonlyDefaultMap<
+						infer GroupValue,
+						ReadonlyArray<Readonly<Row<infer Schema>>>
+		      >
+		    ? ReadonlyDefaultMap<
+						GroupValue,
+						ReadonlyArray<Readonly<Row<Primitives<Schema>>>>
+		      >
+		    : // Count query
+		      QueryResult extends number
+		      ? number
+		      : // Group count query
+		        QueryResult extends ReadonlyDefaultMap<infer Group, number>
+		        ? ReadonlyDefaultMap<Group, number>
+		        : // Unknown
+		          never
+
+type PrimitiveSubqueriesResults<
+	S extends TableSchema,
+	Q extends SubqueryGenerators<S>,
+> = {
+	[K in keyof Q]: PrimitiveQueryResult<SubqueryResult<S, Q[K]>>
+}
 
 function getSortSubqueriesColumns<
 	S extends TableSchema,
 	Q extends SubqueryGenerators<S>,
 >(schema: S, sort: Sort<S, Q>, subqueries?: Q): Set<keyof S> {
 	const result = new Set<keyof S>()
-	const proxy = new Proxy({} as Row<S> & SubqueriesResults<S, Q>, {
+	const proxy = new Proxy({} as Row<S> & PrimitiveSubqueriesResults<S, Q>, {
 		get(_, p) {
 			if (!(p in schema) && (subqueries === undefined || !(p in subqueries))) {
 				throw new Error(

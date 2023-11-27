@@ -18,7 +18,7 @@ export type TableSchema = Schema & { id: Field<UUID> }
 
 export type Primitive = string | number | bigint | boolean | undefined | null
 
-export type Primitives<S extends TableSchema> = Pick<
+export type Primitives<S extends Schema> = Pick<
 	S,
 	keyof {
 		[F in keyof S as FieldType<S[F]> extends Primitive ? F : never]: S[F]

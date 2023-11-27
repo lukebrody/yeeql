@@ -72,6 +72,18 @@ type PrimitiveSubqueriesResults<
 	[K in keyof Q]: PrimitiveQueryResult<SubqueryResult<S, Q[K]>>
 }
 
+const stubProxy: unknown = new Proxy(() => undefined, {
+	get(_, p) {
+		if (p === Symbol.toPrimitive) {
+			return () => '0'
+		}
+		return stubProxy
+	},
+	apply() {
+		return stubProxy
+	},
+})
+
 function getSortSubqueriesColumns<
 	S extends TableSchema,
 	Q extends SubqueryGenerators<S>,
@@ -86,8 +98,9 @@ function getSortSubqueriesColumns<
 			}
 			if (p in schema) {
 				result.add(p as keyof S)
+				return '0'
 			}
-			return '0'
+			return stubProxy
 		},
 	})
 

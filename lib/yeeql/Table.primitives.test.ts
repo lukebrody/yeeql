@@ -76,7 +76,7 @@ test('Table.subquery.sortPrimitives.grouped', () => {
 })
 
 test('Table.subquery.sortPrimitives.deep', () => {
-	const q = table.query({
+	table.query({
 		subqueries: {
 			table1: () =>
 				table.query({
@@ -92,7 +92,6 @@ test('Table.subquery.sortPrimitives.deep', () => {
 			return 0
 		},
 	})
-	q.result[0].table1[0].table2
 })
 
 test('Table.subquery.sortPrimitives.count', () => {

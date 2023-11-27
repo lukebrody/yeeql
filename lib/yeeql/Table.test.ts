@@ -146,7 +146,7 @@ test('Table.categoryHopping', () => {
 
 	let onesChanges: string[] = []
 	onlyOnes.observe((change) => {
-		onesChanges.push(JSON.stringify(change))
+		onesChanges.push(JSON.parse(JSON.stringify(change)))
 	})
 
 	const onlyTwos = table.query({
@@ -156,7 +156,9 @@ test('Table.categoryHopping', () => {
 	})
 
 	let twosChanges: string[] = []
-	onlyTwos.observe((change) => twosChanges.push(JSON.stringify(change)))
+	onlyTwos.observe((change) =>
+		twosChanges.push(JSON.parse(JSON.stringify(change))),
+	)
 
 	expect(onlyOnes.result).toStrictEqual([{ id: aId, number: 1, string: 'a' }])
 	expect(onlyTwos.result).toStrictEqual([{ id: bId, number: 2, string: 'b' }])
@@ -170,21 +172,21 @@ test('Table.categoryHopping', () => {
 	])
 
 	expect(onesChanges).toStrictEqual([
-		JSON.stringify({
+		{
 			kind: 'remove',
-			row: { id: aId, number: 2, string: 'a' },
+			row: { id: aId, number: 1, string: 'a' },
 			oldIndex: 0,
 			type: 'update',
-		}),
+		},
 	])
 
 	expect(twosChanges).toStrictEqual([
-		JSON.stringify({
+		{
 			kind: 'add',
 			row: { id: aId, number: 2, string: 'a' },
 			newIndex: 0,
 			type: 'update',
-		}),
+		},
 	])
 
 	onesChanges = []
@@ -198,12 +200,12 @@ test('Table.categoryHopping', () => {
 	expect(onesChanges).toStrictEqual([])
 
 	expect(twosChanges).toStrictEqual([
-		JSON.stringify({
+		{
 			kind: 'remove',
-			row: { id: bId, number: 0, string: 'b' },
+			row: { id: bId, number: 2, string: 'b' },
 			oldIndex: 1,
 			type: 'update',
-		}),
+		},
 	])
 })
 
@@ -249,7 +251,7 @@ test('Table.selectTypeChecking', () => {
 			// @ts-expect-error Can't select unknown column id2
 			select: ['id2'],
 		}),
-	).toThrow('unknown column \'id2\'')
+	).toThrow("unknown column 'id2'")
 })
 
 test('Table.filterTypeChecking', () => {
@@ -259,7 +261,7 @@ test('Table.filterTypeChecking', () => {
 			// @ts-expect-error Can't filter by unknown column number2
 			filter: { number2: 1 },
 		}),
-	).toThrow('unknown column \'number2\'')
+	).toThrow("unknown column 'number2'")
 })
 
 test('Table.groupByTypeChecking', () => {
@@ -268,7 +270,7 @@ test('Table.groupByTypeChecking', () => {
 			// @ts-expect-error Can't group by uknown column string2
 			groupBy: 'string2',
 		}),
-	).toThrow('unknown column \'string2\'')
+	).toThrow("unknown column 'string2'")
 })
 
 test('Table.sortTypeChecking', () => {
@@ -278,7 +280,7 @@ test('Table.sortTypeChecking', () => {
 			// @ts-expect-error Can't sort by unknown column string2
 			sort: (a, b) => a.string2.localeCompare(b.string2),
 		}),
-	).toThrow('unknown column \'string2\' used in \'sort\' comparator')
+	).toThrow("unknown column 'string2' used in 'sort' comparator")
 })
 
 test('Table.sorting', () => {
@@ -329,7 +331,7 @@ test('Table.groupByTransfer', () => {
 	expect(observer).toBeCalledTimes(2)
 	expect(observer).toHaveBeenNthCalledWith(1, {
 		kind: 'remove',
-		row: { id: rowId, number: 2, string: 'a' },
+		row: { id: rowId, number: 1, string: 'a' },
 		oldIndex: 0,
 		type: 'update',
 		group: 1,

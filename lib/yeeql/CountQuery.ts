@@ -32,24 +32,21 @@ export class CountQueryImpl<S extends TableSchema>
 
 	result: number
 
-	doItemAdd(): void {
-		this.result++
+	addRow(): () => void {
+		return this.makeChange(() => {
+			this.result++
+			return 1
+		})
 	}
 
-	postItemAdd(): () => void {
-		return this.notifyObservers(1)
+	removeRow(): () => void {
+		return this.makeChange(() => {
+			this.result--
+			return -1
+		})
 	}
 
-	doItemRemove(): void {
-		this.result--
-	}
-
-	postItemRemove(): () => void {
-		return this.notifyObservers(-1)
-	}
-
-	postItemChange(): () => void {
-		// Item changing doesn't add or remove it from the count
+	changeRow(): () => void {
 		return () => undefined
 	}
 }

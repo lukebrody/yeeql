@@ -15,3 +15,4 @@ Send notifications of row movement
 How to get pre-result??? Send the change down
 
 TODO: Filter by subqueries?
+TODO: Sorting by subquery needs to limit to the subquery's primitves

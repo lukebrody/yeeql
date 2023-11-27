@@ -59,47 +59,46 @@ export class LinearQueryImpl<S extends TableSchema, Select extends keyof S>
 
 	readonly result: Row<S>[]
 
-	private addedIndex = 0
-
-	doItemAdd(row: Row<S>): void {
-		this.addedIndex = insertOrdered(this.result, row, this.sort)
-	}
-
-	postItemAdd(row: Row<S>, type: 'add' | 'update'): () => void {
-		return this.notifyObservers({
-			kind: 'add',
-			row,
-			newIndex: this.addedIndex,
-			type,
+	addRow(row: Row<S>, type: 'add' | 'update'): () => void {
+		return this.makeChange(() => {
+			const addedIndex = insertOrdered(this.result, row, this.sort)
+			return {
+				kind: 'add',
+				row,
+				newIndex: addedIndex,
+				type,
+			}
 		})
 	}
 
-	private removedIndex = 0
-
-	doItemRemove(row: Row<S>): void {
-		this.removedIndex = removeOrdered(this.result, row, this.sort)!.index
-	}
-
-	postItemRemove(row: Row<S>, type: 'delete' | 'update'): () => void {
-		return this.notifyObservers({
-			kind: 'remove',
-			row,
-			oldIndex: this.removedIndex,
-			type,
+	removeRow(row: Row<S>, type: 'delete' | 'update'): () => void {
+		return this.makeChange(() => {
+			const removedIndex = removeOrdered(this.result, row, this.sort)!.index
+			return {
+				kind: 'remove',
+				row,
+				oldIndex: removedIndex,
+				type,
+			}
 		})
 	}
 
-	postItemChange(
-		row: Row<S>,
+	changeRow(
+		oldRow: Row<S>,
+		newRow: Row<S>,
 		oldValues: Readonly<Partial<Row<S>>>,
 	): () => void {
-		return this.notifyObservers({
-			kind: 'update',
-			row,
-			oldIndex: this.removedIndex,
-			newIndex: this.addedIndex,
-			oldValues,
-			type: 'update',
+		return this.makeChange(() => {
+			const removedIndex = removeOrdered(this.result, oldRow, this.sort)!.index
+			const addedIndex = insertOrdered(this.result, newRow, this.sort)
+			return {
+				kind: 'update',
+				row: newRow,
+				oldIndex: removedIndex,
+				newIndex: addedIndex,
+				oldValues,
+				type: 'update',
+			}
 		})
 	}
 }

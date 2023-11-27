@@ -53,56 +53,64 @@ export class GroupedQueryImpl<
 
 	readonly result: DefaultMap<Row<S>[GroupBy], Row<S>[]>
 
-	private added?: { group: Row<S>[GroupBy]; newIndex: number }
-
-	doItemAdd(row: Row<S>): void {
-		const group = row[this.groupBy]
-		this.added = {
-			group,
-			newIndex: insertOrdered(this.result.get(group), row, this.sort),
-		}
-	}
-
-	postItemAdd(row: Row<S>, type: 'add' | 'update'): () => void {
-		return this.notifyObservers({ kind: 'add', row, ...this.added!, type })
-	}
-
-	private removed?: { group: Row<S>[GroupBy]; oldIndex: number }
-
-	doItemRemove(row: Row<S>): void {
-		const group = row[this.groupBy]
-		this.removed = {
-			group,
-			oldIndex: removeOrdered(this.result.get(group), row, this.sort)!.index,
-		}
-	}
-
-	postItemRemove(row: Row<S>, type: 'delete' | 'update'): () => void {
-		return this.notifyObservers({
-			kind: 'remove',
-			row,
-			...this.removed!,
-			type,
+	addRow(row: Row<S>, type: 'add' | 'update'): () => void {
+		return this.makeChange(() => {
+			const group = row[this.groupBy]
+			const newIndex = insertOrdered(this.result.get(group), row, this.sort)
+			return { kind: 'add', row, group, newIndex, type }
 		})
 	}
 
-	postItemChange(
-		row: Row<S>,
+	removeRow(row: Row<S>, type: 'delete' | 'update'): () => void {
+		return this.makeChange(() => {
+			const group = row[this.groupBy]
+			const oldIndex = removeOrdered(
+				this.result.get(group),
+				row,
+				this.sort,
+			)!.index
+			return {
+				kind: 'remove',
+				row,
+				group,
+				oldIndex,
+				type,
+			}
+		})
+	}
+
+	changeRow(
+		oldRow: Row<S>,
+		newRow: Row<S>,
 		oldValues: Readonly<Partial<Row<S>>>,
 	): () => void {
-		if (this.removed!.group === this.added!.group) {
-			return this.notifyObservers({
-				kind: 'update',
-				row,
-				oldIndex: this.removed!.oldIndex,
-				newIndex: this.added!.newIndex,
-				oldValues,
-				group: this.added!.group,
-				type: 'update',
+		const removedGroup = oldRow[this.groupBy]
+		const addedGroup = newRow[this.groupBy]
+		if (removedGroup === addedGroup) {
+			return this.makeChange(() => {
+				const oldIndex = removeOrdered(
+					this.result.get(removedGroup),
+					oldRow,
+					this.sort,
+				)!.index
+				const newIndex = insertOrdered(
+					this.result.get(addedGroup),
+					newRow,
+					this.sort,
+				)
+				return {
+					kind: 'update',
+					row: newRow,
+					oldIndex: oldIndex,
+					newIndex: newIndex,
+					oldValues,
+					group: addedGroup,
+					type: 'update',
+				}
 			})
 		} else {
-			const removeResult = this.postItemRemove(row, 'update')
-			const addResult = this.postItemAdd(row, 'update')
+			const removeResult = this.removeRow(oldRow, 'update')
+			const addResult = this.addRow(newRow, 'update')
 			return () => {
 				removeResult()
 				addResult()

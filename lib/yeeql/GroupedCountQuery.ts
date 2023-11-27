@@ -42,37 +42,33 @@ export class GroupedCountQueryImpl<
 
 	result: DefaultMap<Row<S>[GroupBy], number>
 
-	private addedGroup?: Row<S>[GroupBy]
-
-	doItemAdd(row: Row<S>): void {
-		this.addedGroup = row[this.groupBy]
-		this.result.set(this.addedGroup!, this.result.get(this.addedGroup!) + 1)
+	addRow(row: Row<S>): () => void {
+		return this.makeChange(() => {
+			const addedGroup = row[this.groupBy]
+			this.result.set(addedGroup!, this.result.get(addedGroup) + 1)
+			return { group: addedGroup, change: 1 }
+		})
 	}
 
-	postItemAdd(): () => void {
-		return this.notifyObservers({ group: this.addedGroup!, change: 1 })
+	removeRow(row: Row<S>): () => void {
+		return this.makeChange(() => {
+			const removedGroup = row[this.groupBy]
+			this.result.set(removedGroup, this.result.get(removedGroup) - 1)
+			return { group: removedGroup, change: -1 }
+		})
 	}
 
-	private removedGroup?: Row<S>[GroupBy]
-
-	doItemRemove(row: Row<S>): void {
-		this.removedGroup = row[this.groupBy]
-		this.result.set(this.removedGroup!, this.result.get(this.removedGroup!) - 1)
-	}
-
-	postItemRemove(): () => void {
-		return this.notifyObservers({ group: this.removedGroup!, change: -1 })
-	}
-
-	postItemChange(): () => void {
-		if (this.removedGroup! !== this.addedGroup!) {
-			const removed = this.notifyObservers({
-				group: this.removedGroup!,
-				change: -1,
+	changeRow(oldRow: Row<S>, newRow: Row<S>): () => void {
+		const removedGroup = oldRow[this.groupBy]
+		const addedGroup = newRow[this.groupBy]
+		if (removedGroup !== addedGroup) {
+			const removed = this.makeChange(() => {
+				this.result.set(removedGroup, this.result.get(removedGroup) - 1)
+				return { group: removedGroup, change: -1 }
 			})
-			const added = this.notifyObservers({
-				group: this.addedGroup!,
-				change: -1,
+			const added = this.makeChange(() => {
+				this.result.set(addedGroup!, this.result.get(addedGroup) + 1)
+				return { group: addedGroup, change: 1 }
 			})
 			return () => {
 				removed()

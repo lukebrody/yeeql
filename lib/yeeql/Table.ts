@@ -87,9 +87,7 @@ export class Table<S extends TableSchema> {
 							this.items.delete(key as UUID)
 							const queries = this.queryRegistry.queries(row, addedOrRemoved)
 							queries.forEach((query) => {
-								query.preChange()
-								query.doItemRemove(row)
-								runAfterTransaction.push(query.postItemRemove(row, action))
+								runAfterTransaction.push(query.removeRow(row, action))
 							})
 						}
 						if (action === 'add' || action === 'update') {
@@ -97,54 +95,46 @@ export class Table<S extends TableSchema> {
 							this.items.set(key as UUID, row)
 							const queries = this.queryRegistry.queries(row, addedOrRemoved)
 							queries.forEach((query) => {
-								query.preChange()
-								query.doItemAdd(row, undefined)
-								runAfterTransaction.push(query.postItemAdd(row, action))
+								runAfterTransaction.push(query.addRow(row, action))
 							})
 						}
 					}
 				} else if (event.target.parent === yTable) {
 					const id = event.path[event.path.length - 1] as UUID
-					const row = this.items.get(id)!
+
+					const oldRow = this.items.get(id)!
+					const oldValues: Partial<Row<S>> = {}
 
 					const changes: Partial<Row<S>> = {}
-					this.patchRow(changes, event)
+					const newRow = { ...oldRow }
+					this.items.set(id, newRow)
 
-					const oldValues: Partial<Row<S>> = {}
-					for (const [key, { oldValue }] of event.keys) {
-						oldValues[key as keyof Row<S>] = oldValue
+					for (const key of event.keys.keys() as IterableIterator<
+						keyof Row<S>
+					>) {
+						// eslint-disable-next-line @typescript-eslint/no-explicit-any
+						const value = event.target.get(key)! as any
+						oldValues[key] = oldRow[key]
+						newRow[key] = value
+						changes[key] = value
 					}
 
 					// Query `filter` should be a subset of `select` since we're querying on changes, and filter params may have changed
-					const beforeQueries = this.queryRegistry.queries(row, changes)
+					const beforeQueries = this.queryRegistry.queries(oldRow, changes)
+					const afterQueries = this.queryRegistry.queries(newRow, changes)
 
 					for (const beforeQuery of beforeQueries) {
-						beforeQuery.preChange()
-						beforeQuery.doItemRemove(row)
+						if (!afterQueries.has(beforeQuery)) {
+							runAfterTransaction.push(beforeQuery.removeRow(oldRow, 'update'))
+						}
 					}
-
-					this.patchRow(row, event)
-
-					const afterQueries = this.queryRegistry.queries(row, changes)
 
 					for (const afterQuery of afterQueries) {
 						if (!beforeQueries.has(afterQuery)) {
-							afterQuery.preChange()
-						}
-						afterQuery.doItemAdd(row, oldValues)
-						if (!beforeQueries.has(afterQuery)) {
-							runAfterTransaction.push(afterQuery.postItemAdd(row, 'update'))
-						}
-					}
-
-					for (const beforeQuery of beforeQueries) {
-						if (afterQueries.has(beforeQuery)) {
-							runAfterTransaction.push(
-								beforeQuery.postItemChange(row, oldValues),
-							)
+							runAfterTransaction.push(afterQuery.addRow(newRow, 'update'))
 						} else {
 							runAfterTransaction.push(
-								beforeQuery.postItemRemove(row, 'update'),
+								afterQuery.changeRow(oldRow, newRow, oldValues),
 							)
 						}
 					}
@@ -155,13 +145,6 @@ export class Table<S extends TableSchema> {
 				runAfterTransaction.forEach((callback) => callback())
 			})
 		})
-	}
-
-	private patchRow(row: Partial<Row<S>>, event: YEvent) {
-		for (const [key] of event.keys) {
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			row[key as keyof Row<S>] = event.target.get(key)! as any
-		}
 	}
 
 	private readonly queryRegistry: QueryRegistry<S>

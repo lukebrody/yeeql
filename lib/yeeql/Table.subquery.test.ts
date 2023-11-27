@@ -402,7 +402,7 @@ test('Table.subquery.sortUpdate', () => {
 	])
 })
 
-test.only('Table.subquery.onSelf', () => {
+test('Table.subquery.onSelf', () => {
 	const query = children.query({
 		subqueries: {
 			siblings: (child) =>
@@ -415,97 +415,75 @@ test.only('Table.subquery.onSelf', () => {
 		sort: (a, b) => a.order - b.order,
 	})
 
-	const parentA = UUID.create()
+	const parentA = parents.insert({ order: 0 })
+	const parentB = parents.insert({ order: 1 })
 
 	const child1 = children.insert({ parentId: parentA, order: 0 })
+	const child2 = children.insert({ parentId: parentB, order: 1 })
 
-	expect(query.result.length).toBe(1)
+	expect(query.result).toStrictEqual([
+		{
+			siblings: [
+				{
+					id: child1,
+					order: 0,
+					parentId: parentA,
+				},
+			],
+			id: child1,
+			order: 0,
+			parentId: parentA,
+		},
+		{
+			siblings: [
+				{
+					id: child2,
+					order: 1,
+					parentId: parentB,
+				},
+			],
+			id: child2,
+			order: 1,
+			parentId: parentB,
+		},
+	])
 
-	children.update(child1, 'parentId', parentA)
+	children.update(child2, 'parentId', parentA)
+
+	expect(query.result).toStrictEqual([
+		{
+			siblings: [
+				{
+					id: child1,
+					order: 0,
+					parentId: parentA,
+				},
+				{
+					id: child2,
+					order: 1,
+					parentId: parentA,
+				},
+			],
+			id: child1,
+			order: 0,
+			parentId: parentA,
+		},
+		{
+			siblings: [
+				{
+					id: child1,
+					order: 0,
+					parentId: parentA,
+				},
+				{
+					id: child2,
+					order: 1,
+					parentId: parentA,
+				},
+			],
+			id: child2,
+			order: 1,
+			parentId: parentA,
+		},
+	])
 })
-
-// test('Table.subquery.onSelf', () => {
-// 	const query = children.query({
-// 		subqueries: {
-// 			siblings: (child) =>
-// 				children.query({
-// 					filter: { parentId: child.parentId },
-// 					sort: (a, b) => a.order - b.order,
-// 				}),
-// 		},
-// 		// Sort by child with the greatest order
-// 		sort: (a, b) => a.order - b.order,
-// 	})
-
-// 	const parentA = parents.insert({ order: 0 })
-// 	const parentB = parents.insert({ order: 1 })
-
-// 	const child1 = children.insert({ parentId: parentA, order: 0 })
-// 	const child2 = children.insert({ parentId: parentB, order: 1 })
-
-// 	expect(query.result).toStrictEqual([
-// 		{
-// 			siblings: [
-// 				{
-// 					id: child1,
-// 					order: 0,
-// 					parentId: parentA,
-// 				},
-// 			],
-// 			id: child1,
-// 			order: 0,
-// 			parentId: parentA,
-// 		},
-// 		{
-// 			siblings: [
-// 				{
-// 					id: child2,
-// 					order: 1,
-// 					parentId: parentB,
-// 				},
-// 			],
-// 			id: child2,
-// 			order: 1,
-// 			parentId: parentB,
-// 		},
-// 	])
-
-// 	children.update(child2, 'parentId', parentA)
-
-// 	expect(query.result).toStrictEqual([
-// 		{
-// 			siblings: [
-// 				{
-// 					id: child1,
-// 					order: 0,
-// 					parentId: parentA,
-// 				},
-// 				{
-// 					id: child2,
-// 					order: 1,
-// 					parentId: parentA,
-// 				},
-// 			],
-// 			id: child1,
-// 			order: 0,
-// 			parentId: parentA,
-// 		},
-// 		{
-// 			siblings: [
-// 				{
-// 					id: child1,
-// 					order: 0,
-// 					parentId: parentA,
-// 				},
-// 				{
-// 					id: child2,
-// 					order: 1,
-// 					parentId: parentA,
-// 				},
-// 			],
-// 			id: child2,
-// 			order: 1,
-// 			parentId: parentA,
-// 		},
-// 	])
-// })

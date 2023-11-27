@@ -210,7 +210,9 @@ export class LinearQueryWithSubqueriesImpl<
 		oldValues: Readonly<Partial<Row<S>>>,
 	): () => void {
 		return this.makeChange(() => {
-			const { augmentedRow, subQueries } = this.rowMap.get(newRow)!
+			const { augmentedRow, subQueries } = this.rowMap.get(oldRow)!
+			this.rowMap.delete(oldRow)
+			this.rowMap.set(newRow, { augmentedRow, subQueries })
 
 			const removedIndex = removeOrdered(
 				this.result,

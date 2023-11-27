@@ -28,37 +28,42 @@ import {
 } from './LinearQueryWithSubqueries'
 import { compareStrings } from '../common/string'
 
+/*
+ * We only allow the user to use primitives in their sort function,
+ * as objects can change without updating yeeql and cause the sorted order to become invalid
+ */
 type Sort<S extends TableSchema, Q extends SubqueryGenerators<S>> = (
 	a: Row<Primitives<S>> & PrimitiveSubqueriesResults<S, Q>,
 	b: Row<Primitives<S>> & PrimitiveSubqueriesResults<S, Q>,
 ) => number
 
 type PrimitiveQueryResult<QueryResult> =
-	// Linear query
-	QueryResult extends ReadonlyArray<Readonly<Row<infer Schema>>>
-		? ReadonlyArray<Readonly<Row<Primitives<Schema>>>>
-		: // Linear query with subqueries
-		  QueryResult extends ReadonlyArray<
-					Readonly<RowWithSubqueries<infer S, infer Select, infer Q>>
+	// Linear query (with or without subqueries)
+	QueryResult extends ReadonlyArray<
+		Readonly<RowWithSubqueries<infer S, infer Select, infer Q>>
+	>
+		? ReadonlyArray<
+				Readonly<
+					Row<Primitives<Pick<S, Select>>> & PrimitiveSubqueriesResults<S, Q>
+				>
+		  >
+		: // Grouped query
+		  QueryResult extends ReadonlyDefaultMap<
+					infer GroupValue,
+					ReadonlyArray<Readonly<Row<infer Schema>>>
 		    >
-		  ? Row<Primitives<Pick<S, Select>>> & PrimitiveSubqueriesResults<S, Q>
-		  : // Grouped query
-		    QueryResult extends ReadonlyDefaultMap<
-						infer GroupValue,
-						ReadonlyArray<Readonly<Row<infer Schema>>>
-		      >
-		    ? ReadonlyDefaultMap<
-						GroupValue,
-						ReadonlyArray<Readonly<Row<Primitives<Schema>>>>
-		      >
-		    : // Count query
-		      QueryResult extends number
-		      ? number
-		      : // Group count query
-		        QueryResult extends ReadonlyDefaultMap<infer Group, number>
-		        ? ReadonlyDefaultMap<Group, number>
-		        : // Unknown
-		          never
+		  ? ReadonlyDefaultMap<
+					GroupValue,
+					ReadonlyArray<Readonly<Row<Primitives<Schema>>>>
+		    >
+		  : // Count query
+		    QueryResult extends number
+		    ? number
+		    : // Group count query
+		      QueryResult extends ReadonlyDefaultMap<infer Group, number>
+		      ? ReadonlyDefaultMap<Group, number>
+		      : // Unknown
+		        never
 
 type PrimitiveSubqueriesResults<
 	S extends TableSchema,
@@ -319,7 +324,10 @@ export class Table<S extends TableSchema> {
 							this.items,
 							resolvedSelect,
 							filter,
-							this.makeTiebrokenIdSort(sort),
+							this.makeTiebrokenIdSort(sort) as (
+								a: RowWithSubqueries<S, keyof S, Q>,
+								b: RowWithSubqueries<S, keyof S, Q>,
+							) => number,
 							subqueries,
 						),
 				)

@@ -38,8 +38,83 @@ test('Table.groupByPrimitiveTypeChecking', () => {
 
 test('Table.sortPrimitiveTypeChecking', () => {
 	table.query({
-		// @ts-expect-error Should not allow sorting on non-primitive object
 		sort: (a, b) =>
+			// @ts-expect-error Should not allow sorting on non-primitive object
 			JSON.stringify(a.object).localeCompare(JSON.stringify(b.object)),
+	})
+})
+
+test('Table.subquery.sortPrimitives.linear', () => {
+	table.query({
+		subqueries: {
+			table: () => table.query({}),
+		},
+		sort: (a, b) => {
+			a.table[0].id
+			a.table[0].number
+			// @ts-expect-error Should not allow sorting on non-primitive object in subquery
+			a.table[0].object.toString() // object is never
+			// @ts-expect-error Should not allow sorting on non-primitive object in subquery
+			b.table[0].object.toString() // object is never
+			return 0
+		},
+	})
+})
+
+test('Table.subquery.sortPrimitives.grouped', () => {
+	table.query({
+		subqueries: {
+			table: () => table.query({ groupBy: 'number' }),
+		},
+		sort: (a) => {
+			a.table.get(0)[0].string
+			// @ts-expect-error Should not allow sorting on non-primitive object in subquery
+			a.table.get(0)[0].object
+			return 0
+		},
+	})
+})
+
+test('Table.subquery.sortPrimitives.deep', () => {
+	const q = table.query({
+		subqueries: {
+			table1: () =>
+				table.query({
+					subqueries: {
+						table2: () => table.query({}),
+					},
+				}),
+		},
+		sort: (a) => {
+			a.table1[0].table2[0].string
+			// @ts-expect-error Should not allow sorting on non-primitive object in subquery
+			a.table1[0].table2[0].object.toString()
+			return 0
+		},
+	})
+	q.result[0].table1[0].table2
+})
+
+test('Table.subquery.sortPrimitives.count', () => {
+	table.query({
+		subqueries: {
+			count: () => table.count({}),
+		},
+		sort: (a) => {
+			a.count
+			return 0
+		},
+	})
+})
+
+test('Table.subquery.sortPrimitives.groupedCount', () => {
+	table.query({
+		subqueries: {
+			count: () => table.count({ groupBy: 'number' }),
+		},
+		sort: (a) => {
+			a.count.get(0) + 1
+			return 0
+		},
 	})
 })

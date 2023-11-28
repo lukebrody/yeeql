@@ -251,7 +251,7 @@ test('Table.selectTypeChecking', () => {
 			// @ts-expect-error Can't select unknown column id2
 			select: ['id2'],
 		}),
-	).toThrow("unknown column 'id2'")
+	).toThrow('unknown column \'id2\'')
 })
 
 test('Table.filterTypeChecking', () => {
@@ -261,7 +261,7 @@ test('Table.filterTypeChecking', () => {
 			// @ts-expect-error Can't filter by unknown column number2
 			filter: { number2: 1 },
 		}),
-	).toThrow("unknown column 'number2'")
+	).toThrow('unknown column \'number2\'')
 })
 
 test('Table.groupByTypeChecking', () => {
@@ -270,7 +270,7 @@ test('Table.groupByTypeChecking', () => {
 			// @ts-expect-error Can't group by uknown column string2
 			groupBy: 'string2',
 		}),
-	).toThrow("unknown column 'string2'")
+	).toThrow('unknown column \'string2\'')
 })
 
 test('Table.sortTypeChecking', () => {
@@ -280,7 +280,7 @@ test('Table.sortTypeChecking', () => {
 			// @ts-expect-error Can't sort by unknown column string2
 			sort: (a, b) => a.string2.localeCompare(b.string2),
 		}),
-	).toThrow("unknown column 'string2' used in 'sort' comparator")
+	).toThrow('unknown column \'string2\' used in \'sort\' comparator')
 })
 
 test('Table.sorting', () => {

@@ -28,8 +28,8 @@ beforeEach(() => {
 	doc = new Y.Doc()
 	yChildren = doc.getMap('children') as Y.Map<Y.Map<unknown>>
 	yParents = doc.getMap('parents') as Y.Map<Y.Map<unknown>>
-	children = new Table(yChildren, child)
-	parents = new Table(yParents, parent)
+	children = new Table(yChildren, child, 'children')
+	parents = new Table(yParents, parent, 'parents')
 })
 
 test('Table.subquery.read', () => {

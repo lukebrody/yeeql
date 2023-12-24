@@ -167,16 +167,14 @@ export interface QueryRegistryEntry<S extends TableSchema> {
 	readonly select: ReadonlySet<keyof S> // Other fields that we care about changing
 
 	// `type` is 'add' when this row is freshly added to the table, update when the row comes in scope of the filter
-	// @param row is the new row
 	addRow(row: Row<S>, type: 'add' | 'update'): () => void
 
-	// @param row is the row, or a different object that has the same entries as the row before it was removed
 	removeRow(row: Row<S>, type: 'delete' | 'update'): () => void
 
-	// @param row is the table row, will the old values
+	// @param row is the table row, with the old values
 	// @param oldValues is an object with the keys that will update, and the values they will update from
 	// @param newValues is an object with the keys that will update, and the values they will update to
-	// @param patch is a function that, when called, mutates `row` to have the new values. `patch` is required to be called during this implementation
+	// @param patch is a function that mutates `row` to have the new values. `patch` is required to be called during this implementation
 	changeRow(
 		row: Row<S>,
 		oldValues: Readonly<Partial<Row<S>>>,

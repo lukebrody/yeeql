@@ -112,3 +112,27 @@ test('Table.transaction.manyInserts', () => {
 	expect(changes1[0]['newIndex']).toBe(0)
 	expect(changes1[1]['newIndex']).toBe(1)
 })
+
+test('Table.transaction.manyUpdates', () => {
+	const query = table1.query({
+		select: ['number'],
+		sort: (a, b) => a.number - b.number,
+		filter: {
+			string: 'a',
+		},
+		groupBy: 'string',
+	})
+
+	const itemA = table1.insert({ number: 1, string: 'a' })
+	const itemB = table1.insert({ number: 2, string: 'a' })
+
+	doc.transact(() => {
+		table1.update(itemA, 'number', 3)
+		table1.update(itemB, 'number', 4)
+	})
+
+	expect(query.result.get('a')).toStrictEqual([
+		{ id: itemA, string: 'a', number: 3 },
+		{ id: itemB, string: 'a', number: 4 },
+	])
+})

@@ -1,8 +1,8 @@
 import { UUID } from '../common/UUID'
 import { insertOrdered, removeOrdered } from '../common/array'
 import { LinearQueryChange } from './LinearQuery'
-import { InternalChangeCallback, Query } from './Query'
-import { QueryBase } from './QueryBase'
+import { Query } from './Query'
+import { QueryBase, InternalChangeCallback, QueryInternal } from './QueryBase'
 import { QueryRegistryEntry } from './QueryRegistry'
 import {
 	TableSchema,
@@ -107,7 +107,8 @@ export class LinearQueryWithSubqueriesImpl<
 			augmentedRow: Row<S> & SubqueriesResults<S, Q>
 			subQueries: {
 				[K in keyof Q]: {
-					query: Query<SubqueryResult<S, Q[K]>, SubqueryChange<S, Q[K]>>
+					query: Query<SubqueryResult<S, Q[K]>, SubqueryChange<S, Q[K]>> &
+						QueryInternal<SubqueryChange<S, Q[K]>>
 					callback: InternalChangeCallback<SubqueryChange<S, Q[K]>>
 				}
 			}
@@ -134,7 +135,8 @@ export class LinearQueryWithSubqueriesImpl<
 			const query = makeQuery(row) as Query<
 				SubqueryResult<S, Q[keyof Q]>,
 				SubqueryChange<S, Q[keyof Q]>
-			>
+			> &
+				QueryInternal<SubqueryChange<S, Q[keyof Q]>>
 			debug.makingSubquery = false
 
 			augmentedRow[key] = query.result as (typeof augmentedRow)[typeof key]
@@ -242,7 +244,8 @@ export class LinearQueryWithSubqueriesImpl<
 				const query = makeQuery(row) as Query<
 					SubqueryResult<S, Q[keyof Q]>,
 					SubqueryChange<S, Q[keyof Q]>
-				>
+				> &
+					QueryInternal<SubqueryChange<S, Q[keyof Q]>>
 				debug.makingSubquery = false
 				const { query: oldQuery, callback: oldCallback } = subQueries[key]
 				if (query === oldQuery) {

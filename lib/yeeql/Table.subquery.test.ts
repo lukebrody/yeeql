@@ -622,3 +622,35 @@ test('Table.subquery.multipleUpdates', () => {
 		},
 	])
 })
+
+test('Table.subquery.dependencies', () => {
+	let childrenSubqueryCount = 0
+	let sameOrderSubqueryCount = 0
+
+	const query = parents.query({
+		subqueries: {
+			children: (parent) => {
+				childrenSubqueryCount++
+				return children.query({
+					filter: { parentId: parent.id },
+					sort: (a, b) => a.order - b.order,
+				})
+			},
+			sameOrder: (parent) => {
+				sameOrderSubqueryCount++
+				return children.count({ filter: { order: parent.order } })
+			},
+		},
+	})
+
+	const parentA = parents.insert({ order: 0 })
+	children.insert({ parentId: parentA, order: 0 })
+
+	childrenSubqueryCount = 0
+	sameOrderSubqueryCount = 0
+
+	parents.update(parentA, 'order', 1)
+
+	expect(childrenSubqueryCount).toBe(0)
+	expect(sameOrderSubqueryCount).toBe(1)
+})

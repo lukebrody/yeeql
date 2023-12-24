@@ -266,8 +266,8 @@ export class Table<S extends TableSchema> {
 	query<Select extends keyof S>(_: {
 		select?: ReadonlyArray<Select>
 		filter?: Filter<S>
-		sort?: Sort<S, {}>
 		subqueries?: undefined // Need this so TypeScript doesn't get confused??
+		sort?: Sort<S, {}>
 	}): LinearQuery<Row<Pick<S, Select>>>
 	query<Select extends keyof S, Q extends SubqueryGenerators<S>>(_: {
 		select?: ReadonlyArray<Select>

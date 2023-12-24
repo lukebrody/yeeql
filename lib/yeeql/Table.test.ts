@@ -246,40 +246,48 @@ test('Table.cachedQueries', () => {
 })
 
 test('Table.selectTypeChecking', () => {
-	expect(() =>
-		table.query({
-			// @ts-expect-error Can't select unknown column id2
-			select: ['id2'],
-		}),
+	expect(
+		() =>
+			table.query({
+				// @ts-expect-error Can't select unknown column id2
+				select: ['id2'],
+			}),
+		// eslint-disable-next-line quotes
 	).toThrow("unknown column 'id2'")
 })
 
 test('Table.filterTypeChecking', () => {
-	expect(() =>
-		table.query({
-			select: ['id'],
-			// @ts-expect-error Can't filter by unknown column number2
-			filter: { number2: 1 },
-		}),
+	expect(
+		() =>
+			table.query({
+				select: ['id'],
+				// @ts-expect-error Can't filter by unknown column number2
+				filter: { number2: 1 },
+			}),
+		// eslint-disable-next-line quotes
 	).toThrow("unknown column 'number2'")
 })
 
 test('Table.groupByTypeChecking', () => {
-	expect(() =>
-		table.count({
-			// @ts-expect-error Can't group by uknown column string2
-			groupBy: 'string2',
-		}),
+	expect(
+		() =>
+			table.count({
+				// @ts-expect-error Can't group by uknown column string2
+				groupBy: 'string2',
+			}),
+		// eslint-disable-next-line quotes
 	).toThrow("unknown column 'string2'")
 })
 
 test('Table.sortTypeChecking', () => {
-	expect(() =>
-		table.query({
-			select: [],
-			// @ts-expect-error Can't sort by unknown column string2
-			sort: (a, b) => a.string2.localeCompare(b.string2),
-		}),
+	expect(
+		() =>
+			table.query({
+				select: [],
+				// @ts-expect-error Can't sort by unknown column string2
+				sort: (a, b) => a.string2.localeCompare(b.string2),
+			}),
+		// eslint-disable-next-line quotes
 	).toThrow("unknown column 'string2' used in 'sort' comparator")
 })
 

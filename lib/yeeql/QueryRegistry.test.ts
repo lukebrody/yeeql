@@ -20,27 +20,15 @@ class StubQuery implements QueryRegistryEntry<typeof schema> {
 	readonly filter = { number: 1 }
 	readonly select = new Set<'string'>(['string'])
 
-	doItemAdd(): number {
+	addRow(): () => void {
 		throw new Error('not implemented')
 	}
 
-	postItemAdd(): () => void {
+	removeRow(): () => void {
 		throw new Error('not implemented')
 	}
 
-	doItemRemove(): number {
-		throw new Error('not implemented')
-	}
-
-	postItemRemove(): () => void {
-		throw new Error('not implemented')
-	}
-
-	postItemChange(): () => void {
-		throw new Error('not implemented')
-	}
-
-	preChange(): void {
+	changeRow(): () => void {
 		throw new Error('not implemented')
 	}
 }

@@ -5,7 +5,6 @@ import * as Y from 'yjs'
 
 import { beforeEach, expect, test } from 'vitest'
 import { QueryChange } from './Query'
-import { debug } from './debug'
 
 const child = {
 	id: new Field<UUID>(),

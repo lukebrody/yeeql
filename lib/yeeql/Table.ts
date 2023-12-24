@@ -19,7 +19,6 @@ import {
 	SubqueryGenerators,
 	SubqueryResult,
 	schemaToDebugString,
-	SubqueryGenerator,
 	SubqueriesDependencies,
 } from './Schema'
 import stringify from 'json-stable-stringify'

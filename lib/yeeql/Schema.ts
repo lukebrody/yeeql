@@ -55,6 +55,6 @@ export type SubqueriesDependencies<
 
 export function schemaToDebugString(schema: Schema) {
 	return `{${Object.entries(schema)
-		.map(([key, field]) => `${key}: new Field<any>()`)
+		.map(([key]) => `${key}: new Field<any>()`)
 		.join(', ')}}`
 }

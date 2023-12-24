@@ -46,3 +46,9 @@ export type SubqueriesResults<
 > = {
 	[K in keyof Q]: SubqueryResult<S, Q[K]>
 }
+
+export function schemaToDebugString(schema: Schema) {
+	return `{${Object.entries(schema)
+		.map(([key, field]) => `${key}: new Field<any>()`)
+		.join(', ')}}`
+}

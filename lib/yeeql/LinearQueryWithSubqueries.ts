@@ -13,6 +13,7 @@ import {
 	SubqueriesResults,
 	SubqueryResult,
 } from './Schema'
+import { debug } from './debug'
 
 export type LinearQueryWithSubqueriesChange<Result, SubChange> =
 	| LinearQueryChange<Result>
@@ -127,10 +128,12 @@ export class LinearQueryWithSubqueriesImpl<
 			keyof Q,
 			Q[keyof Q],
 		][]) {
+			debug.makingSubquery = true
 			const query = makeQuery(row) as Query<
 				SubqueryResult<S, Q[keyof Q]>,
 				SubqueryChange<S, Q[keyof Q]>
 			>
+			debug.makingSubquery = false
 
 			augmentedRow[key] = query.result as (typeof augmentedRow)[typeof key]
 
@@ -228,9 +231,11 @@ export class LinearQueryWithSubqueriesImpl<
 				this.subQueries,
 			) as [keyof Q, Q[keyof Q]][]) {
 				const query = makeQuery(newRow) as Query<
+				debug.makingSubquery = true
 					SubqueryResult<S, Q[keyof Q]>,
 					SubqueryChange<S, Q[keyof Q]>
 				>
+				debug.makingSubquery = false
 				if (oldValues !== undefined) {
 					const { query: oldQuery, callback: oldCallback } = subQueries[key]
 					if (query === oldQuery) {

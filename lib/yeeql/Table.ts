@@ -19,6 +19,7 @@ import {
 	TableSchema,
 	SubqueryGenerators,
 	SubqueryResult,
+	schemaToDebugString,
 } from './Schema'
 import stringify from 'json-stable-stringify'
 import {
@@ -27,6 +28,7 @@ import {
 	RowWithSubqueries,
 } from './LinearQueryWithSubqueries'
 import { compareStrings } from '../common/string'
+import { debug } from './debug'
 
 /*
  * We only allow the user to use primitives in their sort function,
@@ -121,7 +123,17 @@ export class Table<S extends TableSchema> {
 	constructor(
 		private readonly yTable: YMap<YMap<unknown>>,
 		private readonly schema: S,
+		debugName?: string,
 	) {
+		this.debugName = debugName ?? `table${++debug.counter}`
+		if (debug.on) {
+			debug.statements.push(
+				`const ${this.debugName} = new Table(ydoc.getMap('${
+					this.debugName
+				}'), ${schemaToDebugString(schema)}, '${this.debugName}')`,
+			)
+		}
+
 		this.queryRegistry = new QueryRegistry(schema)
 
 		this.items = new Map()
@@ -199,6 +211,8 @@ export class Table<S extends TableSchema> {
 			})
 		})
 	}
+
+	readonly debugName: string
 
 	private readonly queryRegistry: QueryRegistry<S>
 
@@ -288,6 +302,24 @@ export class Table<S extends TableSchema> {
 		| LinearQuery<Row<Pick<S, Select>>>
 		| GroupedQuery<Row<Pick<S, Select>>, Row<Primitives<S>>[GroupBy]>
 		| LinearQueryWithSubqueries<S, Select, Q> {
+		if (debug.on && !debug.makingSubquery) {
+			let subqueriesString: string | undefined
+			if (subqueries !== undefined) {
+				subqueriesString = `{${Object.entries(subqueries)
+					.map(([key, value]) => `${key}: ${value}`)
+					.join(', ')}}`
+			}
+			debug.statements.push(
+				`const query${++debug.counter} = ${
+					this.debugName
+				}.query({select: ${select}, filter: ${JSON.stringify(
+					filter,
+				)}, subqueries: ${subqueriesString}, sort: ${sort}, groupBy: ${JSON.stringify(
+					groupBy,
+				)}})`,
+			)
+		}
+
 		this.validateColumns([
 			...(select ?? []),
 			...(groupBy !== undefined ? [groupBy] : []),
@@ -375,6 +407,15 @@ export class Table<S extends TableSchema> {
 		filter?: Filter<S>
 		groupBy?: GroupBy
 	}): CountQuery | GroupedCountQuery<Row<S>[GroupBy]> {
+		if (debug.on && !debug.makingSubquery) {
+			debug.statements.push(
+				`const query${++debug.counter} = ${this.debugName}.count(${{
+					filter,
+					groupBy,
+				}})`,
+			)
+		}
+
 		this.validateColumns([
 			...(groupBy !== undefined ? [groupBy] : []),
 			...Object.keys(filter),
@@ -403,6 +444,14 @@ export class Table<S extends TableSchema> {
 	insert(row: Omit<Row<S>, 'id'>): UUID {
 		const id = UUID.create()
 		this.yTable.set(id, new Y.Map(Object.entries(row)))
+		if (debug.on) {
+			debug.statements.push(
+				`const row${++debug.counter}Id = ${
+					this.debugName
+				}.insert(${JSON.stringify(row)})`,
+			)
+			debug.map.set(id, debug.counter)
+		}
 		return id
 	}
 
@@ -411,10 +460,22 @@ export class Table<S extends TableSchema> {
 		column: K,
 		value: Row<S>[K],
 	) {
+		if (debug.on) {
+			debug.statements.push(
+				`${this.debugName}.update(row${debug.map.get(
+					id,
+				)}Id, '${column}', ${JSON.stringify(value)})`,
+			)
+		}
 		this.yTable.get(id)?.set(column, value)
 	}
 
 	delete(id: UUID) {
+		if (debug.on) {
+			debug.statements.push(
+				`${this.debugName}.delete(row${debug.map.get(id)}Id)`,
+			)
+		}
 		this.yTable.delete(id)
 	}
 

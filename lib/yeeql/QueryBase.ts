@@ -45,11 +45,13 @@ export abstract class QueryBase<Change> implements QueryInternal<Change> {
 	 * so that internal observers can start executing based on the query's previous results,
 	 * and signal by calling `ready()` that they are ready for this query's result to update.
 	 *
+	 * `ready` returns the change that was made
+	 *
 	 * An internal observer might look like
 	 * ```
 	 * query.internalObserve((ready) => {
 	 *   // something with the old result
-	 *   ready()
+	 *   const change = ready()
 	 *   // something with the new result
 	 * })
 	 * ```

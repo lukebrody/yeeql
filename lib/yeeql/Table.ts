@@ -173,6 +173,12 @@ function getSubqueriesDependencies<
 
 const noSort = () => 0
 
+type QueryCacheKey = {
+	key: string
+	sort: object | null
+	subqueries: object | null
+}
+
 export class Table<S extends TableSchema> {
 	constructor(
 		private readonly yTable: YMap<YMap<unknown>>,
@@ -293,31 +299,39 @@ export class Table<S extends TableSchema> {
 		return result as Row<S>
 	}
 
-	// TODO: Use finalization to keep the cache clean
 	private readonly queryCache = new DefaultMap<
 		string,
-		Map<
+		DefaultMap<
 			object | null,
-			Map<object | undefined | null, WeakRef<Query<unknown, unknown>>>
+			Map<object | null, WeakRef<Query<unknown, unknown>>>
 		>
-	>(() => new Map())
+	>(() => new DefaultMap(() => new Map()))
+
+	private readonly queryFinalizer = new FinalizationRegistry<QueryCacheKey>(
+		({ key, sort, subqueries }) => {
+			const layerOne = this.queryCache.get(key)
+			const layerTwo = layerOne.get(sort)
+			layerTwo.delete(subqueries)
+			if (layerTwo.size === 0) {
+				layerOne.delete(sort)
+				if (layerOne.size === 0) {
+					this.queryCache.delete(key)
+				}
+			}
+		},
+	)
 
 	private getCachedQuery<
 		Q extends Query<QueryResult<Q>, QueryChange<Q>> & QueryRegistryEntry<S>,
-	>(
-		key: string,
-		sort: object | null,
-		subqueries: object | null,
-		makeQuery: () => Q,
-	): Q {
-		const cached = this.queryCache.get(key).get(sort)?.get(subqueries)?.deref()
+	>({ key, sort, subqueries }: QueryCacheKey, makeQuery: () => Q): Q {
+		const cached = this.queryCache.get(key).get(sort).get(subqueries)?.deref()
 		if (cached) {
 			return cached as Q
 		} else {
 			const result = makeQuery()
-			this.queryCache.get(key).set(sort, new Map())
-			this.queryCache.get(key).get(sort)!.set(subqueries, new WeakRef(result))
+			this.queryCache.get(key).get(sort).set(subqueries, new WeakRef(result))
 			this.queryRegistry.register(result)
+			this.queryFinalizer.register(result, { key, sort, subqueries })
 			return result
 		}
 	}
@@ -406,9 +420,11 @@ export class Table<S extends TableSchema> {
 		if (groupBy === undefined) {
 			if (subqueries === undefined) {
 				result = this.getCachedQuery(
-					stringify({ filter, resolvedSelect, kind: 'linear' }),
-					sort,
-					null,
+					{
+						key: stringify({ filter, resolvedSelect, kind: 'linear' }),
+						sort,
+						subqueries: null,
+					},
 					() =>
 						new LinearQueryImpl<S, Select>(
 							this.items,
@@ -427,9 +443,15 @@ export class Table<S extends TableSchema> {
 				}
 
 				result = this.getCachedQuery(
-					stringify({ filter, resolvedSelect, kind: 'linearSubqueries' }),
-					sort,
-					subqueries,
+					{
+						key: stringify({
+							filter,
+							resolvedSelect,
+							kind: 'linearSubqueries',
+						}),
+						sort,
+						subqueries,
+					},
 					() =>
 						new LinearQueryWithSubqueriesImpl<S, Select, Q>(
 							this.items,
@@ -446,9 +468,11 @@ export class Table<S extends TableSchema> {
 			}
 		} else {
 			result = this.getCachedQuery(
-				stringify({ filter, resolvedSelect, groupBy, kind: 'grouped' }),
-				sort,
-				null,
+				{
+					key: stringify({ filter, resolvedSelect, groupBy, kind: 'grouped' }),
+					sort,
+					subqueries: null,
+				},
 				() =>
 					new GroupedQueryImpl(
 						this.items,
@@ -491,16 +515,20 @@ export class Table<S extends TableSchema> {
 		let result: CountQueryImpl<S> | GroupedCountQueryImpl<S, GroupBy>
 		if (groupBy === undefined) {
 			result = this.getCachedQuery(
-				stringify({ filter, kind: 'count' }),
-				null,
-				null,
+				{
+					key: stringify({ filter, kind: 'count' }),
+					sort: null,
+					subqueries: null,
+				},
 				() => new CountQueryImpl(this.items, filter),
 			)
 		} else {
 			result = this.getCachedQuery(
-				stringify({ filter, groupBy, kind: 'groupCount' }),
-				null,
-				null,
+				{
+					key: stringify({ filter, groupBy, kind: 'groupCount' }),
+					sort: null,
+					subqueries: null,
+				},
 				() => new GroupedCountQueryImpl(this.items, filter, groupBy),
 			)
 		}

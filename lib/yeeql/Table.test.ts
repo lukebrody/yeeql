@@ -209,6 +209,7 @@ test('Table.categoryHopping', () => {
 	])
 })
 
+// TODO: Improve/add another this test to check additional cache layers
 test('Table.cachedQueries', () => {
 	const queryA = table.query({
 		select: ['id'],

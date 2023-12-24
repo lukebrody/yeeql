@@ -173,8 +173,10 @@ export interface QueryRegistryEntry<S extends TableSchema> {
 	// @param row is the row, or a different object that has the same entries as the row before it was removed
 	removeRow(row: Row<S>, type: 'delete' | 'update'): () => void
 
-	// @param oldRow is a different object that has the same entires as the previous version of the row
-	// @param newRow is the updated row object
+	// @param row is the table row, will the old values
+	// @param oldValues is an object with the keys that will update, and the values they will update from
+	// @param newValues is an object with the keys that will update, and the values they will update to
+	// @param patch is a function that, when called, mutates `row` to have the new values. `patch` is required to be called during this implementation
 	changeRow(
 		row: Row<S>,
 		oldValues: Readonly<Partial<Row<S>>>,

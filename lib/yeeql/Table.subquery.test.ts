@@ -556,3 +556,69 @@ test('Table.subQuery.deep', () => {
 
 	children.update(child1, 'parentId', parentA)
 })
+
+test('Table.subquery.multipleUpdates', () => {
+	const query = parents.query({
+		subqueries: {
+			children: (parent) =>
+				children.query({
+					filter: { parentId: parent.id },
+					sort: (a, b) => a.order - b.order,
+				}),
+			childrenByOrder: (parent) =>
+				children.query({ filter: { parentId: parent.id }, groupBy: 'order' }),
+		},
+		sort: (a, b) => a.order - b.order,
+	})
+
+	const parentA = parents.insert({ order: 0 })
+	const child1 = children.insert({ parentId: parentA, order: 0 })
+	const child2 = children.insert({ parentId: parentA, order: 1 })
+
+	expect(
+		query.result.map((row) => ({
+			...row,
+			childrenByOrder: Array.from(row.childrenByOrder.entries()),
+		})),
+	).toStrictEqual([
+		{
+			id: parentA,
+			order: 0,
+			children: [
+				{ id: child1, order: 0, parentId: parentA },
+				{ id: child2, order: 1, parentId: parentA },
+			],
+			childrenByOrder: [
+				[0, [{ id: child1, order: 0, parentId: parentA }]],
+				[1, [{ id: child2, order: 1, parentId: parentA }]],
+			],
+		},
+	])
+
+	let parentB = UUID.create()
+	doc.transact(() => {
+		parentB = parents.insert({ order: -1 })
+		children.update(child2, 'order', -1)
+		children.update(child2, 'parentId', parentB)
+	})
+
+	expect(
+		query.result.map((row) => ({
+			...row,
+			childrenByOrder: Array.from(row.childrenByOrder.entries()),
+		})),
+	).toStrictEqual([
+		{
+			id: parentB,
+			order: -1,
+			children: [{ id: child2, order: -1, parentId: parentB }],
+			childrenByOrder: [[-1, [{ id: child2, order: -1, parentId: parentB }]]],
+		},
+		{
+			id: parentA,
+			order: 0,
+			children: [{ id: child1, order: 0, parentId: parentA }],
+			childrenByOrder: [[0, [{ id: child1, order: 0, parentId: parentA }]]],
+		},
+	])
+})

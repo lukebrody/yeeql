@@ -69,6 +69,9 @@ export class GroupedQueryImpl<
 				row,
 				this.sort,
 			)!.index
+			if (this.result.get(group).length === 0) {
+				this.result.delete(group)
+			}
 			return {
 				kind: 'remove',
 				row,

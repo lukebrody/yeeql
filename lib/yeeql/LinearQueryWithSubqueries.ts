@@ -12,6 +12,7 @@ import {
 	SubqueryGenerators,
 	SubqueriesResults,
 	SubqueryResult,
+	SubqueriesDependencies,
 } from './Schema'
 import { debug } from './debug'
 
@@ -84,7 +85,8 @@ export class LinearQueryWithSubqueriesImpl<
 			a: RowWithSubqueries<S, keyof S, Q>,
 			b: RowWithSubqueries<S, keyof S, Q>,
 		) => number,
-		readonly subQueries: SubqueryGenerators<S>,
+		readonly subQueries: Q,
+		readonly subqueryDependencies: SubqueriesDependencies<S, Q>,
 	) {
 		super()
 		this.result = []
@@ -225,22 +227,28 @@ export class LinearQueryWithSubqueriesImpl<
 			patch(augmentedRow)
 			patch(row)
 
-			updateQuery: for (const [key, makeQuery] of Object.entries(
-				this.subQueries,
-			) as [keyof Q, Q[keyof Q]][]) {
+			const subqueriesToUpdate = new Set<keyof Q>()
+			for (const updatedColumn of Object.keys(newValues)) {
+				for (const subqueryKey of this.subqueryDependencies.get(
+					updatedColumn,
+				)) {
+					subqueriesToUpdate.add(subqueryKey)
+				}
+			}
+
+			updateQuery: for (const key of subqueriesToUpdate) {
+				const makeQuery = this.subQueries[key]
 				debug.makingSubquery = true
 				const query = makeQuery(row) as Query<
 					SubqueryResult<S, Q[keyof Q]>,
 					SubqueryChange<S, Q[keyof Q]>
 				>
 				debug.makingSubquery = false
-				if (oldValues !== undefined) {
-					const { query: oldQuery, callback: oldCallback } = subQueries[key]
-					if (query === oldQuery) {
-						continue updateQuery
-					}
-					oldQuery.internalUnobserve(oldCallback)
+				const { query: oldQuery, callback: oldCallback } = subQueries[key]
+				if (query === oldQuery) {
+					continue updateQuery
 				}
+				oldQuery.internalUnobserve(oldCallback)
 
 				augmentedRow[key] = query.result as (typeof augmentedRow)[typeof key]
 

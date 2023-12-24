@@ -19,6 +19,8 @@ import {
 	SubqueryGenerators,
 	SubqueryResult,
 	schemaToDebugString,
+	SubqueryGenerator,
+	SubqueriesDependencies,
 } from './Schema'
 import stringify from 'json-stable-stringify'
 import {
@@ -85,11 +87,12 @@ const stubProxy: unknown = new Proxy(() => undefined, {
 	},
 })
 
-function getSortSubqueriesColumns<
-	S extends TableSchema,
-	Q extends SubqueryGenerators<S>,
->(schema: S, sort: Sort<S, Q>, subqueries?: Q): Set<keyof S> {
-	const result = new Set<keyof S>()
+function getSortColumns<S extends TableSchema, Q extends SubqueryGenerators<S>>(
+	schema: S,
+	sort: Sort<S, Q>,
+	subqueries?: Q,
+): Set<keyof S> {
+	const accessedKeys = new Set<keyof S>()
 	const proxy = new Proxy({} as Row<S> & PrimitiveSubqueriesResults<S, Q>, {
 		get(_, p) {
 			if (!(p in schema) && (subqueries === undefined || !(p in subqueries))) {
@@ -98,7 +101,7 @@ function getSortSubqueriesColumns<
 				)
 			}
 			if (p in schema) {
-				result.add(p as keyof S)
+				accessedKeys.add(p as keyof S)
 				return '0'
 			}
 			return stubProxy
@@ -110,6 +113,58 @@ function getSortSubqueriesColumns<
 	if (subqueries !== undefined) {
 		for (const subquery of Object.values(subqueries)) {
 			subquery(proxy)
+		}
+	}
+
+	return accessedKeys
+}
+
+function makeSubqueriesProxy<S extends TableSchema>(
+	schema: S,
+): { proxy: Row<S>; accessedKeys: Set<keyof S> } {
+	const accessedKeys = new Set<keyof S>()
+	const proxy = new Proxy({} as Row<S>, {
+		get(_, p) {
+			if (!(p in schema)) {
+				throw new Error(
+					`unknown column '${p.toString()}' used in subquery generator`,
+				)
+			}
+			if (p in schema) {
+				accessedKeys.add(p as keyof S)
+				return '0'
+			}
+			return stubProxy
+		},
+	})
+
+	return { accessedKeys, proxy }
+}
+
+function getSubqueriesColumns<
+	S extends TableSchema,
+	Q extends SubqueryGenerators<S>,
+>(schema: S, subqueries?: Q): Set<keyof S> {
+	const { proxy, accessedKeys } = makeSubqueriesProxy(schema)
+	if (subqueries) {
+		for (const subquery of Object.values(subqueries)) {
+			subquery(proxy)
+		}
+	}
+	return accessedKeys
+}
+
+function getSubqueriesDependencies<
+	S extends TableSchema,
+	Q extends SubqueryGenerators<S>,
+>(schema: S, subqueries: Q): SubqueriesDependencies<S, Q> {
+	const result: SubqueriesDependencies<S, Q> = new DefaultMap(() => new Set())
+
+	for (const [subqueryKey, subquery] of Object.entries(subqueries)) {
+		const { proxy, accessedKeys } = makeSubqueriesProxy(schema)
+		subquery(proxy)
+		for (const accessedKey of accessedKeys) {
+			result.get(accessedKey).add(subqueryKey)
 		}
 	}
 
@@ -339,7 +394,8 @@ export class Table<S extends TableSchema> {
 		const resolvedSelect = Array.from(
 			new Set([
 				...(select ?? Object.keys(this.schema)),
-				...getSortSubqueriesColumns(this.schema, sort, subqueries),
+				...getSortColumns(this.schema, sort, subqueries),
+				...getSubqueriesColumns(this.schema, subqueries),
 			]),
 		).sort() as unknown as ReadonlyArray<Select>
 
@@ -384,6 +440,7 @@ export class Table<S extends TableSchema> {
 								b: RowWithSubqueries<S, keyof S, Q>,
 							) => number,
 							subqueries,
+							getSubqueriesDependencies(this.schema, subqueries),
 						),
 				)
 			}

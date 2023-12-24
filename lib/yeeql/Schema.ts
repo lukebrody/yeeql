@@ -1,3 +1,4 @@
+import { DefaultMap } from '../common/DefaultMap'
 import { UUID } from '../common/UUID'
 import { Query } from './Query'
 
@@ -46,6 +47,11 @@ export type SubqueriesResults<
 > = {
 	[K in keyof Q]: SubqueryResult<S, Q[K]>
 }
+
+export type SubqueriesDependencies<
+	S extends TableSchema,
+	Q extends SubqueryGenerators<S>,
+> = DefaultMap<keyof S, Set<keyof Q>>
 
 export function schemaToDebugString(schema: Schema) {
 	return `{${Object.entries(schema)

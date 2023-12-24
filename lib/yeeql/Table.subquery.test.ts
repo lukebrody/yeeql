@@ -627,7 +627,7 @@ test('Table.subquery.dependencies', () => {
 	let childrenSubqueryCount = 0
 	let sameOrderSubqueryCount = 0
 
-	const query = parents.query({
+	parents.query({
 		subqueries: {
 			children: (parent) => {
 				childrenSubqueryCount++
@@ -653,4 +653,20 @@ test('Table.subquery.dependencies', () => {
 
 	expect(childrenSubqueryCount).toBe(0)
 	expect(sameOrderSubqueryCount).toBe(1)
+})
+
+// The Table query cache should be used for subqueries
+test('Table.subquery.cache', () => {
+	const query = children.query({
+		subqueries: {
+			parent: (child) => parents.query({ filter: { id: child.parentId } }),
+		},
+	})
+
+	const parentA = parents.insert({ order: 0 })
+	children.insert({ parentId: parentA, order: 0 })
+	children.insert({ parentId: parentA, order: 1 })
+
+	// If the subqueries have the same result array, they are the same query
+	expect(query.result[0].parent === query.result[1].parent).toBe(true)
 })

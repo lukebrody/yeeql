@@ -174,7 +174,7 @@ test('Table.categoryHopping', () => {
 	expect(onesChanges).toStrictEqual([
 		{
 			kind: 'remove',
-			row: { id: aId, number: 1, string: 'a' },
+			row: { id: aId, number: 2, string: 'a' },
 			oldIndex: 0,
 			type: 'update',
 		},
@@ -202,7 +202,7 @@ test('Table.categoryHopping', () => {
 	expect(twosChanges).toStrictEqual([
 		{
 			kind: 'remove',
-			row: { id: bId, number: 2, string: 'b' },
+			row: { id: bId, number: 0, string: 'b' },
 			oldIndex: 1,
 			type: 'update',
 		},
@@ -251,7 +251,7 @@ test('Table.selectTypeChecking', () => {
 			// @ts-expect-error Can't select unknown column id2
 			select: ['id2'],
 		}),
-	).toThrow('unknown column \'id2\'')
+	).toThrow("unknown column 'id2'")
 })
 
 test('Table.filterTypeChecking', () => {
@@ -261,7 +261,7 @@ test('Table.filterTypeChecking', () => {
 			// @ts-expect-error Can't filter by unknown column number2
 			filter: { number2: 1 },
 		}),
-	).toThrow('unknown column \'number2\'')
+	).toThrow("unknown column 'number2'")
 })
 
 test('Table.groupByTypeChecking', () => {
@@ -270,7 +270,7 @@ test('Table.groupByTypeChecking', () => {
 			// @ts-expect-error Can't group by uknown column string2
 			groupBy: 'string2',
 		}),
-	).toThrow('unknown column \'string2\'')
+	).toThrow("unknown column 'string2'")
 })
 
 test('Table.sortTypeChecking', () => {
@@ -280,7 +280,7 @@ test('Table.sortTypeChecking', () => {
 			// @ts-expect-error Can't sort by unknown column string2
 			sort: (a, b) => a.string2.localeCompare(b.string2),
 		}),
-	).toThrow('unknown column \'string2\' used in \'sort\' comparator')
+	).toThrow("unknown column 'string2' used in 'sort' comparator")
 })
 
 test('Table.sorting', () => {
@@ -331,7 +331,7 @@ test('Table.groupByTransfer', () => {
 	expect(observer).toBeCalledTimes(2)
 	expect(observer).toHaveBeenNthCalledWith(1, {
 		kind: 'remove',
-		row: { id: rowId, number: 1, string: 'a' },
+		row: { id: rowId, number: 2, string: 'a' },
 		oldIndex: 0,
 		type: 'update',
 		group: 1,
@@ -343,4 +343,12 @@ test('Table.groupByTransfer', () => {
 		type: 'update',
 		group: 2,
 	})
+})
+
+test('Table.preserveRowReferenceOnUpdate', () => {
+	table.insert({ number: 1, string: 'a' })
+	const query = table.query({})
+	const row = query.result[0]
+	table.update(row.id, 'string', 'b')
+	expect(query.result[0]).toBe(row)
 })

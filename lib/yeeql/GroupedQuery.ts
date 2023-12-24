@@ -80,37 +80,38 @@ export class GroupedQueryImpl<
 	}
 
 	changeRow(
-		oldRow: Row<S>,
-		newRow: Row<S>,
+		row: Row<S>,
 		oldValues: Readonly<Partial<Row<S>>>,
+		newValues: Readonly<Partial<Row<S>>>,
+		patch: (row: Row<S>) => void,
 	): () => void {
-		const removedGroup = oldRow[this.groupBy]
-		const addedGroup = newRow[this.groupBy]
-		if (removedGroup === addedGroup) {
+		if (
+			!(this.groupBy in oldValues) ||
+			oldValues[this.groupBy] === newValues[this.groupBy]
+		) {
+			const group = row[this.groupBy]
 			return this.makeChange(() => {
 				const oldIndex = removeOrdered(
-					this.result.get(removedGroup),
-					oldRow,
+					this.result.get(group),
+					row,
 					this.sort,
 				)!.index
-				const newIndex = insertOrdered(
-					this.result.get(addedGroup),
-					newRow,
-					this.sort,
-				)
+				patch(row)
+				const newIndex = insertOrdered(this.result.get(group), row, this.sort)
 				return {
 					kind: 'update',
-					row: newRow,
+					row,
 					oldIndex: oldIndex,
 					newIndex: newIndex,
 					oldValues,
-					group: addedGroup,
+					group,
 					type: 'update',
 				}
 			})
 		} else {
-			const removeResult = this.removeRow(oldRow, 'update')
-			const addResult = this.addRow(newRow, 'update')
+			const removeResult = this.removeRow(row, 'update')
+			patch(row)
+			const addResult = this.addRow(row, 'update')
 			return () => {
 				removeResult()
 				addResult()

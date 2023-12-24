@@ -100,7 +100,7 @@ export class LinearQueryWithSubqueriesImpl<
 	}
 
 	private readonly rowMap = new Map<
-		Row<Pick<S, Select>>,
+		Row<S>,
 		{
 			augmentedRow: Row<S> & SubqueriesResults<S, Q>
 			subQueries: {
@@ -208,14 +208,13 @@ export class LinearQueryWithSubqueriesImpl<
 	}
 
 	changeRow(
-		oldRow: Row<S>,
-		newRow: Row<S>,
+		row: Row<S>,
 		oldValues: Readonly<Partial<Row<S>>>,
+		newValues: Readonly<Partial<Row<S>>>,
+		patch: (row: Row<S>) => void,
 	): () => void {
 		return this.makeChange(() => {
-			const { augmentedRow, subQueries } = this.rowMap.get(oldRow)!
-			this.rowMap.delete(oldRow)
-			this.rowMap.set(newRow, { augmentedRow, subQueries })
+			const { augmentedRow, subQueries } = this.rowMap.get(row)!
 
 			const removedIndex = removeOrdered(
 				this.result,
@@ -223,15 +222,14 @@ export class LinearQueryWithSubqueriesImpl<
 				this.sort,
 			)!.index
 
-			for (const key of Object.keys(oldValues) as Array<keyof Row<S>>) {
-				augmentedRow[key] = newRow[key] as (typeof augmentedRow)[typeof key]
-			}
+			patch(augmentedRow)
+			patch(row)
 
 			updateQuery: for (const [key, makeQuery] of Object.entries(
 				this.subQueries,
 			) as [keyof Q, Q[keyof Q]][]) {
-				const query = makeQuery(newRow) as Query<
 				debug.makingSubquery = true
+				const query = makeQuery(row) as Query<
 					SubqueryResult<S, Q[keyof Q]>,
 					SubqueryChange<S, Q[keyof Q]>
 				>

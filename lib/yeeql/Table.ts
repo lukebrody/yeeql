@@ -166,39 +166,50 @@ export class Table<S extends TableSchema> {
 				} else if (event.target.parent === yTable) {
 					const id = event.path[event.path.length - 1] as UUID
 
-					const oldRow = this.items.get(id)!
-					const oldValues: Partial<Row<S>> = {}
+					const row = this.items.get(id)!
 
-					const changes: Partial<Row<S>> = {}
-					const newRow = { ...oldRow }
-					this.items.set(id, newRow)
+					const oldValues: Partial<Row<S>> = {}
+					const newValues: Partial<Row<S>> = {}
 
 					for (const key of event.keys.keys() as IterableIterator<
 						keyof Row<S>
 					>) {
 						// eslint-disable-next-line @typescript-eslint/no-explicit-any
 						const value = event.target.get(key)! as any
-						oldValues[key] = oldRow[key]
-						newRow[key] = value
-						changes[key] = value
+						oldValues[key] = row[key]
+						newValues[key] = value
 					}
 
-					// Query `filter` should be a subset of `select` since we're querying on changes, and filter params may have changed
-					const beforeQueries = this.queryRegistry.queries(oldRow, changes)
-					const afterQueries = this.queryRegistry.queries(newRow, changes)
+					const patch = (row: Record<string, unknown>) =>
+						Object.entries(newValues).forEach(
+							([key, value]) => (row[key] = value),
+						)
 
+					const unpatch = (row: Record<string, unknown>) =>
+						Object.entries(oldValues).forEach(
+							([key, value]) => (row[key] = value),
+						)
+
+					// Query `filter` should be a subset of `select` since we're querying on changes, and filter params may have changed
+					const beforeQueries = this.queryRegistry.queries(row, newValues)
+					patch(row)
+					const afterQueries = this.queryRegistry.queries(row, newValues)
+
+					unpatch(row)
 					for (const beforeQuery of beforeQueries) {
 						if (!afterQueries.has(beforeQuery)) {
-							runAfterTransaction.push(beforeQuery.removeRow(oldRow, 'update'))
+							runAfterTransaction.push(beforeQuery.removeRow(row, 'update'))
 						}
 					}
 
+					patch(row)
 					for (const afterQuery of afterQueries) {
 						if (!beforeQueries.has(afterQuery)) {
-							runAfterTransaction.push(afterQuery.addRow(newRow, 'update'))
+							runAfterTransaction.push(afterQuery.addRow(row, 'update'))
 						} else {
+							unpatch(row)
 							runAfterTransaction.push(
-								afterQuery.changeRow(oldRow, newRow, oldValues),
+								afterQuery.changeRow(row, oldValues, newValues, patch),
 							)
 						}
 					}

@@ -58,16 +58,22 @@ export class GroupedCountQueryImpl<
 		})
 	}
 
-	changeRow(oldRow: Row<S>, newRow: Row<S>): () => void {
-		const removedGroup = oldRow[this.groupBy]
-		const addedGroup = newRow[this.groupBy]
+	changeRow(
+		row: Row<S>,
+		oldValues: Readonly<Partial<Row<S>>>,
+		newValues: Readonly<Partial<Row<S>>>,
+		patch: (row: Row<S>) => void,
+	): () => void {
+		const removedGroup = row[this.groupBy]
+		patch(row)
+		const addedGroup = row[this.groupBy]
 		if (removedGroup !== addedGroup) {
 			const removed = this.makeChange(() => {
 				this.result.set(removedGroup, this.result.get(removedGroup) - 1)
 				return { group: removedGroup, change: -1 }
 			})
 			const added = this.makeChange(() => {
-				this.result.set(addedGroup!, this.result.get(addedGroup) + 1)
+				this.result.set(addedGroup, this.result.get(addedGroup) + 1)
 				return { group: addedGroup, change: 1 }
 			})
 			return () => {

@@ -84,16 +84,18 @@ export class LinearQueryImpl<S extends TableSchema, Select extends keyof S>
 	}
 
 	changeRow(
-		oldRow: Row<S>,
-		newRow: Row<S>,
+		row: Row<S>,
 		oldValues: Readonly<Partial<Row<S>>>,
+		newValues: Readonly<Partial<Row<S>>>,
+		patch: (row: Row<S>) => void,
 	): () => void {
 		return this.makeChange(() => {
-			const removedIndex = removeOrdered(this.result, oldRow, this.sort)!.index
-			const addedIndex = insertOrdered(this.result, newRow, this.sort)
+			const removedIndex = removeOrdered(this.result, row, this.sort)!.index
+			patch(row)
+			const addedIndex = insertOrdered(this.result, row, this.sort)
 			return {
 				kind: 'update',
-				row: newRow,
+				row: row,
 				oldIndex: removedIndex,
 				newIndex: addedIndex,
 				oldValues,

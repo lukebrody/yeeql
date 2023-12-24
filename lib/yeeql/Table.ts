@@ -10,7 +10,6 @@ import { CountQuery, CountQueryImpl } from './CountQuery'
 import { GroupedCountQuery, GroupedCountQueryImpl } from './GroupedCountQuery'
 import { DefaultMap, ReadonlyDefaultMap } from '../common/DefaultMap'
 import { YMap, YEvent } from './YInterfaces'
-import * as Y from 'yjs'
 import { Query, QueryResult, QueryChange } from './Query'
 import {
 	Row,
@@ -443,7 +442,10 @@ export class Table<S extends TableSchema> {
 
 	insert(row: Omit<Row<S>, 'id'>): UUID {
 		const id = UUID.create()
-		this.yTable.set(id, new Y.Map(Object.entries(row)))
+		this.yTable.set(
+			id,
+			new (Object.getPrototypeOf(this.yTable).constructor)(Object.entries(row)),
+		)
 		if (debug.on) {
 			debug.statements.push(
 				`const row${++debug.counter}Id = ${

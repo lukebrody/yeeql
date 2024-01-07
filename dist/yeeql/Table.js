@@ -10,6 +10,7 @@ import stringify from 'json-stable-stringify';
 import { LinearQueryWithSubqueriesImpl, } from './LinearQueryWithSubqueries';
 import { compareStrings } from '../common/string';
 import { debug } from './debug';
+import * as Y from 'yjs';
 const stubProxy = new Proxy(() => undefined, {
     get(_, p) {
         if (p === Symbol.toPrimitive) {
@@ -282,7 +283,7 @@ export class Table {
     }
     insert(row) {
         const id = UUID.create();
-        this.yTable.set(id, new (Object.getPrototypeOf(this.yTable).constructor)(Object.entries(row)));
+        this.yTable.set(id, new Y.Map(Object.entries(row)));
         if (debug.on) {
             debug.statements.push(`const row${++debug.counter}Id = ${this.debugName}.insert(${JSON.stringify(row)})`);
             debug.map.set(id, debug.counter);

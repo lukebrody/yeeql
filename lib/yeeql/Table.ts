@@ -29,6 +29,7 @@ import {
 } from './LinearQueryWithSubqueries'
 import { compareStrings } from '../common/string'
 import { debug } from './debug'
+import * as Y from 'yjs'
 
 /*
  * We only allow the user to use primitives in their sort function,
@@ -537,10 +538,7 @@ export class Table<S extends TableSchema> {
 
 	insert(row: Omit<Row<S>, 'id'>): UUID {
 		const id = UUID.create()
-		this.yTable.set(
-			id,
-			new (Object.getPrototypeOf(this.yTable).constructor)(Object.entries(row)),
-		)
+		this.yTable.set(id, new Y.Map(Object.entries(row)))
 		if (debug.on) {
 			debug.statements.push(
 				`const row${++debug.counter}Id = ${

@@ -25,11 +25,12 @@ import stringify from 'json-stable-stringify'
 import {
 	LinearQueryWithSubqueries,
 	LinearQueryWithSubqueriesImpl,
-	RowWithSubqueries,
+	LinearQueryResult,
 } from './LinearQueryWithSubqueries'
 import { compareStrings } from '../common/string'
 import { debug } from './debug'
 import * as Y from 'yjs'
+import { GroupedQueryWithSubqueries } from './GroupedQueryWithSubqueries'
 
 /*
  * We only allow the user to use primitives in their sort function,
@@ -42,9 +43,7 @@ type Sort<S extends TableSchema, Q extends SubqueryGenerators<S>> = (
 
 type PrimitiveQueryResult<QueryResult> =
 	// Linear query (with or without subqueries)
-	QueryResult extends ReadonlyArray<
-		Readonly<RowWithSubqueries<infer S, infer Select, infer Q>>
-	>
+	QueryResult extends LinearQueryResult<infer S, infer Select, infer Q>
 		? ReadonlyArray<
 				Readonly<
 					Row<Primitives<Pick<S, Select>>> & PrimitiveSubqueriesResults<S, Q>
@@ -348,7 +347,7 @@ export class Table<S extends TableSchema> {
 		filter?: Filter<S>
 		subqueries?: undefined // Need this so TypeScript doesn't get confused??
 		sort?: Sort<S, {}>
-	}): LinearQuery<Row<Pick<S, Select>>>
+	}): LinearQuery<S, Select>
 	query<Select extends keyof S, Q extends SubqueryGenerators<S>>(_: {
 		select?: ReadonlyArray<Select>
 		filter?: Filter<S>
@@ -361,6 +360,16 @@ export class Table<S extends TableSchema> {
 		sort?: Sort<S, {}>
 		groupBy: GroupBy
 	}): GroupedQuery<Row<Pick<S, Select>>, Row<Primitives<S>>[GroupBy]>
+	query<
+		Select extends keyof S,
+		GroupBy extends keyof Primitives<S>,
+		Q extends SubqueryGenerators<S>,
+	>(_: {
+		select?: ReadonlyArray<Select>
+		filter?: Filter<S>
+		sort?: Sort<S, {}>
+		groupBy: GroupBy
+	}): GroupedQueryWithSubqueries<S, Select, GroupBy, Q>
 	query<
 		Select extends keyof S,
 		GroupBy extends keyof Primitives<S>,
@@ -378,9 +387,10 @@ export class Table<S extends TableSchema> {
 		groupBy?: GroupBy
 		subqueries?: Q
 	}):
-		| LinearQuery<Row<Pick<S, Select>>>
+		| LinearQuery<S, Select>
 		| GroupedQuery<Row<Pick<S, Select>>, Row<Primitives<S>>[GroupBy]>
-		| LinearQueryWithSubqueries<S, Select, Q> {
+		| LinearQueryWithSubqueries<S, Select, Q>
+		| GroupedQueryWithSubqueries<S, Select, GroupBy, Q> {
 		if (debug.on && !debug.makingSubquery) {
 			let subqueriesString: string | undefined
 			if (subqueries !== undefined) {

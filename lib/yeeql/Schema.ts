@@ -53,6 +53,18 @@ export type SubqueriesDependencies<
 	Q extends SubqueryGenerators<S>,
 > = DefaultMap<keyof S, Set<keyof Q>>
 
+export type SubqueriesChanges<
+	S extends TableSchema,
+	Q extends SubqueryGenerators<S>,
+> = {
+	[K in keyof Q]: SubqueryChange<S, Q[K]>
+}
+
+export type SubqueryChange<
+	S extends TableSchema,
+	Q extends SubqueryGenerator<S, unknown, unknown>,
+> = Q extends SubqueryGenerator<S, unknown, infer Change> ? Change : never
+
 export function schemaToDebugString(schema: Schema) {
 	return `{${Object.entries(schema)
 		.map(([key]) => `${key}: new Field<any>()`)

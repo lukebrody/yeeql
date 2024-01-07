@@ -1,46 +1,67 @@
 import { insertOrdered, removeOrdered } from '../common/array'
-import { Filter, Primitives, Row, TableSchema } from './Schema'
+import {
+	Filter,
+	Primitives,
+	Row,
+	SubqueriesChanges,
+	SubqueriesResults,
+	SubqueryGenerators,
+	TableSchema,
+} from './Schema'
 import { QueryRegistryEntry } from './QueryRegistry'
 import { UUID } from '../common/UUID'
-import { LinearQueryChange, LinearResultRow } from './LinearQuery'
 import { DefaultMap, ReadonlyDefaultMap } from '../common/DefaultMap'
 import { Query } from './Query'
 import { QueryBase } from './QueryBase'
+import { LinearQueryWithSubqueriesChange } from './LinearQueryWithSubqueries'
+import { GroupValue } from './GroupedQuery'
 
-type GroupedQueryChange<Result, G> = LinearQueryChange<Result> & {
-	group: G
-}
-
-export type GroupValue<
+type ResultRow<
 	S extends TableSchema,
-	GroupBy extends keyof Primitives<S>,
-> = Row<Primitives<S>>[GroupBy]
+	Select extends keyof S,
+	Q extends SubqueryGenerators<S>,
+> = Readonly<Row<Pick<S, Select>> & SubqueriesResults<S, Q>>
 
-type Change<
+type QueryResult<
 	S extends TableSchema,
 	Select extends keyof S,
 	GroupBy extends keyof Primitives<S>,
-> = GroupedQueryChange<Row<Pick<S, Select>>, Row<Primitives<S>>[GroupBy]>
-
-export type GroupedQuery<
-	S extends TableSchema,
-	Select extends keyof S,
-	GroupBy extends keyof Primitives<S>,
-> = Query<
-	ReadonlyDefaultMap<
-		GroupValue<S, GroupBy>,
-		ReadonlyArray<LinearResultRow<S, Select>>
-	>,
-	Change<S, Select, GroupBy>
+	Q extends SubqueryGenerators<S>,
+> = ReadonlyDefaultMap<
+	GroupValue<S, GroupBy>,
+	ReadonlyArray<ResultRow<S, Select, Q>>
 >
 
-export class GroupedQueryImpl<
+type QueryChange<
+	S extends TableSchema,
+	Select extends keyof S,
+	GroupBy extends keyof Primitives<S>,
+	Q extends SubqueryGenerators<S>,
+> = LinearQueryWithSubqueriesChange<
+	ResultRow<S, Select, Q>,
+	SubqueriesChanges<S, Q>
+> & { group: GroupValue<S, GroupBy> }
+
+export type GroupedQueryWithSubqueries<
+	S extends TableSchema,
+	Select extends keyof S,
+	GroupBy extends keyof Primitives<S>,
+	Q extends SubqueryGenerators<S>,
+> = Query<
+	QueryResult<S, Select, GroupBy, Q>,
+	QueryChange<S, Select, GroupBy, Q>
+>
+
+export class GroupedQueryWithSubqueriesImpl<
 		S extends TableSchema,
 		Select extends keyof S,
 		GroupBy extends keyof Primitives<S>,
+		Q extends SubqueryGenerators<S>,
 	>
-	extends QueryBase<Change<S, Select, GroupBy>>
-	implements QueryRegistryEntry<S>, GroupedQuery<S, Select, GroupBy>
+	extends QueryBase<QueryChange<S, Select, GroupBy, Q>>
+	implements
+		QueryRegistryEntry<S>,
+		GroupedQueryWithSubqueries<S, Select, GroupBy, Q>
 {
 	constructor(
 		items: ReadonlyMap<UUID, Row<S>>,
@@ -65,7 +86,10 @@ export class GroupedQueryImpl<
 
 	readonly select: ReadonlySet<keyof S>
 
-	readonly result: DefaultMap<Row<S>[GroupBy], Row<S>[]>
+	readonly result: DefaultMap<
+		Row<S>[GroupBy],
+		(Row<S> & SubqueriesResults<S, Q>)[]
+	>
 
 	addRow(row: Row<S>, type: 'add' | 'update'): () => void {
 		return this.makeChange(() => {

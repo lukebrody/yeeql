@@ -8,33 +8,38 @@ import { QueryBase } from './QueryBase'
 export type LinearQueryChange<Result> =
 	| {
 			kind: 'add'
-			row: Readonly<Result>
+			row: Result
 			newIndex: number
 			type: 'add' | 'update'
 	  }
 	| {
 			kind: 'remove'
-			row: Readonly<Result>
+			row: Result
 			oldIndex: number
 			type: 'delete' | 'update'
 	  }
 	| {
 			kind: 'update'
-			row: Readonly<Result>
+			row: Result
 			oldIndex: number
 			newIndex: number
-			oldValues: Readonly<Partial<Result>>
+			oldValues: Partial<Result>
 			type: 'update'
 	  }
 
-export type LinearQuery<Result> = Query<
-	ReadonlyArray<Readonly<Result>>,
-	LinearQueryChange<Result>
+export type LinearResultRow<
+	S extends TableSchema,
+	Select extends keyof S,
+> = Readonly<Row<Pick<S, Select>>>
+
+export type LinearQuery<S extends TableSchema, Select extends keyof S> = Query<
+	ReadonlyArray<LinearResultRow<S, Select>>,
+	LinearQueryChange<LinearResultRow<S, Select>>
 >
 
 export class LinearQueryImpl<S extends TableSchema, Select extends keyof S>
 	extends QueryBase<LinearQueryChange<Row<Pick<S, Select>>>>
-	implements QueryRegistryEntry<S>, LinearQuery<Row<Pick<S, Select>>>
+	implements QueryRegistryEntry<S>, LinearQuery<S, Select>
 {
 	constructor(
 		items: ReadonlyMap<UUID, Row<S>>,

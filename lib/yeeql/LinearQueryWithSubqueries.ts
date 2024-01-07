@@ -8,13 +8,20 @@ import {
 	TableSchema,
 	Row,
 	Filter,
-	SubqueryGenerator,
 	SubqueryGenerators,
 	SubqueriesResults,
 	SubqueryResult,
 	SubqueriesDependencies,
+	SubqueriesChanges,
+	SubqueryChange,
 } from './Schema'
 import { debug } from './debug'
+
+type ResultRow<
+	S extends TableSchema,
+	Select extends keyof S,
+	Q extends SubqueryGenerators<S>,
+> = Readonly<Row<Pick<S, Select>> & SubqueriesResults<S, Q>>
 
 export type LinearQueryWithSubqueriesChange<Result, SubChange> =
 	| LinearQueryChange<Result>
@@ -27,32 +34,21 @@ export type LinearQueryWithSubqueriesChange<Result, SubChange> =
 			type: 'update'
 	  }
 
-type SubqueryChange<
-	S extends TableSchema,
-	Q extends SubqueryGenerator<S, unknown, unknown>,
-> = Q extends SubqueryGenerator<S, unknown, infer Change> ? Change : never
-
-type SubqueriesChanges<
-	S extends TableSchema,
-	Q extends SubqueryGenerators<S>,
-> = {
-	[K in keyof Q]: SubqueryChange<S, Q[K]>
-}
-
 type SubqueriesChange<T extends object> = {
 	[K in keyof T]: { key: K; change: T[K] }
 }[keyof T]
 
-type MapValueType<A> = A extends Map<unknown, infer V> ? V : never
+export type LinearQueryResult<
+	S extends TableSchema,
+	Select extends keyof S,
+	Q extends SubqueryGenerators<S>,
+> = ReadonlyArray<ResultRow<S, Select, Q>>
 
 export type LinearQueryWithSubqueries<
 	S extends TableSchema,
 	Select extends keyof S,
 	Q extends SubqueryGenerators<S>,
-> = Query<
-	ReadonlyArray<Readonly<RowWithSubqueries<S, Select, Q>>>,
-	Change<S, Select, Q>
->
+> = Query<LinearQueryResult<S, Select, Q>, Change<S, Select, Q>>
 
 type Change<
 	S extends TableSchema,
@@ -63,11 +59,7 @@ type Change<
 	SubqueriesChange<SubqueriesChanges<S, Q>>
 >
 
-export type RowWithSubqueries<
-	S extends TableSchema,
-	Select extends keyof S,
-	Q extends SubqueryGenerators<S>,
-> = Row<Pick<S, Select>> & SubqueriesResults<S, Q>
+type MapValue<A> = A extends Map<unknown, infer V> ? V : never
 
 export class LinearQueryWithSubqueriesImpl<
 		S extends TableSchema,
@@ -82,8 +74,8 @@ export class LinearQueryWithSubqueriesImpl<
 		select: ReadonlyArray<Select>,
 		readonly filter: Filter<S>,
 		readonly sort: (
-			a: RowWithSubqueries<S, keyof S, Q>,
-			b: RowWithSubqueries<S, keyof S, Q>,
+			a: ResultRow<S, keyof S, Q>,
+			b: ResultRow<S, keyof S, Q>,
 		) => number,
 		readonly subQueries: Q,
 		readonly subqueryDependencies: SubqueriesDependencies<S, Q>,
@@ -120,7 +112,7 @@ export class LinearQueryWithSubqueriesImpl<
 	readonly result: (Row<S> & SubqueriesResults<S, Q>)[]
 
 	addRow(row: Row<S>, type: 'add' | 'update'): () => void {
-		const subQueries = {} as MapValueType<typeof this.rowMap>['subQueries']
+		const subQueries = {} as MapValue<typeof this.rowMap>['subQueries']
 		const augmentedRow = new Proxy(row, {
 			get(row, p) {
 				if (p in subQueries && String(p) !== 'constructor') {
@@ -283,9 +275,7 @@ export class LinearQueryWithSubqueriesImpl<
 				row: augmentedRow,
 				oldIndex: removedIndex,
 				newIndex: addedIndex,
-				oldValues: oldValues as Readonly<
-					Partial<RowWithSubqueries<S, Select, Q>>
-				>,
+				oldValues: oldValues as Readonly<Partial<ResultRow<S, Select, Q>>>,
 				type: 'update',
 			}
 		})

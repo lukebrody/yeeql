@@ -27,6 +27,7 @@ import {
 } from 'yeeql/table/Schema'
 import {
 	SubqueriesDependencies,
+	SubqueriesPrimitiveResults,
 	SubqueryGenerators,
 	SubqueryResult,
 } from 'yeeql/query/subquery'
@@ -41,42 +42,9 @@ import { GroupedCountQueryImpl } from 'yeeql/query/implementation/GroupedCountQu
  * as objects can change without updating yeeql and cause the sorted order to become invalid
  */
 type Sort<S extends TableSchema, Q extends SubqueryGenerators<S>> = (
-	a: Row<Primitives<S>> & PrimitiveSubqueriesResults<S, Q>,
-	b: Row<Primitives<S>> & PrimitiveSubqueriesResults<S, Q>,
+	a: Row<Primitives<S>> & SubqueriesPrimitiveResults<S, Q>,
+	b: Row<Primitives<S>> & SubqueriesPrimitiveResults<S, Q>,
 ) => number
-
-type PrimitiveQueryResult<Result> =
-	// Linear query (with or without subqueries)
-	Result extends QueryResult<LinearQuery<infer S, infer Select, infer Q>>
-		? ReadonlyArray<
-				Readonly<
-					Row<Primitives<Pick<S, Select>>> & PrimitiveSubqueriesResults<S, Q>
-				>
-		  >
-		: // Grouped query
-		  Result extends ReadonlyDefaultMap<
-					infer GroupValue,
-					ReadonlyArray<Readonly<Row<infer Schema>>>
-		    >
-		  ? ReadonlyDefaultMap<
-					GroupValue,
-					ReadonlyArray<Readonly<Row<Primitives<Schema>>>>
-		    >
-		  : // Count query
-		    Result extends number
-		    ? number
-		    : // Group count query
-		      Result extends ReadonlyDefaultMap<infer Group, number>
-		      ? ReadonlyDefaultMap<Group, number>
-		      : // Unknown
-		        never
-
-type PrimitiveSubqueriesResults<
-	S extends TableSchema,
-	Q extends SubqueryGenerators<S>,
-> = {
-	[K in keyof Q]: PrimitiveQueryResult<SubqueryResult<S, Q[K]>>
-}
 
 const stubProxy: unknown = new Proxy(() => undefined, {
 	get(_, p) {
@@ -96,7 +64,7 @@ function getSortColumns<S extends TableSchema, Q extends SubqueryGenerators<S>>(
 	subqueries?: Q,
 ): Set<keyof S> {
 	const accessedKeys = new Set<keyof S>()
-	const proxy = new Proxy({} as Row<S> & PrimitiveSubqueriesResults<S, Q>, {
+	const proxy = new Proxy({} as Row<S> & SubqueriesPrimitiveResults<S, Q>, {
 		get(_, p) {
 			if (!(p in schema) && (subqueries === undefined || !(p in subqueries))) {
 				throw new Error(
@@ -319,7 +287,7 @@ export class Table<S extends TableSchema> {
 		string,
 		DefaultMap<
 			object | null,
-			Map<object | null, WeakRef<Query<unknown, unknown>>>
+			Map<object | null, WeakRef<Query<unknown, unknown, unknown>>>
 		>
 	>(() => new DefaultMap(() => new Map()))
 
@@ -338,7 +306,8 @@ export class Table<S extends TableSchema> {
 	)
 
 	private getCachedQuery<
-		Q extends Query<QueryResult<Q>, QueryChange<Q>> & QueryRegistryEntry<S>,
+		Q extends Query<QueryResult<Q>, QueryChange<Q>, unknown> &
+			QueryRegistryEntry<S>,
 	>({ key, sort, subqueries }: QueryCacheKey, makeQuery: () => Q): Q {
 		const cached = this.queryCache.get(key).get(sort).get(subqueries)?.deref()
 		if (cached) {

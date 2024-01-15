@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Query, QueryResult, QueryChange } from 'yeeql/query/Query'
 
-export function useQuery<Q extends Query<QueryResult<Q>, QueryChange<Q>>>(
+export function useQuery<
+	Q extends Query<QueryResult<Q>, QueryChange<Q>, unknown>,
+>(
 	makeQuery: () => Q,
 	deps: React.DependencyList | undefined,
 	observe?: (change: QueryChange<Q>) => void,

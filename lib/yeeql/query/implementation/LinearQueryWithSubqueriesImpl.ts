@@ -62,7 +62,11 @@ export class LinearQueryWithSubqueriesImpl<
 			augmentedRow: Row<S> & SubqueriesResults<S, Q>
 			subQueries: {
 				[K in keyof Q]: {
-					query: Query<SubqueryResult<S, Q[K]>, SubqueryChange<S, Q[K]>> &
+					query: Query<
+						SubqueryResult<S, Q[K]>,
+						SubqueryChange<S, Q[K]>,
+						unknown
+					> &
 						QueryInternal<SubqueryChange<S, Q[K]>>
 					callback: InternalChangeCallback<SubqueryChange<S, Q[K]>>
 				}
@@ -109,7 +113,8 @@ export class LinearQueryWithSubqueriesImpl<
 			debug.makingSubquery = true
 			const query = makeQuery(row) as Query<
 				SubqueryResult<S, Q[keyof Q]>,
-				SubqueryChange<S, Q[keyof Q]>
+				SubqueryChange<S, Q[keyof Q]>,
+				unknown
 			> &
 				QueryInternal<SubqueryChange<S, Q[keyof Q]>>
 			debug.makingSubquery = false
@@ -214,7 +219,8 @@ export class LinearQueryWithSubqueriesImpl<
 				debug.makingSubquery = true
 				const query = makeQuery(row) as Query<
 					SubqueryResult<S, Q[keyof Q]>,
-					SubqueryChange<S, Q[keyof Q]>
+					SubqueryChange<S, Q[keyof Q]>,
+					unknown
 				> &
 					QueryInternal<SubqueryChange<S, Q[keyof Q]>>
 				debug.makingSubquery = false

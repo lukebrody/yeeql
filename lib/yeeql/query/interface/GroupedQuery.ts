@@ -4,6 +4,7 @@ import { Primitives, Row, TableSchema } from 'yeeql/table/Schema'
 import {
 	ResultRow as LinearQueryResultRow,
 	Change as LinearQueryChange,
+	PrimitiveResultRow as LinearQueryPrimitiveResultRow,
 } from 'yeeql/query/interface/LinearQuery'
 import { SubqueryGenerators } from 'yeeql/query/subquery'
 
@@ -18,5 +19,9 @@ export type GroupedQuery<
 		ReadonlyArray<LinearQueryResultRow<S, Select, Q>>
 	>,
 	LinearQueryChange<S, Select, Q> &
-		Readonly<{ group: Row<Primitives<S>>[GroupBy] }>
+		Readonly<{ group: Row<Primitives<S>>[GroupBy] }>,
+	ReadonlyDefaultMap<
+		Row<Primitives<S>>[GroupBy],
+		ReadonlyArray<LinearQueryPrimitiveResultRow<S, Q>>
+	>
 >

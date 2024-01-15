@@ -1,8 +1,9 @@
-import { TableSchema, Row } from 'yeeql/table/Schema'
+import { TableSchema, Row, Primitives } from 'yeeql/table/Schema'
 import {
 	SubqueryChange,
 	SubqueryGenerators,
 	SubqueriesResults,
+	SubqueriesPrimitiveResults,
 } from 'yeeql/query/subquery'
 import { Query } from 'yeeql/query/Query'
 
@@ -11,6 +12,11 @@ export type ResultRow<
 	Select extends keyof S,
 	Q extends SubqueryGenerators<S>,
 > = Readonly<Row<Pick<S, Select>>> & Readonly<SubqueriesResults<S, Q>>
+
+export type PrimitiveResultRow<
+	S extends TableSchema,
+	Q extends SubqueryGenerators<S>,
+> = Readonly<Row<Primitives<S>>> & Readonly<SubqueriesPrimitiveResults<S, Q>>
 
 // Need separate `Readonly`s because TypeScript is weird about the subquery change
 export type Change<
@@ -54,4 +60,8 @@ export type LinearQuery<
 	S extends TableSchema,
 	Select extends keyof S,
 	Q extends SubqueryGenerators<S>,
-> = Query<ReadonlyArray<ResultRow<S, Select, Q>>, Change<S, Select, Q>>
+> = Query<
+	ReadonlyArray<ResultRow<S, Select, Q>>,
+	Change<S, Select, Q>,
+	ReadonlyArray<PrimitiveResultRow<S, Q>>
+>

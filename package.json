@@ -9,7 +9,7 @@
 	],
 	"license": "MIT",
 	"scripts": {
-		"test": "tsc --project test/tsconfig.json && cd test && node --expose-gc ../node_modules/.bin/vitest",
+		"test": "node --expose-gc node_modules/.bin/vitest",
 		"build": "rm -r dist && tsc --project lib/tsconfig.json",
 		"lint": "prettier . --write && eslint --fix \"./**/*.{ts, tsx, js, cjs}\""
 	},

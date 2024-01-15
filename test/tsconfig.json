@@ -1,6 +1,7 @@
 {
 	"extends": "../tsconfig.template.json",
 	"compilerOptions": {
-		"baseUrl": "../lib"
+		"baseUrl": "../lib",
+		"noEmit": true
 	}
 }

@@ -3,8 +3,9 @@ import tsconfigPaths from 'vite-tsconfig-paths'
 
 export default defineConfig({
 	test: {
+		pool: 'forks',
 		watch: false,
-		reporters: ['hanging-process'],
+		root: '../',
 	},
 	plugins: [tsconfigPaths()],
 })

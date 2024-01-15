@@ -182,19 +182,17 @@ test('Table.subquery.changes', () => {
 				id: parentA,
 				order: 0,
 			},
-			subChange: {
-				change: {
-					kind: 'add',
-					newIndex: 0,
-					row: {
-						id: child1,
-						order: 0,
-						parentId: parentA,
-					},
-					type: 'add',
+			change: {
+				kind: 'add',
+				newIndex: 0,
+				row: {
+					id: child1,
+					order: 0,
+					parentId: parentA,
 				},
-				key: 'children',
+				type: 'add',
 			},
+			key: 'children',
 			type: 'update',
 		},
 	])
@@ -219,19 +217,17 @@ test('Table.subquery.changes', () => {
 				id: parentB,
 				order: 1,
 			},
-			subChange: {
-				change: {
-					kind: 'add',
-					newIndex: 0,
-					row: {
-						id: child2,
-						order: 1,
-						parentId: parentB,
-					},
-					type: 'add',
+			change: {
+				kind: 'add',
+				newIndex: 0,
+				row: {
+					id: child2,
+					order: 1,
+					parentId: parentB,
 				},
-				key: 'children',
+				type: 'add',
 			},
+			key: 'children',
 			type: 'update',
 		},
 		{
@@ -254,19 +250,17 @@ test('Table.subquery.changes', () => {
 				id: parentB,
 				order: 1,
 			},
-			subChange: {
-				change: {
-					kind: 'add',
-					newIndex: 1,
-					row: {
-						id: child3,
-						order: 2,
-						parentId: parentB,
-					},
-					type: 'add',
+			change: {
+				kind: 'add',
+				newIndex: 1,
+				row: {
+					id: child3,
+					order: 2,
+					parentId: parentB,
 				},
-				key: 'children',
+				type: 'add',
 			},
+			key: 'children',
 			type: 'update',
 		},
 	])
@@ -376,23 +370,21 @@ test('Table.subquery.sortUpdate', () => {
 				id: parentB,
 				order: 1,
 			},
-			subChange: {
-				change: {
-					kind: 'update',
-					newIndex: 0,
-					oldIndex: 0,
-					oldValues: {
-						order: 0,
-					},
-					row: {
-						id: child2,
-						order: 2,
-						parentId: parentB,
-					},
-					type: 'update',
+			change: {
+				kind: 'update',
+				newIndex: 0,
+				oldIndex: 0,
+				oldValues: {
+					order: 0,
 				},
-				key: 'children',
+				row: {
+					id: child2,
+					order: 2,
+					parentId: parentB,
+				},
+				type: 'update',
 			},
+			key: 'children',
 			type: 'update',
 		},
 	])

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Query, QueryResult, QueryChange } from '../query/Query'
+import { Query, QueryResult, QueryChange } from 'yeeql/query/Query'
 
 export function useQuery<Q extends Query<QueryResult<Q>, QueryChange<Q>>>(
 	makeQuery: () => Q,

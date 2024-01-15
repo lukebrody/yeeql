@@ -1,5 +1,4 @@
-// eslint-disable-next-line no-restricted-imports
-import { Field, Table, UUID } from '../lib/index'
+import { Field, Table, UUID } from 'index'
 import * as Y from 'yjs'
 
 import { beforeEach, expect, test } from 'vitest'

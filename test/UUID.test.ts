@@ -1,9 +1,7 @@
 import { expect, test } from 'vitest'
-// eslint-disable-next-line no-restricted-imports
-import { UUID } from '../lib/index'
+import { UUID } from 'index'
 
 test('UUID length', () => {
-	console.log(UUID.create())
 	for (let i = 0; i < 10000; i++) {
 		expect(UUID.create().length).toBe(UUID.length)
 	}

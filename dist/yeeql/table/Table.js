@@ -81,6 +81,17 @@ function getSubqueriesDependencies(schema, subqueries) {
     return result;
 }
 const noSort = () => 0;
+function makeTiebrokenIdSort(comparator) {
+    return (a, b) => {
+        const result = comparator(a, b);
+        if (result === 0) {
+            return compareStrings(a.id, b.id);
+        }
+        else {
+            return result;
+        }
+    };
+}
 export class Table {
     constructor(yTable, schema, debugName) {
         this.yTable = yTable;
@@ -224,7 +235,7 @@ export class Table {
                     key: stringify({ filter, resolvedSelect, kind: 'linear' }),
                     sort,
                     subqueries: null,
-                }, () => new LinearQueryWithoutSubqueriesImpl(this.items, resolvedSelect, filter, this.makeTiebrokenIdSort(sort)));
+                }, () => new LinearQueryWithoutSubqueriesImpl(this.items, resolvedSelect, filter, makeTiebrokenIdSort(sort)));
             }
             else {
                 for (const subqueryKey of Object.keys(subqueries)) {
@@ -240,7 +251,7 @@ export class Table {
                     }),
                     sort,
                     subqueries,
-                }, () => new LinearQueryWithSubqueriesImpl(this.items, resolvedSelect, filter, this.makeTiebrokenIdSort(sort), subqueries, getSubqueriesDependencies(this.schema, subqueries)));
+                }, () => new LinearQueryWithSubqueriesImpl(this.items, resolvedSelect, filter, makeTiebrokenIdSort(sort), subqueries, getSubqueriesDependencies(this.schema, subqueries)));
             }
         }
         else {
@@ -248,7 +259,7 @@ export class Table {
                 key: stringify({ filter, resolvedSelect, groupBy, kind: 'grouped' }),
                 sort,
                 subqueries: null,
-            }, () => new GroupedQueryWithoutSubqueriesImpl(this.items, resolvedSelect, filter, this.makeTiebrokenIdSort(sort), groupBy));
+            }, () => new GroupedQueryWithoutSubqueriesImpl(this.items, resolvedSelect, filter, makeTiebrokenIdSort(sort), groupBy));
         }
         return result;
     }
@@ -301,16 +312,5 @@ export class Table {
             debug.statements.push(`${this.debugName}.delete(row${debug.map.get(id)}Id)`);
         }
         this.yTable.delete(id);
-    }
-    makeTiebrokenIdSort(comparator) {
-        return (a, b) => {
-            const result = comparator(a, b);
-            if (result === 0) {
-                return compareStrings(a.id, b.id);
-            }
-            else {
-                return result;
-            }
-        };
     }
 }

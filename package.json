@@ -9,8 +9,8 @@
 	],
 	"license": "MIT",
 	"scripts": {
-		"test": "node --expose-gc node_modules/.bin/vitest",
-		"build": "tsc",
+		"test": "cd test && tsc --noEmit && node --expose-gc ../node_modules/.bin/vitest",
+		"build": "rm -r dist && cd lib && tsc",
 		"lint": "prettier . --write && eslint --fix \"./**/*.{ts, tsx, js, cjs}\""
 	},
 	"dependencies": {
@@ -31,6 +31,7 @@
 		"prettier": "^3.1.0",
 		"react": "^18.2.0",
 		"typescript": "~5.1.0",
+		"vite-tsconfig-paths": "^4.2.3",
 		"vitest": "^0.34.6",
 		"yjs": "^13.6.7"
 	},

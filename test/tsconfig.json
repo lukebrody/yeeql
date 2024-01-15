@@ -1,0 +1,6 @@
+{
+	"extends": "../tsconfig.template.json",
+	"compilerOptions": {
+		"baseUrl": "../lib"
+	}
+}

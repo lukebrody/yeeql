@@ -182,6 +182,19 @@ type QueryCacheKey = {
 	subqueries: object | null
 }
 
+function makeTiebrokenIdSort<T extends { id: UUID }>(
+	comparator: (a: T, b: T) => number,
+): (a: T, b: T) => number {
+	return (a, b) => {
+		const result = comparator(a, b)
+		if (result === 0) {
+			return compareStrings(a.id, b.id)
+		} else {
+			return result
+		}
+	}
+}
+
 export class Table<S extends TableSchema> {
 	constructor(
 		private readonly yTable: YMap<YMap<unknown>>,
@@ -445,7 +458,7 @@ export class Table<S extends TableSchema> {
 							this.items,
 							resolvedSelect,
 							filter,
-							this.makeTiebrokenIdSort(sort as Sort<S, {}>),
+							makeTiebrokenIdSort(sort as Sort<S, {}>),
 						),
 				)
 			} else {
@@ -472,7 +485,7 @@ export class Table<S extends TableSchema> {
 							this.items,
 							resolvedSelect,
 							filter,
-							this.makeTiebrokenIdSort(sort) as (
+							makeTiebrokenIdSort(sort) as (
 								a: LinearQueryResultRow<S, keyof S, Q>,
 								b: LinearQueryResultRow<S, keyof S, Q>,
 							) => number,
@@ -493,7 +506,7 @@ export class Table<S extends TableSchema> {
 						this.items,
 						resolvedSelect,
 						filter,
-						this.makeTiebrokenIdSort(sort as Sort<S, {}>),
+						makeTiebrokenIdSort(sort as Sort<S, {}>),
 						groupBy,
 					),
 			)
@@ -587,18 +600,5 @@ export class Table<S extends TableSchema> {
 			)
 		}
 		this.yTable.delete(id)
-	}
-
-	private makeTiebrokenIdSort<T extends { id: UUID }>(
-		comparator: (a: T, b: T) => number,
-	): (a: T, b: T) => number {
-		return (a, b) => {
-			const result = comparator(a, b)
-			if (result === 0) {
-				return compareStrings(a.id, b.id)
-			} else {
-				return result
-			}
-		}
 	}
 }

@@ -1,5 +1,5 @@
-import { DefaultMap } from '../../common/DefaultMap'
-import { Filter, Row, TableSchema } from './Schema'
+import { DefaultMap } from 'common/DefaultMap'
+import { Filter, Row, TableSchema } from 'yeeql/table/Schema'
 
 const notSpecified = Symbol()
 type NotSpecified = typeof notSpecified

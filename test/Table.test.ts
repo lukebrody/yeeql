@@ -1,5 +1,4 @@
-// eslint-disable-next-line no-restricted-imports
-import { UUID, Field, Table } from '../lib/index'
+import { UUID, Field, Table } from 'index'
 import * as Y from 'yjs'
 
 import { beforeEach, expect, test, vi } from 'vitest'
@@ -47,7 +46,6 @@ test('Table.insert', () => {
 
 test('Table.multipleQueries', () => {
 	const bId = table.insert({ number: 1, string: 'b' })
-
 	const sortByNumber = table.query({
 		select: ['id', 'number', 'string'],
 		sort: (a, b) => a.number - b.number,
@@ -56,16 +54,13 @@ test('Table.multipleQueries', () => {
 		select: ['id', 'number', 'string'],
 		sort: (a, b) => a.string.localeCompare(b.string),
 	})
-
 	expect(sortByNumber.result).toStrictEqual([
 		{ id: bId, number: 1, string: 'b' },
 	])
 	expect(sortByString.result).toStrictEqual([
 		{ id: bId, number: 1, string: 'b' },
 	])
-
 	const aId = table.insert({ number: 2, string: 'a' })
-
 	expect(sortByNumber.result).toStrictEqual([
 		{ id: bId, number: 1, string: 'b' },
 		{ id: aId, number: 2, string: 'a' },
@@ -74,10 +69,8 @@ test('Table.multipleQueries', () => {
 		{ id: aId, number: 2, string: 'a' },
 		{ id: bId, number: 1, string: 'b' },
 	])
-
 	table.update(bId, 'number', 3)
 	table.update(bId, 'string', '0')
-
 	expect(sortByNumber.result).toStrictEqual([
 		{ id: aId, number: 2, string: 'a' },
 		{ id: bId, number: 3, string: '0' },

@@ -18,8 +18,6 @@ module.exports = {
 		},
 		ecmaVersion: 'latest',
 		sourceType: 'module',
-		project: 'tsconfig.lint.json',
-		tsconfigRootDir: __dirname,
 	},
 	plugins: ['react', '@typescript-eslint'],
 	ignorePatterns: ['dist/**/*'],
@@ -40,13 +38,30 @@ module.exports = {
 			},
 		],
 		'no-constant-condition': 'off',
-		"no-restricted-imports": ["error", {
-			"patterns": [".*"]
-		}],
+		'no-restricted-imports': [
+			'error',
+			{
+				patterns: ['.*'],
+			},
+		],
 	},
 	settings: {
 		react: {
 			version: 'detect',
 		},
 	},
+	overrides: [
+		{
+			files: ['lib/**/*'],
+			parserOptions: {
+				project: 'lib/tsconfig.json',
+			},
+		},
+		{
+			files: ['test/**/*'],
+			parserOptions: {
+				project: 'test/tsconfig.json',
+			},
+		},
+	],
 }

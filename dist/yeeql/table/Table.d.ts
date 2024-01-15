@@ -60,6 +60,5 @@ export declare class Table<S extends TableSchema> {
     insert(row: Omit<Row<S>, 'id'>): UUID;
     update<K extends Exclude<keyof S, 'id'> & string>(id: UUID, column: K, value: Row<S>[K]): void;
     delete(id: UUID): void;
-    private makeTiebrokenIdSort;
 }
 export {};

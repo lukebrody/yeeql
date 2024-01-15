@@ -1,6 +1,6 @@
 import stringify from 'json-stable-stringify'
 import * as Y from 'yjs'
-import { DefaultMap, ReadonlyDefaultMap } from 'common/DefaultMap'
+import { DefaultMap } from 'common/DefaultMap'
 import { UUID } from 'common/UUID'
 import { debug } from 'common/debug'
 import { compareStrings } from 'common/string'
@@ -29,7 +29,6 @@ import {
 	SubqueriesDependencies,
 	SubqueriesPrimitiveResults,
 	SubqueryGenerators,
-	SubqueryResult,
 } from 'yeeql/query/subquery'
 import { LinearQueryWithoutSubqueriesImpl } from 'yeeql/query/implementation/LinearQueryWithoutSubqueriesImpl'
 import { LinearQueryWithSubqueriesImpl } from 'yeeql/query/implementation/LinearQueryWithSubqueriesImpl'

@@ -1,3 +1,4 @@
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export interface Query<Result, Change, PrimitiveResult> {
 	readonly result: Result
 	observe(observer: (change: Change) => void): void

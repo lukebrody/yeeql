@@ -354,7 +354,7 @@ export class Table<S extends TableSchema> {
 		filter?: Filter<S>
 		groupBy: GroupBy
 		subqueries: Q
-		sort?: Sort<S, {}>
+		sort?: Sort<S, Q>
 	}): GroupedQuery<S, Select, GroupBy, Q>
 	query<
 		Select extends keyof S,

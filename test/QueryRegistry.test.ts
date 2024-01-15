@@ -1,11 +1,12 @@
-import { UUID } from '../lib/common/UUID'
+// eslint-disable-next-line no-restricted-imports
+import { UUID, Field } from '../lib/index'
+// eslint-disable-next-line no-restricted-imports
 import {
 	QueryRegistryEntry,
 	QueryRegistry,
 	addedOrRemoved,
 	_testQueryEntries,
-} from '../lib/yeeql/QueryRegistry'
-import { Field } from '../lib/yeeql/Schema'
+} from '../lib/yeeql/table/QueryRegistry'
 
 import { expect, test } from 'vitest'
 

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Query, QueryResult, QueryChange } from '../Query'
+import { Query, QueryResult, QueryChange } from '../query/Query'
 
 export function useQuery<Q extends Query<QueryResult<Q>, QueryChange<Q>>>(
 	makeQuery: () => Q,

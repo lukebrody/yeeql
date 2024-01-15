@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest'
-import { UUID } from '../lib/common/UUID'
+// eslint-disable-next-line no-restricted-imports
+import { UUID } from '../lib/index'
 
 test('UUID length', () => {
 	console.log(UUID.create())

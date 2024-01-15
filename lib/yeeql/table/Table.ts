@@ -1,36 +1,40 @@
-import { UUID } from '../common/UUID'
+import stringify from 'json-stable-stringify'
+import * as Y from 'yjs'
+import { DefaultMap, ReadonlyDefaultMap } from 'common/DefaultMap'
+import { UUID } from 'common/UUID'
+import { debug } from 'common/debug'
+import { compareStrings } from 'common/string'
+import { YEvent, YMap } from 'yeeql/YInterfaces'
+import { Query, QueryChange, QueryResult } from 'yeeql/query/Query'
+import { CountQuery } from 'yeeql/query/interface/CountQuery'
+import { GroupedCountQuery } from 'yeeql/query/interface/GroupedCountQuery'
+import { GroupedQuery } from 'yeeql/query/interface/GroupedQuery'
+import {
+	LinearQuery,
+	ResultRow as LinearQueryResultRow,
+} from 'yeeql/query/interface/LinearQuery'
 import {
 	QueryRegistry,
 	QueryRegistryEntry,
 	addedOrRemoved,
-} from './QueryRegistry'
-import { LinearQuery, LinearQueryImpl } from './LinearQuery/LinearQueryImpl'
-import { GroupedQuery, GroupedQueryImpl } from './GroupedQuery/GroupedQuery'
-import { CountQuery, CountQueryImpl } from './CountQuery'
-import { GroupedCountQuery, GroupedCountQueryImpl } from './GroupedCountQuery'
-import { DefaultMap, ReadonlyDefaultMap } from '../common/DefaultMap'
-import { YMap, YEvent } from './YInterfaces'
-import { Query, QueryResult, QueryChange } from './Query'
+} from 'yeeql/table/QueryRegistry'
 import {
-	Row,
-	Primitives,
 	Filter,
+	Primitives,
+	Row,
 	TableSchema,
+	schemaToDebugString,
+} from 'yeeql/table/Schema'
+import {
+	SubqueriesDependencies,
 	SubqueryGenerators,
 	SubqueryResult,
-	schemaToDebugString,
-	SubqueriesDependencies,
-} from './Schema'
-import stringify from 'json-stable-stringify'
-import {
-	LinearQueryWithSubqueries,
-	LinearQueryWithSubqueriesImpl,
-	LinearQueryResult,
-} from './LinearQuery/LinearQueryImpl'
-import { compareStrings } from '../common/string'
-import { debug } from '../common/debug'
-import * as Y from 'yjs'
-import { GroupedQueryWithSubqueries } from './GroupedQueryWithSubqueries'
+} from 'yeeql/query/subquery'
+import { LinearQueryWithoutSubqueriesImpl } from 'yeeql/query/implementation/LinearQueryWithoutSubqueriesImpl'
+import { LinearQueryWithSubqueriesImpl } from 'yeeql/query/implementation/LinearQueryWithSubqueriesImpl'
+import { GroupedQueryWithoutSubqueriesImpl } from 'yeeql/query/implementation/GroupedQueryWithoutSubqueriesImpl'
+import { CountQueryImpl } from 'yeeql/query/implementation/CountQueryImpl'
+import { GroupedCountQueryImpl } from 'yeeql/query/implementation/GroupedCountQueryImpl'
 
 /*
  * We only allow the user to use primitives in their sort function,
@@ -41,16 +45,16 @@ type Sort<S extends TableSchema, Q extends SubqueryGenerators<S>> = (
 	b: Row<Primitives<S>> & PrimitiveSubqueriesResults<S, Q>,
 ) => number
 
-type PrimitiveQueryResult<QueryResult> =
+type PrimitiveQueryResult<Result> =
 	// Linear query (with or without subqueries)
-	QueryResult extends LinearQueryResult<infer S, infer Select, infer Q>
+	Result extends QueryResult<LinearQuery<infer S, infer Select, infer Q>>
 		? ReadonlyArray<
 				Readonly<
 					Row<Primitives<Pick<S, Select>>> & PrimitiveSubqueriesResults<S, Q>
 				>
 		  >
 		: // Grouped query
-		  QueryResult extends ReadonlyDefaultMap<
+		  Result extends ReadonlyDefaultMap<
 					infer GroupValue,
 					ReadonlyArray<Readonly<Row<infer Schema>>>
 		    >
@@ -59,10 +63,10 @@ type PrimitiveQueryResult<QueryResult> =
 					ReadonlyArray<Readonly<Row<Primitives<Schema>>>>
 		    >
 		  : // Count query
-		    QueryResult extends number
+		    Result extends number
 		    ? number
 		    : // Group count query
-		      QueryResult extends ReadonlyDefaultMap<infer Group, number>
+		      Result extends ReadonlyDefaultMap<infer Group, number>
 		      ? ReadonlyDefaultMap<Group, number>
 		      : // Unknown
 		        never
@@ -347,19 +351,19 @@ export class Table<S extends TableSchema> {
 		filter?: Filter<S>
 		subqueries?: undefined // Need this so TypeScript doesn't get confused??
 		sort?: Sort<S, {}>
-	}): LinearQuery<S, Select>
+	}): LinearQuery<S, Select, {}>
 	query<Select extends keyof S, Q extends SubqueryGenerators<S>>(_: {
 		select?: ReadonlyArray<Select>
 		filter?: Filter<S>
 		subqueries: Q
 		sort?: Sort<S, Q>
-	}): LinearQueryWithSubqueries<S, keyof S, Q>
+	}): LinearQuery<S, keyof S, Q>
 	query<Select extends keyof S, GroupBy extends keyof Primitives<S>>(_: {
 		select?: ReadonlyArray<Select>
 		filter?: Filter<S>
-		sort?: Sort<S, {}>
 		groupBy: GroupBy
-	}): GroupedQuery<Row<Pick<S, Select>>, Row<Primitives<S>>[GroupBy]>
+		sort?: Sort<S, {}>
+	}): GroupedQuery<S, Select, GroupBy, {}>
 	query<
 		Select extends keyof S,
 		GroupBy extends keyof Primitives<S>,
@@ -367,9 +371,10 @@ export class Table<S extends TableSchema> {
 	>(_: {
 		select?: ReadonlyArray<Select>
 		filter?: Filter<S>
-		sort?: Sort<S, {}>
 		groupBy: GroupBy
-	}): GroupedQueryWithSubqueries<S, Select, GroupBy, Q>
+		subqueries: Q
+		sort?: Sort<S, {}>
+	}): GroupedQuery<S, Select, GroupBy, Q>
 	query<
 		Select extends keyof S,
 		GroupBy extends keyof Primitives<S>,
@@ -387,10 +392,10 @@ export class Table<S extends TableSchema> {
 		groupBy?: GroupBy
 		subqueries?: Q
 	}):
-		| LinearQuery<S, Select>
-		| GroupedQuery<Row<Pick<S, Select>>, Row<Primitives<S>>[GroupBy]>
-		| LinearQueryWithSubqueries<S, Select, Q>
-		| GroupedQueryWithSubqueries<S, Select, GroupBy, Q> {
+		| LinearQuery<S, Select, {}>
+		| LinearQuery<S, Select, Q>
+		| GroupedQuery<S, Select, GroupBy, {}>
+		| GroupedQuery<S, Select, GroupBy, Q> {
 		if (debug.on && !debug.makingSubquery) {
 			let subqueriesString: string | undefined
 			if (subqueries !== undefined) {
@@ -424,9 +429,9 @@ export class Table<S extends TableSchema> {
 		).sort() as unknown as ReadonlyArray<Select>
 
 		let result:
-			| LinearQueryImpl<S, Select>
-			| GroupedQueryImpl<S, Select, GroupBy>
+			| LinearQueryWithoutSubqueriesImpl<S, Select>
 			| LinearQueryWithSubqueriesImpl<S, Select, Q>
+			| GroupedQueryWithoutSubqueriesImpl<S, Select, GroupBy>
 		if (groupBy === undefined) {
 			if (subqueries === undefined) {
 				result = this.getCachedQuery(
@@ -436,7 +441,7 @@ export class Table<S extends TableSchema> {
 						subqueries: null,
 					},
 					() =>
-						new LinearQueryImpl<S, Select>(
+						new LinearQueryWithoutSubqueriesImpl<S, Select>(
 							this.items,
 							resolvedSelect,
 							filter,
@@ -468,8 +473,8 @@ export class Table<S extends TableSchema> {
 							resolvedSelect,
 							filter,
 							this.makeTiebrokenIdSort(sort) as (
-								a: RowWithSubqueries<S, keyof S, Q>,
-								b: RowWithSubqueries<S, keyof S, Q>,
+								a: LinearQueryResultRow<S, keyof S, Q>,
+								b: LinearQueryResultRow<S, keyof S, Q>,
 							) => number,
 							subqueries,
 							getSubqueriesDependencies(this.schema, subqueries),
@@ -484,7 +489,7 @@ export class Table<S extends TableSchema> {
 					subqueries: null,
 				},
 				() =>
-					new GroupedQueryImpl(
+					new GroupedQueryWithoutSubqueriesImpl(
 						this.items,
 						resolvedSelect,
 						filter,

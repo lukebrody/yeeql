@@ -1,4 +1,4 @@
-import { DefaultMap } from '../common/DefaultMap'
+import { DefaultMap } from '../../common/DefaultMap'
 import { Filter, Row, TableSchema } from './Schema'
 
 const notSpecified = Symbol()

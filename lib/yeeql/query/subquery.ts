@@ -1,6 +1,6 @@
 import { DefaultMap } from 'common/DefaultMap'
-import { Query } from 'yeeql/Query'
-import { TableSchema, Row } from 'yeeql/Schema'
+import { Query } from 'yeeql/query/Query'
+import { TableSchema, Row } from 'yeeql/table/Schema'
 
 export type SubqueryGenerator<S extends TableSchema, Result, Change> = (
 	row: Row<S>,

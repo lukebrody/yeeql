@@ -1,22 +1,16 @@
-import { Filter, Row, TableSchema } from './Schema'
-import { QueryRegistryEntry } from './QueryRegistry'
-import { UUID } from '../common/UUID'
-import { DefaultMap, ReadonlyDefaultMap } from '../common/DefaultMap'
-import { Query } from './Query'
-import { QueryBase } from './QueryBase'
-
-export type GroupedCountQueryChange<Group> = { group: Group; change: 1 | -1 }
-
-export type GroupedCountQuery<Group> = Query<
-	ReadonlyDefaultMap<Group, number>,
-	GroupedCountQueryChange<Group>
->
+import { Filter, Row, TableSchema } from 'yeeql/table/Schema'
+import { QueryRegistryEntry } from 'yeeql/table/QueryRegistry'
+import { UUID } from 'common/UUID'
+import { DefaultMap } from 'common/DefaultMap'
+import { QueryBase } from 'yeeql/query/QueryBase'
+import { QueryChange } from 'yeeql/query/Query'
+import { GroupedCountQuery } from 'yeeql/query/interface/GroupedCountQuery'
 
 export class GroupedCountQueryImpl<
 		S extends TableSchema,
 		GroupBy extends keyof S,
 	>
-	extends QueryBase<GroupedCountQueryChange<Row<S>[GroupBy]>>
+	extends QueryBase<QueryChange<GroupedCountQuery<Row<S>[GroupBy]>>>
 	implements QueryRegistryEntry<S>, GroupedCountQuery<Row<S>[GroupBy]>
 {
 	constructor(

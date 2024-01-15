@@ -1,6 +1,5 @@
-import { UUID } from '../lib/common/UUID'
-import { Field } from '../lib/yeeql/Schema'
-import { Table } from '../lib/yeeql/Table'
+// eslint-disable-next-line no-restricted-imports
+import { UUID, Field, Table } from '../lib/index'
 import * as Y from 'yjs'
 
 import { beforeEach, expect, test, vi } from 'vitest'

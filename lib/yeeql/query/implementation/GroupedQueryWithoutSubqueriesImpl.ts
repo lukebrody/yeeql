@@ -1,46 +1,20 @@
-import { insertOrdered, removeOrdered } from '../../common/array'
-import { Filter, Primitives, Row, TableSchema } from '../Schema'
-import { QueryRegistryEntry } from '../QueryRegistry'
-import { UUID } from '../../common/UUID'
-import { LinearQueryChange, LinearResultRow } from 'yeeql/LinearQuery'
-import { DefaultMap, ReadonlyDefaultMap } from 'common/DefaultMap'
-import { Query } from 'yeeql/Query'
-import { QueryBase } from 'yeeql/QueryBase'
+import { insertOrdered, removeOrdered } from 'common/array'
+import { Filter, Primitives, Row, TableSchema } from 'yeeql/table/Schema'
+import { QueryRegistryEntry } from 'yeeql/table/QueryRegistry'
+import { UUID } from 'common/UUID'
+import { DefaultMap } from 'common/DefaultMap'
+import { QueryChange } from 'yeeql/query/Query'
+import { QueryBase } from 'yeeql/query/QueryBase'
+import { GroupedQuery } from 'yeeql/query/interface/GroupedQuery'
+import { ResultRow } from 'yeeql/query/interface/LinearQuery'
 
-type GroupedQueryChange<Result, G> = LinearQueryChange<Result> & {
-	group: G
-}
-
-export type GroupValue<
-	S extends TableSchema,
-	GroupBy extends keyof Primitives<S>,
-> = Row<Primitives<S>>[GroupBy]
-
-type Change<
-	S extends TableSchema,
-	Select extends keyof S,
-	GroupBy extends keyof Primitives<S>,
-> = GroupedQueryChange<Row<Pick<S, Select>>, Row<Primitives<S>>[GroupBy]>
-
-export type GroupedQuery<
-	S extends TableSchema,
-	Select extends keyof S,
-	GroupBy extends keyof Primitives<S>,
-> = Query<
-	ReadonlyDefaultMap<
-		GroupValue<S, GroupBy>,
-		ReadonlyArray<LinearResultRow<S, Select>>
-	>,
-	Change<S, Select, GroupBy>
->
-
-export class GroupedQueryImpl<
+export class GroupedQueryWithoutSubqueriesImpl<
 		S extends TableSchema,
 		Select extends keyof S,
 		GroupBy extends keyof Primitives<S>,
 	>
-	extends QueryBase<Change<S, Select, GroupBy>>
-	implements QueryRegistryEntry<S>, GroupedQuery<S, Select, GroupBy>
+	extends QueryBase<QueryChange<GroupedQuery<S, Select, GroupBy, {}>>>
+	implements QueryRegistryEntry<S>, GroupedQuery<S, Select, GroupBy, {}>
 {
 	constructor(
 		items: ReadonlyMap<UUID, Row<S>>,
@@ -120,7 +94,7 @@ export class GroupedQueryImpl<
 					row,
 					oldIndex: oldIndex,
 					newIndex: newIndex,
-					oldValues,
+					oldValues: oldValues as Partial<ResultRow<S, Select, {}>>,
 					group,
 					type: 'update',
 				}

@@ -1,22 +1,16 @@
-import { UUID } from '../../common/UUID'
-import { insertOrdered, removeOrdered } from '../../common/array'
-import { Query } from '../Query'
-import { QueryBase, InternalChangeCallback, QueryInternal } from '../QueryBase'
-import { QueryRegistryEntry } from '../QueryRegistry'
-import {
-	TableSchema,
-	Row,
-	Filter,
-	SubqueryGenerators,
-	SubqueriesResults,
-	SubqueryResult,
-	SubqueriesDependencies,
-	SubqueryChange,
-} from 'yeeql/Schema'
-import { LinearQueryChange, LinearQuery } from './types'
+import { UUID } from 'common/UUID'
+import { insertOrdered, removeOrdered } from 'common/array'
+import { QueryBase } from 'yeeql/query/QueryBase'
+import { QueryRegistryEntry } from 'yeeql/table/QueryRegistry'
+import { TableSchema, Row, Filter } from 'yeeql/table/Schema'
+import { LinearQuery, ResultRow } from 'yeeql/query/interface/LinearQuery'
+import { QueryChange } from 'yeeql/query/Query'
 
-export class LinearQueryImpl<S extends TableSchema, Select extends keyof S>
-	extends QueryBase<LinearQueryChange<S, Select, {}>>
+export class LinearQueryWithoutSubqueriesImpl<
+		S extends TableSchema,
+		Select extends keyof S,
+	>
+	extends QueryBase<QueryChange<LinearQuery<S, Select, {}>>>
 	implements QueryRegistryEntry<S>, LinearQuery<S, Select, {}>
 {
 	constructor(

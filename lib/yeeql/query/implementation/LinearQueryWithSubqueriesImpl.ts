@@ -1,4 +1,26 @@
 import { debug } from 'common/debug'
+import {
+	InternalChangeCallback,
+	QueryBase,
+	QueryInternal,
+} from 'yeeql/query/QueryBase'
+import {
+	SubqueriesDependencies,
+	SubqueriesResults,
+	SubqueryChange,
+	SubqueryGenerators,
+	SubqueryResult,
+} from 'yeeql/query/subquery'
+import { Filter, Row, TableSchema } from 'yeeql/table/Schema'
+import {
+	LinearQuery,
+	Change,
+	ResultRow,
+} from 'yeeql/query/interface/LinearQuery'
+import { QueryRegistryEntry } from 'yeeql/table/QueryRegistry'
+import { UUID } from 'common/UUID'
+import { Query } from 'yeeql/query/Query'
+import { insertOrdered, removeOrdered } from 'common/array'
 
 type MapValue<A> = A extends Map<unknown, infer V> ? V : never
 
@@ -7,7 +29,7 @@ export class LinearQueryWithSubqueriesImpl<
 		Select extends keyof S,
 		Q extends SubqueryGenerators<S>,
 	>
-	extends QueryBase<LinearQueryChange<S, Select, Q>>
+	extends QueryBase<Change<S, Select, Q>>
 	implements QueryRegistryEntry<S>, LinearQuery<S, Select, Q>
 {
 	constructor(

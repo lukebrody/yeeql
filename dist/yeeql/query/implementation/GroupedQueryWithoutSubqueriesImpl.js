@@ -1,6 +1,6 @@
-import { insertOrdered, removeOrdered } from 'common/array';
-import { DefaultMap } from 'common/DefaultMap';
-import { QueryBase } from 'yeeql/query/QueryBase';
+import { insertOrdered, removeOrdered } from '../../../common/array';
+import { DefaultMap } from '../../../common/DefaultMap';
+import { QueryBase } from '../../../yeeql/query/QueryBase';
 export class GroupedQueryWithoutSubqueriesImpl extends QueryBase {
     constructor(items, select, filter, sort, groupBy) {
         super();

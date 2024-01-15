@@ -1,4 +1,4 @@
-import { UUID } from 'common/UUID';
+import { UUID } from '../../common/UUID';
 export declare class Field<Type> {
 }
 type FieldType<F extends Field<unknown>> = F extends Field<infer T> ? T : never;

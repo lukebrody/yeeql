@@ -1,5 +1,5 @@
-import { DefaultMap } from 'common/DefaultMap';
-import { QueryBase } from 'yeeql/query/QueryBase';
+import { DefaultMap } from '../../../common/DefaultMap';
+import { QueryBase } from '../../../yeeql/query/QueryBase';
 export class GroupedCountQueryImpl extends QueryBase {
     constructor(items, filter, groupBy) {
         super();

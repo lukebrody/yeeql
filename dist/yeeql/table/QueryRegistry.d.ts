@@ -1,4 +1,4 @@
-import { Filter, Row, TableSchema } from 'yeeql/table/Schema';
+import { Filter, Row, TableSchema } from '../../yeeql/table/Schema';
 export declare const addedOrRemoved: unique symbol;
 type AddedOrRemoved = typeof addedOrRemoved;
 export declare const _testQueryEntries: {

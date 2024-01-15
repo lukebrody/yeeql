@@ -1,5 +1,5 @@
-import { insertOrdered, removeOrdered } from 'common/array';
-import { QueryBase } from 'yeeql/query/QueryBase';
+import { insertOrdered, removeOrdered } from '../../../common/array';
+import { QueryBase } from '../../../yeeql/query/QueryBase';
 export class LinearQueryWithoutSubqueriesImpl extends QueryBase {
     constructor(items, select, filter, sort) {
         super();

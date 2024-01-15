@@ -1,9 +1,9 @@
-import { UUID } from 'common/UUID';
-import { QueryBase } from 'yeeql/query/QueryBase';
-import { QueryRegistryEntry } from 'yeeql/table/QueryRegistry';
-import { TableSchema, Row, Filter } from 'yeeql/table/Schema';
-import { LinearQuery } from 'yeeql/query/interface/LinearQuery';
-import { QueryChange } from 'yeeql/query/Query';
+import { UUID } from '../../../common/UUID';
+import { QueryBase } from '../../../yeeql/query/QueryBase';
+import { QueryRegistryEntry } from '../../../yeeql/table/QueryRegistry';
+import { TableSchema, Row, Filter } from '../../../yeeql/table/Schema';
+import { LinearQuery } from '../../../yeeql/query/interface/LinearQuery';
+import { QueryChange } from '../../../yeeql/query/Query';
 export declare class LinearQueryWithoutSubqueriesImpl<S extends TableSchema, Select extends keyof S> extends QueryBase<QueryChange<LinearQuery<S, Select, {}>>> implements QueryRegistryEntry<S>, LinearQuery<S, Select, {}> {
     readonly filter: Filter<S>;
     readonly sort: (a: Row<S>, b: Row<S>) => number;

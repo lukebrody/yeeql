@@ -10,7 +10,7 @@
 	"license": "MIT",
 	"scripts": {
 		"test": "node --expose-gc node_modules/.bin/vitest",
-		"build": "rm -r dist && tsc --project lib/tsconfig.json",
+		"build": "rm -r dist && tsc --project lib/tsconfig.json && tsc-alias -p lib/tsconfig.json",
 		"lint": "prettier . --write && eslint --fix \"./**/*.{ts, tsx, js, cjs}\""
 	},
 	"dependencies": {
@@ -30,6 +30,7 @@
 		"eslint-plugin-react": "^7.33.1",
 		"prettier": "^3.1.0",
 		"react": "^18.2.0",
+		"tsc-alias": "^1.8.8",
 		"typescript": "~5.1.0",
 		"vite-tsconfig-paths": "^4.2.3",
 		"vitest": "1.2.0",

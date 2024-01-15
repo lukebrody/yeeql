@@ -1,4 +1,4 @@
-import { QueryBase } from 'yeeql/query/QueryBase';
+import { QueryBase } from '../../../yeeql/query/QueryBase';
 export class CountQueryImpl extends QueryBase {
     constructor(items, filter) {
         super();

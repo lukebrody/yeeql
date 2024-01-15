@@ -1,10 +1,10 @@
-import { Filter, Primitives, Row, TableSchema } from 'yeeql/table/Schema';
-import { QueryRegistryEntry } from 'yeeql/table/QueryRegistry';
-import { UUID } from 'common/UUID';
-import { DefaultMap } from 'common/DefaultMap';
-import { QueryChange } from 'yeeql/query/Query';
-import { QueryBase } from 'yeeql/query/QueryBase';
-import { GroupedQuery } from 'yeeql/query/interface/GroupedQuery';
+import { Filter, Primitives, Row, TableSchema } from '../../../yeeql/table/Schema';
+import { QueryRegistryEntry } from '../../../yeeql/table/QueryRegistry';
+import { UUID } from '../../../common/UUID';
+import { DefaultMap } from '../../../common/DefaultMap';
+import { QueryChange } from '../../../yeeql/query/Query';
+import { QueryBase } from '../../../yeeql/query/QueryBase';
+import { GroupedQuery } from '../../../yeeql/query/interface/GroupedQuery';
 export declare class GroupedQueryWithoutSubqueriesImpl<S extends TableSchema, Select extends keyof S, GroupBy extends keyof Primitives<S>> extends QueryBase<QueryChange<GroupedQuery<S, Select, GroupBy, {}>>> implements QueryRegistryEntry<S>, GroupedQuery<S, Select, GroupBy, {}> {
     readonly filter: Filter<S>;
     readonly sort: (a: Row<S>, b: Row<S>) => number;

@@ -1,16 +1,16 @@
 import stringify from 'json-stable-stringify';
 import * as Y from 'yjs';
-import { DefaultMap } from 'common/DefaultMap';
-import { UUID } from 'common/UUID';
-import { debug } from 'common/debug';
-import { compareStrings } from 'common/string';
-import { QueryRegistry, addedOrRemoved, } from 'yeeql/table/QueryRegistry';
-import { schemaToDebugString, } from 'yeeql/table/Schema';
-import { LinearQueryWithoutSubqueriesImpl } from 'yeeql/query/implementation/LinearQueryWithoutSubqueriesImpl';
-import { LinearQueryWithSubqueriesImpl } from 'yeeql/query/implementation/LinearQueryWithSubqueriesImpl';
-import { GroupedQueryWithoutSubqueriesImpl } from 'yeeql/query/implementation/GroupedQueryWithoutSubqueriesImpl';
-import { CountQueryImpl } from 'yeeql/query/implementation/CountQueryImpl';
-import { GroupedCountQueryImpl } from 'yeeql/query/implementation/GroupedCountQueryImpl';
+import { DefaultMap } from '../../common/DefaultMap';
+import { UUID } from '../../common/UUID';
+import { debug } from '../../common/debug';
+import { compareStrings } from '../../common/string';
+import { QueryRegistry, addedOrRemoved, } from '../../yeeql/table/QueryRegistry';
+import { schemaToDebugString, } from '../../yeeql/table/Schema';
+import { LinearQueryWithoutSubqueriesImpl } from '../../yeeql/query/implementation/LinearQueryWithoutSubqueriesImpl';
+import { LinearQueryWithSubqueriesImpl } from '../../yeeql/query/implementation/LinearQueryWithSubqueriesImpl';
+import { GroupedQueryWithoutSubqueriesImpl } from '../../yeeql/query/implementation/GroupedQueryWithoutSubqueriesImpl';
+import { CountQueryImpl } from '../../yeeql/query/implementation/CountQueryImpl';
+import { GroupedCountQueryImpl } from '../../yeeql/query/implementation/GroupedCountQueryImpl';
 const stubProxy = new Proxy(() => undefined, {
     get(_, p) {
         if (p === Symbol.toPrimitive) {

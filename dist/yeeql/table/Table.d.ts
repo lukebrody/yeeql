@@ -1,18 +1,12 @@
-import { ReadonlyDefaultMap } from 'common/DefaultMap';
-import { UUID } from 'common/UUID';
-import { YMap } from 'yeeql/YInterfaces';
-import { QueryResult } from 'yeeql/query/Query';
-import { CountQuery } from 'yeeql/query/interface/CountQuery';
-import { GroupedCountQuery } from 'yeeql/query/interface/GroupedCountQuery';
-import { GroupedQuery } from 'yeeql/query/interface/GroupedQuery';
-import { LinearQuery } from 'yeeql/query/interface/LinearQuery';
-import { Filter, Primitives, Row, TableSchema } from 'yeeql/table/Schema';
-import { SubqueryGenerators, SubqueryResult } from 'yeeql/query/subquery';
-type Sort<S extends TableSchema, Q extends SubqueryGenerators<S>> = (a: Row<Primitives<S>> & PrimitiveSubqueriesResults<S, Q>, b: Row<Primitives<S>> & PrimitiveSubqueriesResults<S, Q>) => number;
-type PrimitiveQueryResult<Result> = Result extends QueryResult<LinearQuery<infer S, infer Select, infer Q>> ? ReadonlyArray<Readonly<Row<Primitives<Pick<S, Select>>> & PrimitiveSubqueriesResults<S, Q>>> : Result extends ReadonlyDefaultMap<infer GroupValue, ReadonlyArray<Readonly<Row<infer Schema>>>> ? ReadonlyDefaultMap<GroupValue, ReadonlyArray<Readonly<Row<Primitives<Schema>>>>> : Result extends number ? number : Result extends ReadonlyDefaultMap<infer Group, number> ? ReadonlyDefaultMap<Group, number> : never;
-type PrimitiveSubqueriesResults<S extends TableSchema, Q extends SubqueryGenerators<S>> = {
-    [K in keyof Q]: PrimitiveQueryResult<SubqueryResult<S, Q[K]>>;
-};
+import { UUID } from '../../common/UUID';
+import { YMap } from '../../yeeql/YInterfaces';
+import { CountQuery } from '../../yeeql/query/interface/CountQuery';
+import { GroupedCountQuery } from '../../yeeql/query/interface/GroupedCountQuery';
+import { GroupedQuery } from '../../yeeql/query/interface/GroupedQuery';
+import { LinearQuery } from '../../yeeql/query/interface/LinearQuery';
+import { Filter, Primitives, Row, TableSchema } from '../../yeeql/table/Schema';
+import { SubqueriesPrimitiveResults, SubqueryGenerators } from '../../yeeql/query/subquery';
+type Sort<S extends TableSchema, Q extends SubqueryGenerators<S>> = (a: Row<Primitives<S>> & SubqueriesPrimitiveResults<S, Q>, b: Row<Primitives<S>> & SubqueriesPrimitiveResults<S, Q>) => number;
 export declare class Table<S extends TableSchema> {
     private readonly yTable;
     private readonly schema;
@@ -48,7 +42,7 @@ export declare class Table<S extends TableSchema> {
         filter?: Filter<S>;
         groupBy: GroupBy;
         subqueries: Q;
-        sort?: Sort<S, {}>;
+        sort?: Sort<S, Q>;
     }): GroupedQuery<S, Select, GroupBy, Q>;
     count(_: {
         filter?: Filter<S>;

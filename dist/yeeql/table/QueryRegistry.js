@@ -1,4 +1,4 @@
-import { DefaultMap } from 'common/DefaultMap';
+import { DefaultMap } from '../../common/DefaultMap';
 const notSpecified = Symbol();
 export const addedOrRemoved = Symbol();
 function buildQueryTree(fields) {

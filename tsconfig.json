@@ -1,6 +1,7 @@
 {
 	"compilerOptions": {
 		"outDir": "./dist",
+		"baseUrl": "./lib",
 		"target": "ES2021",
 		"strict": true,
 		"declaration": true,
@@ -10,5 +11,5 @@
 		"allowSyntheticDefaultImports": true
 	},
 	"include": ["lib/**/*"],
-	"exclude": ["lib/**/*.test.ts"]
+	"exclude": ["test/**/*"]
 }

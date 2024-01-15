@@ -1,4 +1,4 @@
-import { UUID } from '../common/UUID'
+import { UUID } from 'common/UUID'
 
 export const debug: {
 	statements: string[]

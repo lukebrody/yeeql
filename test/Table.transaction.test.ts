@@ -1,10 +1,10 @@
-import { UUID } from '../common/UUID'
-import { Field } from './Schema'
-import { Table } from './Table'
+import { UUID } from '../../common/UUID'
+import { Field } from '../Schema'
+import { Table } from '../Table'
 import * as Y from 'yjs'
 
 import { beforeEach, expect, test, vi } from 'vitest'
-import { QueryChange } from './Query'
+import { QueryChange } from '../Query'
 
 const schema = {
 	id: new Field<UUID>(),

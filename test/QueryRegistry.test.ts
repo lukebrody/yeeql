@@ -1,11 +1,11 @@
-import { UUID } from '../common/UUID'
+import { UUID } from '../lib/common/UUID'
 import {
 	QueryRegistryEntry,
 	QueryRegistry,
 	addedOrRemoved,
 	_testQueryEntries,
-} from './QueryRegistry'
-import { Field } from './Schema'
+} from '../lib/yeeql/QueryRegistry'
+import { Field } from '../lib/yeeql/Schema'
 
 import { expect, test } from 'vitest'
 

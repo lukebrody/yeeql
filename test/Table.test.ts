@@ -1,6 +1,6 @@
-import { UUID } from '../common/UUID'
-import { Field } from './Schema'
-import { Table } from './Table'
+import { UUID } from '../lib/common/UUID'
+import { Field } from '../lib/yeeql/Schema'
+import { Table } from '../lib/yeeql/Table'
 import * as Y from 'yjs'
 
 import { beforeEach, expect, test, vi } from 'vitest'

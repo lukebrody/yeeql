@@ -1,63 +1,4 @@
-import { UUID } from '../common/UUID'
-import { insertOrdered, removeOrdered } from '../common/array'
-import { LinearQueryChange } from './LinearQuery'
-import { Query } from './Query'
-import { QueryBase, InternalChangeCallback, QueryInternal } from './QueryBase'
-import { QueryRegistryEntry } from './QueryRegistry'
-import {
-	TableSchema,
-	Row,
-	Filter,
-	SubqueryGenerators,
-	SubqueriesResults,
-	SubqueryResult,
-	SubqueriesDependencies,
-	SubqueriesChanges,
-	SubqueryChange,
-} from './Schema'
-import { debug } from './debug'
-
-type ResultRow<
-	S extends TableSchema,
-	Select extends keyof S,
-	Q extends SubqueryGenerators<S>,
-> = Readonly<Row<Pick<S, Select>> & SubqueriesResults<S, Q>>
-
-export type LinearQueryWithSubqueriesChange<Result, SubChange> =
-	| LinearQueryChange<Result>
-	| {
-			kind: 'subquery'
-			row: Readonly<Result>
-			oldIndex: number
-			newIndex: number
-			subChange: SubChange
-			type: 'update'
-	  }
-
-type SubqueriesChange<T extends object> = {
-	[K in keyof T]: { key: K; change: T[K] }
-}[keyof T]
-
-export type LinearQueryResult<
-	S extends TableSchema,
-	Select extends keyof S,
-	Q extends SubqueryGenerators<S>,
-> = ReadonlyArray<ResultRow<S, Select, Q>>
-
-export type LinearQueryWithSubqueries<
-	S extends TableSchema,
-	Select extends keyof S,
-	Q extends SubqueryGenerators<S>,
-> = Query<LinearQueryResult<S, Select, Q>, Change<S, Select, Q>>
-
-type Change<
-	S extends TableSchema,
-	Select extends keyof S,
-	Q extends SubqueryGenerators<S>,
-> = LinearQueryWithSubqueriesChange<
-	Row<Pick<S, Select>> & SubqueriesResults<S, Q>,
-	SubqueriesChange<SubqueriesChanges<S, Q>>
->
+import { debug } from 'common/debug'
 
 type MapValue<A> = A extends Map<unknown, infer V> ? V : never
 
@@ -66,8 +7,8 @@ export class LinearQueryWithSubqueriesImpl<
 		Select extends keyof S,
 		Q extends SubqueryGenerators<S>,
 	>
-	extends QueryBase<Change<S, Select, Q>>
-	implements QueryRegistryEntry<S>, LinearQueryWithSubqueries<S, Select, Q>
+	extends QueryBase<LinearQueryChange<S, Select, Q>>
+	implements QueryRegistryEntry<S>, LinearQuery<S, Select, Q>
 {
 	constructor(
 		items: ReadonlyMap<UUID, Row<S>>,
@@ -189,7 +130,8 @@ export class LinearQueryWithSubqueriesImpl<
 					row: augmentedRow,
 					oldIndex: removedIndex,
 					newIndex: insertedIndex,
-					subChange: { key, change },
+					key,
+					change,
 					type: 'update',
 				}
 			})

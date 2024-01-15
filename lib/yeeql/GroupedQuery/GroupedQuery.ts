@@ -1,11 +1,11 @@
-import { insertOrdered, removeOrdered } from '../common/array'
-import { Filter, Primitives, Row, TableSchema } from './Schema'
-import { QueryRegistryEntry } from './QueryRegistry'
-import { UUID } from '../common/UUID'
-import { LinearQueryChange, LinearResultRow } from './LinearQuery'
-import { DefaultMap, ReadonlyDefaultMap } from '../common/DefaultMap'
-import { Query } from './Query'
-import { QueryBase } from './QueryBase'
+import { insertOrdered, removeOrdered } from '../../common/array'
+import { Filter, Primitives, Row, TableSchema } from '../Schema'
+import { QueryRegistryEntry } from '../QueryRegistry'
+import { UUID } from '../../common/UUID'
+import { LinearQueryChange, LinearResultRow } from 'yeeql/LinearQuery'
+import { DefaultMap, ReadonlyDefaultMap } from 'common/DefaultMap'
+import { Query } from 'yeeql/Query'
+import { QueryBase } from 'yeeql/QueryBase'
 
 type GroupedQueryChange<Result, G> = LinearQueryChange<Result> & {
 	group: G

@@ -40,6 +40,9 @@ module.exports = {
 			},
 		],
 		'no-constant-condition': 'off',
+		"no-restricted-imports": ["error", {
+			"patterns": [".*"]
+		}],
 	},
 	settings: {
 		react: {

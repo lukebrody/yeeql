@@ -1,10 +1,10 @@
-import { UUID } from '../common/UUID'
-import { Field } from './Schema'
-import { Table } from './Table'
+import { UUID } from '../../common/UUID'
+import { Field } from '../Schema'
+import { Table } from '../Table'
 import * as Y from 'yjs'
 
 import { beforeEach, expect, test } from 'vitest'
-import { QueryChange } from './Query'
+import { QueryChange } from '../Query'
 
 const child = {
 	id: new Field<UUID>(),

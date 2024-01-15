@@ -1,6 +1,7 @@
 {
 	"compilerOptions": {
 		"outDir": "./dist",
+		"baseUrl": "./lib",
 		"target": "ES2021",
 		"strict": true,
 		"declaration": true,

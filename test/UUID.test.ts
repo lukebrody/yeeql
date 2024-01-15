@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { UUID } from './UUID'
+import { UUID } from '../lib/common/UUID'
 
 test('UUID length', () => {
 	console.log(UUID.create())

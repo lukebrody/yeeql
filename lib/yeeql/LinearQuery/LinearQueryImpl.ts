@@ -1,45 +1,23 @@
-import { insertOrdered, removeOrdered } from '../common/array'
-import { Filter, Row, TableSchema } from './Schema'
-import { QueryRegistryEntry } from './QueryRegistry'
-import { UUID } from '../common/UUID'
-import { Query } from './Query'
-import { QueryBase } from './QueryBase'
-
-export type LinearQueryChange<Result> =
-	| {
-			kind: 'add'
-			row: Result
-			newIndex: number
-			type: 'add' | 'update'
-	  }
-	| {
-			kind: 'remove'
-			row: Result
-			oldIndex: number
-			type: 'delete' | 'update'
-	  }
-	| {
-			kind: 'update'
-			row: Result
-			oldIndex: number
-			newIndex: number
-			oldValues: Partial<Result>
-			type: 'update'
-	  }
-
-export type LinearResultRow<
-	S extends TableSchema,
-	Select extends keyof S,
-> = Readonly<Row<Pick<S, Select>>>
-
-export type LinearQuery<S extends TableSchema, Select extends keyof S> = Query<
-	ReadonlyArray<LinearResultRow<S, Select>>,
-	LinearQueryChange<LinearResultRow<S, Select>>
->
+import { UUID } from '../../common/UUID'
+import { insertOrdered, removeOrdered } from '../../common/array'
+import { Query } from '../Query'
+import { QueryBase, InternalChangeCallback, QueryInternal } from '../QueryBase'
+import { QueryRegistryEntry } from '../QueryRegistry'
+import {
+	TableSchema,
+	Row,
+	Filter,
+	SubqueryGenerators,
+	SubqueriesResults,
+	SubqueryResult,
+	SubqueriesDependencies,
+	SubqueryChange,
+} from 'yeeql/Schema'
+import { LinearQueryChange, LinearQuery } from './types'
 
 export class LinearQueryImpl<S extends TableSchema, Select extends keyof S>
-	extends QueryBase<LinearQueryChange<Row<Pick<S, Select>>>>
-	implements QueryRegistryEntry<S>, LinearQuery<S, Select>
+	extends QueryBase<LinearQueryChange<S, Select, {}>>
+	implements QueryRegistryEntry<S>, LinearQuery<S, Select, {}>
 {
 	constructor(
 		items: ReadonlyMap<UUID, Row<S>>,
@@ -103,7 +81,7 @@ export class LinearQueryImpl<S extends TableSchema, Select extends keyof S>
 				row: row,
 				oldIndex: removedIndex,
 				newIndex: addedIndex,
-				oldValues,
+				oldValues: oldValues as Partial<ResultRow<S, Select, {}>>,
 				type: 'update',
 			}
 		})

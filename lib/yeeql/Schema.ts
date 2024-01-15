@@ -1,6 +1,4 @@
-import { DefaultMap } from '../common/DefaultMap'
-import { UUID } from '../common/UUID'
-import { Query } from './Query'
+import { UUID } from 'common/UUID'
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export class Field<Type> {}
@@ -27,43 +25,6 @@ export type Primitives<S extends Schema> = Pick<
 > & { id: Field<UUID> }
 
 export type Filter<S extends TableSchema> = Partial<Row<Primitives<S>>>
-
-export type SubqueryGenerator<S extends TableSchema, Result, Change> = (
-	row: Row<S>,
-) => Query<Result, Change>
-
-export type SubqueryGenerators<S extends TableSchema> = {
-	[key: string]: SubqueryGenerator<S, unknown, unknown>
-}
-
-export type SubqueryResult<
-	S extends TableSchema,
-	Q extends SubqueryGenerator<S, unknown, unknown>,
-> = Q extends SubqueryGenerator<S, infer Result, unknown> ? Result : never
-
-export type SubqueriesResults<
-	S extends TableSchema,
-	Q extends SubqueryGenerators<S>,
-> = {
-	[K in keyof Q]: SubqueryResult<S, Q[K]>
-}
-
-export type SubqueriesDependencies<
-	S extends TableSchema,
-	Q extends SubqueryGenerators<S>,
-> = DefaultMap<keyof S, Set<keyof Q>>
-
-export type SubqueriesChanges<
-	S extends TableSchema,
-	Q extends SubqueryGenerators<S>,
-> = {
-	[K in keyof Q]: SubqueryChange<S, Q[K]>
-}
-
-export type SubqueryChange<
-	S extends TableSchema,
-	Q extends SubqueryGenerator<S, unknown, unknown>,
-> = Q extends SubqueryGenerator<S, unknown, infer Change> ? Change : never
 
 export function schemaToDebugString(schema: Schema) {
 	return `{${Object.entries(schema)

@@ -4,8 +4,8 @@ import {
 	QueryRegistryEntry,
 	addedOrRemoved,
 } from './QueryRegistry'
-import { LinearQuery, LinearQueryImpl } from './LinearQuery'
-import { GroupedQuery, GroupedQueryImpl } from './GroupedQuery'
+import { LinearQuery, LinearQueryImpl } from './LinearQuery/LinearQueryImpl'
+import { GroupedQuery, GroupedQueryImpl } from './GroupedQuery/GroupedQuery'
 import { CountQuery, CountQueryImpl } from './CountQuery'
 import { GroupedCountQuery, GroupedCountQueryImpl } from './GroupedCountQuery'
 import { DefaultMap, ReadonlyDefaultMap } from '../common/DefaultMap'
@@ -26,9 +26,9 @@ import {
 	LinearQueryWithSubqueries,
 	LinearQueryWithSubqueriesImpl,
 	LinearQueryResult,
-} from './LinearQueryWithSubqueries'
+} from './LinearQuery/LinearQueryImpl'
 import { compareStrings } from '../common/string'
-import { debug } from './debug'
+import { debug } from '../common/debug'
 import * as Y from 'yjs'
 import { GroupedQueryWithSubqueries } from './GroupedQueryWithSubqueries'
 

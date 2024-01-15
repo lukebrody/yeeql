@@ -106,8 +106,16 @@ test('Table.transaction.manyInserts', () => {
 	})
 
 	expect(changes1.length).toBe(2)
-	expect(changes1[0]['newIndex']).toBe(0)
-	expect(changes1[1]['newIndex']).toBe(1)
+	if (changes1[0].kind === 'add') {
+		expect(changes1[0]['newIndex']).toBe(0)
+	} else {
+		expect.fail()
+	}
+	if (changes1[1].kind === 'add') {
+		expect(changes1[1]['newIndex']).toBe(1)
+	} else {
+		expect.fail()
+	}
 })
 
 test('Table.transaction.manyUpdates', () => {

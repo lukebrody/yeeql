@@ -18,7 +18,7 @@ module.exports = {
 		},
 		ecmaVersion: 'latest',
 		sourceType: 'module',
-		project: 'tsconfig.json',
+		project: 'tsconfig.lint.json',
 	},
 	plugins: ['react', '@typescript-eslint'],
 	ignorePatterns: ['dist/**/*'],

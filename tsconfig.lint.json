@@ -1,0 +1,4 @@
+{
+	"extends": "./tsconfig.template.json",
+	"include": [".eslintrc.js", "vitest.workspace.ts"]
+}

@@ -9,13 +9,15 @@ export class DefaultMap<K, V>
 	get(key: K): V {
 		let result = super.get(key)
 		if (result === undefined) {
-			result = this.makeDefault()
+			result = this.makeDefault(key)
 			this.set(key, result)
 		}
 		return result
 	}
 
-	constructor(private readonly makeDefault: () => V) {
+	constructor(private readonly makeDefault: (key: K) => V) {
 		super()
 	}
 }
+
+export type MapValue<A> = A extends Map<unknown, infer V> ? V : never

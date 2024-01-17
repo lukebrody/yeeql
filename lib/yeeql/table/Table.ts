@@ -7,7 +7,6 @@ import { compareStrings } from 'common/string'
 import { YEvent, YMap } from 'yeeql/YInterfaces'
 import { Query, QueryChange, QueryResult } from 'yeeql/query/Query'
 import { CountQuery } from 'yeeql/query/interface/CountQuery'
-import { GroupedCountQuery } from 'yeeql/query/interface/GroupedCountQuery'
 import { GroupedQuery } from 'yeeql/query/interface/GroupedQuery'
 import {
 	LinearQuery,
@@ -32,9 +31,8 @@ import {
 } from 'yeeql/query/subquery'
 import { LinearQueryWithoutSubqueriesImpl } from 'yeeql/query/implementation/LinearQueryWithoutSubqueriesImpl'
 import { LinearQueryWithSubqueriesImpl } from 'yeeql/query/implementation/LinearQueryWithSubqueriesImpl'
-import { GroupedQueryWithoutSubqueriesImpl } from 'yeeql/query/implementation/GroupedQueryWithoutSubqueriesImpl'
+import { GroupedQueryImpl } from 'yeeql/query/implementation/GroupedQueryImpl'
 import { CountQueryImpl } from 'yeeql/query/implementation/CountQueryImpl'
-import { GroupedCountQueryImpl } from 'yeeql/query/implementation/GroupedCountQueryImpl'
 
 /*
  * We only allow the user to use primitives in their sort function,
@@ -344,7 +342,7 @@ export class Table<S extends TableSchema> {
 		filter?: Filter<S>
 		groupBy: GroupBy
 		sort?: Sort<S, {}>
-	}): GroupedQuery<S, Select, GroupBy, {}>
+	}): GroupedQuery<S, GroupBy, LinearQuery<S, Select, {}>>
 	query<
 		Select extends keyof S,
 		GroupBy extends keyof Primitives<S>,
@@ -355,7 +353,7 @@ export class Table<S extends TableSchema> {
 		groupBy: GroupBy
 		subqueries: Q
 		sort?: Sort<S, Q>
-	}): GroupedQuery<S, Select, GroupBy, Q>
+	}): GroupedQuery<S, GroupBy, LinearQuery<S, Select, Q>>
 	query<
 		Select extends keyof S,
 		GroupBy extends keyof Primitives<S>,
@@ -375,8 +373,8 @@ export class Table<S extends TableSchema> {
 	}):
 		| LinearQuery<S, Select, {}>
 		| LinearQuery<S, Select, Q>
-		| GroupedQuery<S, Select, GroupBy, {}>
-		| GroupedQuery<S, Select, GroupBy, Q> {
+		| GroupedQuery<S, GroupBy, LinearQuery<S, Select, {}>>
+		| GroupedQuery<S, GroupBy, LinearQuery<S, Select, Q>> {
 		if (debug.on && !debug.makingSubquery) {
 			let subqueriesString: string | undefined
 			if (subqueries !== undefined) {
@@ -412,7 +410,8 @@ export class Table<S extends TableSchema> {
 		let result:
 			| LinearQueryWithoutSubqueriesImpl<S, Select>
 			| LinearQueryWithSubqueriesImpl<S, Select, Q>
-			| GroupedQueryWithoutSubqueriesImpl<S, Select, GroupBy>
+			| GroupedQueryImpl<S, GroupBy, LinearQuery<S, Select, {}>>
+			| GroupedQueryImpl<S, GroupBy, LinearQuery<S, Select, Q>>
 		if (groupBy === undefined) {
 			if (subqueries === undefined) {
 				result = this.getCachedQuery(
@@ -463,21 +462,41 @@ export class Table<S extends TableSchema> {
 				)
 			}
 		} else {
-			result = this.getCachedQuery(
-				{
-					key: stringify({ filter, resolvedSelect, groupBy, kind: 'grouped' }),
-					sort,
-					subqueries: null,
-				},
-				() =>
-					new GroupedQueryWithoutSubqueriesImpl(
-						this.items,
-						resolvedSelect,
-						filter,
-						makeTiebrokenIdSort(sort as Sort<S, {}>),
-						groupBy,
-					),
-			)
+			if (subqueries === undefined) {
+				result = this.getCachedQuery(
+					{
+						key: stringify({
+							filter,
+							resolvedSelect,
+							groupBy,
+							kind: 'grouped',
+						}),
+						sort,
+						subqueries: null,
+					},
+					() =>
+						new GroupedQueryImpl(this.items, filter, groupBy, () =>
+							this.query({ select, filter, sort: sort as Sort<S, {}> }),
+						),
+				)
+			} else {
+				result = this.getCachedQuery(
+					{
+						key: stringify({
+							filter,
+							resolvedSelect,
+							groupBy,
+							kind: 'grouped',
+						}),
+						sort,
+						subqueries,
+					},
+					() =>
+						new GroupedQueryImpl(this.items, filter, groupBy, () =>
+							this.query({ select, filter, subqueries, sort }),
+						),
+				)
+			}
 		}
 		return result
 	}
@@ -486,14 +505,14 @@ export class Table<S extends TableSchema> {
 	count<GroupBy extends keyof Primitives<S>>(_: {
 		filter?: Filter<S>
 		groupBy: GroupBy
-	}): GroupedCountQuery<Row<S>[GroupBy]>
+	}): GroupedQuery<S, GroupBy, CountQuery>
 	count<GroupBy extends keyof Primitives<S>>({
 		filter = {},
 		groupBy,
 	}: {
 		filter?: Filter<S>
 		groupBy?: GroupBy
-	}): CountQuery | GroupedCountQuery<Row<S>[GroupBy]> {
+	}): CountQuery | GroupedQuery<S, GroupBy, CountQuery> {
 		if (debug.on && !debug.makingSubquery) {
 			debug.statements.push(
 				`const query${++debug.counter} = ${this.debugName}.count(${{
@@ -508,7 +527,7 @@ export class Table<S extends TableSchema> {
 			...Object.keys(filter),
 		])
 
-		let result: CountQueryImpl<S> | GroupedCountQueryImpl<S, GroupBy>
+		let result: CountQueryImpl<S> | GroupedQueryImpl<S, GroupBy, CountQuery>
 		if (groupBy === undefined) {
 			result = this.getCachedQuery(
 				{
@@ -525,11 +544,36 @@ export class Table<S extends TableSchema> {
 					sort: null,
 					subqueries: null,
 				},
-				() => new GroupedCountQueryImpl(this.items, filter, groupBy),
+				() =>
+					new GroupedQueryImpl(this.items, filter, groupBy, (group) =>
+						this.count({ filter: { ...filter, [groupBy]: group } }),
+					),
 			)
 		}
 		this.queryRegistry.register(result)
 		return result
+	}
+
+	groupBy<
+		GroupBy extends keyof Primitives<S>,
+		Q extends Query<unknown, unknown, unknown>,
+	>({
+		groupBy,
+		filter,
+		subquery,
+	}: {
+		groupBy: GroupBy
+		filter: Filter<S>
+		subquery: (group: Row<Primitives<S>>[GroupBy]) => Q
+	}): GroupedQuery<S, GroupBy, Q> {
+		return this.getCachedQuery(
+			{
+				key: stringify({ groupBy, filter, kind: 'groupBy' }),
+				sort: null,
+				subqueries: subquery,
+			},
+			() => new GroupedQueryImpl(this.items, filter, groupBy, subquery),
+		)
 	}
 
 	insert(row: Omit<Row<S>, 'id'>): UUID {

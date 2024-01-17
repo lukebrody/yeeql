@@ -14,3 +14,6 @@ export type QueryResult<Q extends Query<unknown, unknown, unknown>> =
 
 export type QueryChange<Q extends Query<unknown, unknown, unknown>> =
 	Q extends Query<unknown, infer Change, unknown> ? Change : never
+
+export type QueryPrimitiveResult<Q extends Query<unknown, unknown, unknown>> =
+	Q extends Query<unknown, unknown, infer Result> ? Result : never

@@ -1,27 +1,36 @@
 import { ReadonlyDefaultMap } from 'common/DefaultMap'
-import { Query } from 'yeeql/query/Query'
-import { Primitives, Row, TableSchema } from 'yeeql/table/Schema'
 import {
-	ResultRow as LinearQueryResultRow,
-	Change as LinearQueryChange,
-	PrimitiveResultRow as LinearQueryPrimitiveResultRow,
-} from 'yeeql/query/interface/LinearQuery'
-import { SubqueryGenerators } from 'yeeql/query/subquery'
+	Query,
+	QueryChange,
+	QueryPrimitiveResult,
+	QueryResult,
+} from 'yeeql/query/Query'
+import { Primitives, Row, TableSchema } from 'yeeql/table/Schema'
 
 export type GroupedQuery<
 	S extends TableSchema,
-	Select extends keyof S,
 	GroupBy extends keyof Primitives<S>,
-	Q extends SubqueryGenerators<S>,
+	Q extends Query<unknown, unknown, unknown>,
 > = Query<
-	ReadonlyDefaultMap<
-		Row<Primitives<S>>[GroupBy],
-		ReadonlyArray<LinearQueryResultRow<S, Select, Q>>
-	>,
-	LinearQueryChange<S, Select, Q> &
-		Readonly<{ group: Row<Primitives<S>>[GroupBy] }>,
-	ReadonlyDefaultMap<
-		Row<Primitives<S>>[GroupBy],
-		ReadonlyArray<LinearQueryPrimitiveResultRow<S, Q>>
-	>
+	ReadonlyDefaultMap<Row<Primitives<S>>[GroupBy], QueryResult<Q>>,
+	| Readonly<{
+			kind: 'addGroup'
+			group: Row<Primitives<S>>[GroupBy]
+			result: QueryResult<Q>
+			type: 'add' | 'update'
+	  }>
+	| Readonly<{
+			kind: 'removeGroup'
+			group: Row<Primitives<S>>[GroupBy]
+			result: QueryResult<Q>
+			type: 'delete' | 'update'
+	  }>
+	| Readonly<{
+			kind: 'subquery'
+			group: Row<Primitives<S>>[GroupBy]
+			result: QueryResult<Q>
+			change: QueryChange<Q>
+			type: 'update'
+	  }>,
+	ReadonlyDefaultMap<Row<Primitives<S>>[GroupBy], QueryPrimitiveResult<Q>>
 >

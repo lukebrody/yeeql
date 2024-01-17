@@ -21,8 +21,7 @@ import { QueryRegistryEntry } from 'yeeql/table/QueryRegistry'
 import { UUID } from 'common/UUID'
 import { Query } from 'yeeql/query/Query'
 import { insertOrdered, removeOrdered } from 'common/array'
-
-type MapValue<A> = A extends Map<unknown, infer V> ? V : never
+import { MapValue } from 'common/DefaultMap'
 
 export class LinearQueryWithSubqueriesImpl<
 		S extends TableSchema,

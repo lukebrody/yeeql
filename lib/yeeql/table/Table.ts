@@ -475,8 +475,12 @@ export class Table<S extends TableSchema> {
 						subqueries: null,
 					},
 					() =>
-						new GroupedQueryImpl(this.items, filter, groupBy, () =>
-							this.query({ select, filter, sort: sort as Sort<S, {}> }),
+						new GroupedQueryImpl(this.items, filter, groupBy, (group) =>
+							this.query({
+								select,
+								filter: { ...filter, [groupBy]: group },
+								sort: sort as Sort<S, {}>,
+							}),
 						),
 				)
 			} else {
@@ -492,8 +496,13 @@ export class Table<S extends TableSchema> {
 						subqueries,
 					},
 					() =>
-						new GroupedQueryImpl(this.items, filter, groupBy, () =>
-							this.query({ select, filter, subqueries, sort }),
+						new GroupedQueryImpl(this.items, filter, groupBy, (group) =>
+							this.query({
+								select,
+								filter: { ...filter, [groupBy]: group },
+								subqueries,
+								sort,
+							}),
 						),
 				)
 			}

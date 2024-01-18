@@ -46,7 +46,11 @@ export class GroupedQueryImpl<
 					[Symbol.iterator]: () => this.entries(),
 					next() {
 						const { value, done } = iterator.next()
-						return { value: value.query.result, done }
+						if (done === true) {
+							return { value: undefined, done: true }
+						} else {
+							return { value: [value[0], value[1].query.result], done: false }
+						}
 					},
 				}
 			},
@@ -57,7 +61,7 @@ export class GroupedQueryImpl<
 					[Symbol.iterator]: () => this.values(),
 					next() {
 						const { value, done } = iterator.next()
-						return { value: value.query.result, done }
+						return { value: value?.query.result, done }
 					},
 				}
 			},

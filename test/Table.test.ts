@@ -329,21 +329,48 @@ test('Table.groupByTransfer', () => {
 
 	table.update(rowId, 'number', 2)
 
-	expect(observer).toBeCalledTimes(2)
-	expect(observer).toHaveBeenNthCalledWith(1, {
-		kind: 'remove',
-		row: { id: rowId, number: 2, string: 'a' },
-		oldIndex: 0,
-		type: 'update',
-		group: 1,
-	})
-	expect(observer).toHaveBeenNthCalledWith(2, {
-		kind: 'add',
-		row: { id: rowId, number: 2, string: 'a' },
-		newIndex: 0,
-		type: 'update',
-		group: 2,
-	})
+	expect(observer.mock.calls).toStrictEqual([
+		[
+			{
+				kind: 'subquery',
+				result: [],
+				group: 1,
+				change: {
+					kind: 'remove',
+					row: {
+						id: rowId,
+						number: 2,
+						string: 'a',
+					},
+					oldIndex: 0,
+					type: 'update',
+				},
+				type: 'update',
+			},
+		],
+		[
+			{
+				kind: 'removeGroup',
+				group: 1,
+				result: [],
+				type: 'update',
+			},
+		],
+		[
+			{
+				kind: 'addGroup',
+				group: 2,
+				type: 'update',
+				result: [
+					{
+						id: rowId,
+						number: 2,
+						string: 'a',
+					},
+				],
+			},
+		],
+	])
 })
 
 test('Table.preserveRowReferenceOnUpdate', () => {

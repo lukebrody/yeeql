@@ -86,9 +86,9 @@ test('QueryRegistry memory management', async () => {
 	).toBe(1)
 
 	stubQuery = undefined
-	await new Promise((resolve) => setTimeout(resolve, 0))
+	await new Promise((resolve) => setTimeout(resolve, 10))
 	global.gc!()
-	await new Promise((resolve) => setTimeout(resolve, 0))
+	await new Promise((resolve) => setTimeout(resolve, 10))
 
 	_testQueryEntries.value = 0
 

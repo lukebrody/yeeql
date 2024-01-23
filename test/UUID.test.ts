@@ -1,13 +1,13 @@
 import { expect, test } from 'vitest'
 import { UUID } from 'index'
 
-test('UUID length', () => {
+test('length', () => {
 	for (let i = 0; i < 10000; i++) {
 		expect(UUID.create().length).toBe(UUID.length)
 	}
 })
 
-test('UUID encoding/decoding', () => {
+test('encoding/decoding', () => {
 	const id = UUID.create()
 	const coded = UUID.decode(UUID.encode(id))
 	expect(coded).toBe(id)

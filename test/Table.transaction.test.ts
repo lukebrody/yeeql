@@ -26,7 +26,7 @@ beforeEach(() => {
 /*
  Expect that Y.js will condense changes made inside one transaction.
 */
-test('Table.transaction.changes', () => {
+test('transaction changes', () => {
 	const q1 = table1.query({})
 	const q2 = table2.query({})
 
@@ -56,7 +56,7 @@ test('Table.transaction.changes', () => {
  Expect that the programmer gets a consistent view of all tables in the document when the observer is called.
  All observer handlers should see all tables as post-transaction.
 */
-test('Table.transaction.consistency', () => {
+test('transaction consistency', () => {
 	const q1 = table1.query({})
 	const q2 = table2.query({})
 
@@ -95,7 +95,7 @@ test('Table.transaction.consistency', () => {
 /*
  Expect that tables can handle multiple insertions in a transaction correctly
 */
-test('Table.transaction.manyInserts', () => {
+test('transaction many inserts', () => {
 	const q1 = table1.query({ sort: (a, b) => a.number - b.number })
 	const changes1: QueryChange<typeof q1>[] = []
 	q1.observe((change) => changes1.push(change))
@@ -118,7 +118,7 @@ test('Table.transaction.manyInserts', () => {
 	}
 })
 
-test('Table.transaction.manyUpdates', () => {
+test('transaction many updates', () => {
 	const query = table1.query({
 		select: ['number'],
 		sort: (a, b) => a.number - b.number,

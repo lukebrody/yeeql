@@ -32,7 +32,7 @@ class StubQuery implements QueryRegistryEntry<typeof schema> {
 	}
 }
 
-test('QueryRegistry.register', () => {
+test('register query', () => {
 	const qr = new QueryRegistry(schema)
 
 	const stubQuery = new StubQuery()
@@ -71,7 +71,7 @@ test('QueryRegistry.register', () => {
 	).toBe(0)
 })
 
-test('QueryRegistry memory management', async () => {
+test('memory management', async () => {
 	const qr = new QueryRegistry(schema)
 
 	let stubQuery: StubQuery | undefined = new StubQuery()

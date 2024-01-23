@@ -28,7 +28,7 @@ beforeEach(() => {
 	parents = new Table(yParents, parent, 'parents')
 })
 
-test('Table.subquery.read', () => {
+test('subquery read', () => {
 	const parentId = parents.insert({ order: 0 })
 	const childId = children.insert({ parentId, order: 0 })
 
@@ -43,7 +43,7 @@ test('Table.subquery.read', () => {
 	])
 })
 
-test('Table.subquery.update', () => {
+test('subquery update', () => {
 	const query = children.query({
 		subqueries: {
 			parent: (child) => parents.query({ filter: { id: child.parentId } }),
@@ -69,7 +69,7 @@ test('Table.subquery.update', () => {
 	expect(query.result[0].parentId).toBe(parentId) // Type checking
 })
 
-test('Table.subquery.sort', () => {
+test('subquery sort', () => {
 	const query = parents.query({
 		subqueries: {
 			children: (parent) =>
@@ -118,7 +118,7 @@ test('Table.subquery.sort', () => {
 	])
 })
 
-test('Table.subquery.changes', () => {
+test('subquery changes', () => {
 	const query = parents.query({
 		subqueries: {
 			children: (parent) =>
@@ -266,7 +266,7 @@ test('Table.subquery.changes', () => {
 	])
 })
 
-test('Table.subquery.sortUpdate', () => {
+test('subquery sort update', () => {
 	const query = parents.query({
 		subqueries: {
 			children: (parent) =>
@@ -390,7 +390,7 @@ test('Table.subquery.sortUpdate', () => {
 	])
 })
 
-test('Table.subquery.onSelf', () => {
+test('subquery on self', () => {
 	const query = children.query({
 		subqueries: {
 			siblings: (child) =>
@@ -476,7 +476,7 @@ test('Table.subquery.onSelf', () => {
 	])
 })
 
-test('Table.subQuery.deep', () => {
+test('deep subquery', () => {
 	const query = parents.query({
 		subqueries: {
 			children: (parent) =>
@@ -545,7 +545,7 @@ test('Table.subQuery.deep', () => {
 	children.update(child1, 'parentId', parentA)
 })
 
-test('Table.subquery.multipleUpdates', () => {
+test('subquery multiple updates', () => {
 	const query = parents.query({
 		subqueries: {
 			children: (parent) =>
@@ -611,7 +611,7 @@ test('Table.subquery.multipleUpdates', () => {
 	])
 })
 
-test('Table.subquery.dependencies', () => {
+test('subquery dependencies', () => {
 	let childrenSubqueryCount = 0
 	let sameOrderSubqueryCount = 0
 
@@ -644,7 +644,7 @@ test('Table.subquery.dependencies', () => {
 })
 
 // The Table query cache should be used for subqueries
-test('Table.subquery.cache', () => {
+test('subquery cache', () => {
 	const query = children.query({
 		subqueries: {
 			parent: (child) => parents.query({ filter: { id: child.parentId } }),

@@ -1,3 +1,7 @@
+export interface MinimalQueryChange {
+	type: 'add' | 'update' | 'delete'
+}
+
 /** Callback used for queries that depend on other queries to
  * 1. Prepare for updates to the query they're subscribed to
  * 2. Call `ready` (required) so that other dependent queries can do this process

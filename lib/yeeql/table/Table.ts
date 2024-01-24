@@ -33,6 +33,7 @@ import { LinearQueryWithoutSubqueriesImpl } from 'yeeql/query/implementation/Lin
 import { LinearQueryWithSubqueriesImpl } from 'yeeql/query/implementation/LinearQueryWithSubqueriesImpl'
 import { GroupedQueryImpl } from 'yeeql/query/implementation/GroupedQueryImpl'
 import { CountQueryImpl } from 'yeeql/query/implementation/CountQueryImpl'
+import { MinimalQueryChange } from 'yeeql/query/QueryBase'
 
 /*
  * We only allow the user to use primitives in their sort function,
@@ -284,7 +285,7 @@ export class Table<S extends TableSchema> {
 		string,
 		DefaultMap<
 			object | null,
-			Map<object | null, WeakRef<Query<unknown, unknown, unknown>>>
+			Map<object | null, WeakRef<Query<unknown, MinimalQueryChange, unknown>>>
 		>
 	>(() => new DefaultMap(() => new Map()))
 
@@ -565,7 +566,7 @@ export class Table<S extends TableSchema> {
 
 	groupBy<
 		GroupBy extends keyof Primitives<S>,
-		Q extends Query<unknown, unknown, unknown>,
+		Q extends Query<unknown, MinimalQueryChange, unknown>,
 	>({
 		groupBy,
 		filter,

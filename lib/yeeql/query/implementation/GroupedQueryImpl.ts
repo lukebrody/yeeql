@@ -5,6 +5,7 @@ import { MapValue, ReadonlyDefaultMap } from 'common/DefaultMap'
 import { Query, QueryChange, QueryResult } from 'yeeql/query/Query'
 import {
 	InternalChangeCallback,
+	MinimalQueryChange,
 	QueryBase,
 	QueryInternal,
 } from 'yeeql/query/QueryBase'
@@ -13,7 +14,7 @@ import { GroupedQuery } from 'yeeql/query/interface/GroupedQuery'
 export class GroupedQueryImpl<
 		S extends TableSchema,
 		GroupBy extends keyof Primitives<S>,
-		Q extends Query<unknown, unknown, unknown>,
+		Q extends Query<unknown, MinimalQueryChange, unknown>,
 	>
 	extends QueryBase<QueryChange<GroupedQuery<S, GroupBy, Q>>>
 	implements QueryRegistryEntry<S>, GroupedQuery<S, GroupBy, Q>
@@ -114,7 +115,7 @@ export class GroupedQueryImpl<
 					result: query.result as QueryResult<Q>,
 					group,
 					change,
-					type: 'update',
+					type: change.type,
 				}
 			})
 		}
@@ -123,6 +124,7 @@ export class GroupedQueryImpl<
 		return query
 	}
 
+	// If we ready-chain everything, we can get our subquery changes when we're creating a group
 	addRow(row: Row<S>, type: 'add' | 'update'): () => void {
 		const group = row[this.groupBy]
 		const query = this.queries.get(group)

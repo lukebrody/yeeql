@@ -3,9 +3,10 @@ import { QueryRegistryEntry } from 'yeeql/table/QueryRegistry'
 import { UUID } from 'common/UUID'
 import { QueryBase } from 'yeeql/query/QueryBase'
 import { CountQuery } from 'yeeql/query/interface/CountQuery'
+import { QueryChange } from 'yeeql/query/Query'
 
 export class CountQueryImpl<S extends TableSchema>
-	extends QueryBase<1 | -1>
+	extends QueryBase<QueryChange<CountQuery>>
 	implements QueryRegistryEntry<S>, CountQuery
 {
 	constructor(
@@ -28,17 +29,17 @@ export class CountQueryImpl<S extends TableSchema>
 
 	result: number
 
-	addRow(): () => void {
+	addRow(row: Row<S>, type: 'add' | 'update'): () => void {
 		return this.makeChange(() => {
 			this.result++
-			return 1
+			return { delta: 1, type }
 		})
 	}
 
-	removeRow(): () => void {
+	removeRow(row: Row<S>, type: 'update' | 'delete'): () => void {
 		return this.makeChange(() => {
 			this.result--
-			return -1
+			return { delta: -1, type }
 		})
 	}
 

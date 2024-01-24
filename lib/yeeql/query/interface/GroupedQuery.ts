@@ -5,12 +5,13 @@ import {
 	QueryPrimitiveResult,
 	QueryResult,
 } from 'yeeql/query/Query'
+import { MinimalQueryChange } from 'yeeql/query/QueryBase'
 import { Primitives, Row, TableSchema } from 'yeeql/table/Schema'
 
 export type GroupedQuery<
 	S extends TableSchema,
 	GroupBy extends keyof Primitives<S>,
-	Q extends Query<unknown, unknown, unknown>,
+	Q extends Query<unknown, MinimalQueryChange, unknown>,
 > = Query<
 	ReadonlyDefaultMap<Row<Primitives<S>>[GroupBy], QueryResult<Q>>,
 	| Readonly<{
@@ -30,7 +31,7 @@ export type GroupedQuery<
 			group: Row<Primitives<S>>[GroupBy]
 			result: QueryResult<Q>
 			change: QueryChange<Q>
-			type: 'update'
+			type: 'add' | 'update' | 'delete'
 	  }>,
 	ReadonlyDefaultMap<Row<Primitives<S>>[GroupBy], QueryPrimitiveResult<Q>>
 >

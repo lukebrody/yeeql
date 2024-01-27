@@ -30,14 +30,14 @@ export class CountQueryImpl<S extends TableSchema>
 	result: number
 
 	addRow(row: Row<S>, type: 'add' | 'update'): () => void {
-		return this.makeChange(() => {
+		return this.notifyingObservers(() => {
 			this.result++
 			return { delta: 1, type }
 		})
 	}
 
 	removeRow(row: Row<S>, type: 'update' | 'delete'): () => void {
-		return this.makeChange(() => {
+		return this.notifyingObservers(() => {
 			this.result--
 			return { delta: -1, type }
 		})

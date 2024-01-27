@@ -108,7 +108,7 @@ export class GroupedQueryImpl<
 			typeof this.queries
 		>['query']
 		const observer: InternalChangeCallback<QueryChange<Q>> = (ready) => {
-			return this.makeChange(() => {
+			return this.notifyingObservers(() => {
 				const change = ready()
 				return {
 					kind: 'subquery',
@@ -134,7 +134,7 @@ export class GroupedQueryImpl<
 			query.refCount++
 			return () => undefined
 		} else {
-			return this.makeChange(() => {
+			return this.notifyingObservers(() => {
 				const query = this.addQuery(group)
 				return {
 					kind: 'addGroup',
@@ -150,7 +150,7 @@ export class GroupedQueryImpl<
 		const group = row[this.groupBy]
 		const query = this.queries.get(group)!
 		if (query.refCount === 1) {
-			return this.makeChange(() => {
+			return this.notifyingObservers(() => {
 				query.query.internalUnobserve(query.observer)
 				this.queries.delete(group)
 				return {

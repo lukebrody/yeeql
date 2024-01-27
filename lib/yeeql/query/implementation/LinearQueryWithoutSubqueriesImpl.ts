@@ -37,7 +37,7 @@ export class LinearQueryWithoutSubqueriesImpl<
 	readonly result: Row<S>[]
 
 	addRow(row: Row<S>, type: 'add' | 'update'): () => void {
-		return this.makeChange(() => {
+		return this.notifyingObservers(() => {
 			const addedIndex = insertOrdered(this.result, row, this.sort)
 			return {
 				kind: 'add',
@@ -49,7 +49,7 @@ export class LinearQueryWithoutSubqueriesImpl<
 	}
 
 	removeRow(row: Row<S>, type: 'delete' | 'update'): () => void {
-		return this.makeChange(() => {
+		return this.notifyingObservers(() => {
 			const removedIndex = removeOrdered(this.result, row, this.sort)!.index
 			return {
 				kind: 'remove',
@@ -66,7 +66,7 @@ export class LinearQueryWithoutSubqueriesImpl<
 		newValues: Readonly<Partial<Row<S>>>,
 		patch: (row: Row<S>) => void,
 	): () => void {
-		return this.makeChange(() => {
+		return this.notifyingObservers(() => {
 			const removedIndex = removeOrdered(this.result, row, this.sort)!.index
 			patch(row)
 			const addedIndex = insertOrdered(this.result, row, this.sort)

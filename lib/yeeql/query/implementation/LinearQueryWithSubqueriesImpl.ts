@@ -123,7 +123,7 @@ export class LinearQueryWithSubqueriesImpl<
 			subQueries[key] = { query, callback }
 		}
 
-		return this.makeChange(() => {
+		return this.notifyingObservers(() => {
 			const addedIndex = insertOrdered(this.result, augmentedRow, this.sort)
 			return {
 				kind: 'add',
@@ -139,7 +139,7 @@ export class LinearQueryWithSubqueriesImpl<
 		augmentedRow: (typeof this.result)[0],
 	): InternalChangeCallback<SubqueryChange<S, Q[Key]>> {
 		return (ready) => {
-			return this.makeChange(() => {
+			return this.notifyingObservers(() => {
 				const removedIndex = removeOrdered(
 					this.result,
 					augmentedRow,
@@ -165,7 +165,7 @@ export class LinearQueryWithSubqueriesImpl<
 	}
 
 	removeRow(row: Row<S>, type: 'delete' | 'update'): () => void {
-		return this.makeChange(() => {
+		return this.notifyingObservers(() => {
 			const { augmentedRow, subQueries } = this.rowMap.get(row)!
 			for (const [, { query, callback }] of Object.entries(subQueries)) {
 				query.unobserve(callback)
@@ -193,7 +193,7 @@ export class LinearQueryWithSubqueriesImpl<
 		newValues: Readonly<Partial<Row<S>>>,
 		patch: (row: Row<S>) => void,
 	): () => void {
-		return this.makeChange(() => {
+		return this.notifyingObservers(() => {
 			const { augmentedRow, subQueries } = this.rowMap.get(row)!
 
 			const removedIndex = removeOrdered(

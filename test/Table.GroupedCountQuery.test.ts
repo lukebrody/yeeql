@@ -73,188 +73,145 @@ test('grouped count query result', () => {
 	expect(query.result.size).toBe(2)
 	expect(query.result.get(1)).toBe(2)
 	expect(query.result.get(2)).toBe(1)
-	// expect(popChanges()).toStrictEqual([
-	// 	{
-	// 		group: 2,
-	// 		kind: 'addGroup',
-	// 		result: 1,
-	// 		type: 'add',
-	// 	},
-	// ])
+	expect(popChanges()).toStrictEqual([
+		{
+			group: 2,
+			kind: 'addGroup',
+			result: 1,
+			type: 'add',
+		},
+	])
 
 	table.update(row3, 'number', 2)
 
 	expect(query.result.size).toBe(2)
 	expect(query.result.get(1)).toBe(1)
 	expect(query.result.get(2)).toBe(2)
+	expect(popChanges()).toStrictEqual([
+		{
+			change: {
+				delta: -1,
+				type: 'update',
+			},
+			group: 1,
+			kind: 'subquery',
+			result: 1,
+			type: 'update',
+		},
+		{
+			change: {
+				delta: 1,
+				type: 'update',
+			},
+			group: 2,
+			kind: 'subquery',
+			result: 2,
+			type: 'update',
+		},
+	])
 
 	table.update(row3, 'string', 'b')
 
 	expect(query.result.size).toBe(2)
 	expect(query.result.get(1)).toBe(1)
 	expect(query.result.get(2)).toBe(1)
+	expect(popChanges()).toStrictEqual([
+		{
+			change: {
+				delta: -1,
+				type: 'update',
+			},
+			group: 2,
+			kind: 'subquery',
+			result: 1,
+			type: 'update',
+		},
+	])
 
 	table.update(row2, 'number', 2)
 
 	expect(query.result.size).toBe(1)
 	expect(query.result.get(1)).toBe(0)
 	expect(query.result.get(2)).toBe(2)
+	expect(popChanges()).toStrictEqual([
+		{
+			change: {
+				delta: -1,
+				type: 'update',
+			},
+			group: 1,
+			kind: 'subquery',
+			result: 0,
+			type: 'update',
+		},
+		{
+			group: 1,
+			kind: 'removeGroup',
+			result: 0,
+			type: 'update',
+		},
+		{
+			change: {
+				delta: 1,
+				type: 'update',
+			},
+			group: 2,
+			kind: 'subquery',
+			result: 2,
+			type: 'update',
+		},
+	])
 
 	table.delete(row2)
 
 	expect(query.result.size).toBe(1)
 	expect(query.result.get(1)).toBe(0)
 	expect(query.result.get(2)).toBe(1)
+	expect(popChanges()).toStrictEqual([
+		{
+			change: {
+				delta: -1,
+				type: 'delete',
+			},
+			group: 2,
+			kind: 'subquery',
+			result: 1,
+			type: 'delete',
+		},
+	])
 
 	table.update(row4, 'number', 1)
 
 	expect(query.result.size).toBe(1)
 	expect(query.result.get(1)).toBe(1)
 	expect(query.result.get(2)).toBe(0)
-})
 
-test.skip('grouped count query changes', () => {
-	const query = table.count({ groupBy: 'number', filter: { string: 'a' } })
-	const spy = vi.fn()
-	query.observe(spy)
-
-	const row1 = table.insert({ number: 1, string: 'b' })
-
-	expect(spy).not.toBeCalled()
-
-	const row2 = table.insert({ number: 1, string: 'a' })
-
-	expect(spy).toHaveBeenCalledOnce()
-	expect(spy).toHaveBeenLastCalledWith({
-		group: 1,
-		kind: 'addGroup',
-		result: 1,
-		type: 'add',
-	})
-	spy.mockClear()
-
-	const row3 = table.insert({ number: 1, string: 'a' })
-
-	expect(spy).toHaveBeenCalledOnce()
-	expect(spy).toHaveBeenLastCalledWith({
-		change: 1,
-		group: 1,
-		kind: 'subquery',
-		result: 2,
-		type: 'update',
-	})
-	spy.mockClear()
-
-	const row4 = table.insert({ number: 2, string: 'a' })
-
-	expect(spy).toHaveBeenCalledOnce()
-	expect(spy).toHaveBeenLastCalledWith({
-		group: 2,
-		kind: 'addGroup',
-		result: 1,
-		type: 'add',
-	})
-	spy.mockClear()
-
-	table.update(row3, 'number', 2)
-
-	expect(spy).toHaveBeenCalledTimes(2)
-	expect(spy).toHaveBeenNthCalledWith(1, {
-		change: -1,
-		group: 1,
-		kind: 'subquery',
-		result: 1,
-		type: 'update',
-	})
-	expect(spy).toHaveBeenNthCalledWith(2, {
-		change: 1,
-		group: 2,
-		kind: 'subquery',
-		result: 2,
-		type: 'update',
-	})
-	spy.mockClear()
-
-	table.update(row3, 'string', 'b')
-
-	expect(spy).toHaveBeenCalledOnce()
-	expect(spy).toHaveBeenLastCalledWith({
-		change: -1,
-		group: 2,
-		kind: 'subquery',
-		result: 1,
-		type: 'update',
-	})
-	spy.mockClear()
-
-	table.update(row2, 'number', 2)
-
-	expect(spy).toHaveBeenCalledTimes(3)
-	expect(spy).toHaveBeenNthCalledWith(1, {
-		change: -1,
-		group: 1,
-		kind: 'subquery',
-		result: 0,
-		type: 'update',
-	})
-	expect(spy).toHaveBeenNthCalledWith(2, {
-		group: 1,
-		kind: 'removeGroup',
-		result: 0,
-		type: 'update',
-	})
-	expect(spy).toHaveBeenNthCalledWith(3, {
-		change: 1,
-		group: 2,
-		kind: 'subquery',
-		result: 2,
-		type: 'update',
-	})
-	spy.mockClear()
-
-	table.delete(row2)
-
-	expect(spy).toHaveBeenCalledOnce()
-	expect(spy).toHaveBeenLastCalledWith({
-		change: -1,
-		group: 2,
-		kind: 'subquery',
-		result: 1,
-		type: 'delete',
-	})
-	spy.mockClear()
-
-	table.update(row4, 'number', 1)
-
-	expect(spy).toHaveBeenCalledTimes(4)
-	expect(spy).toHaveBeenNthCalledWith(1, {
-		change: -1,
-		group: 1,
-		kind: 'subquery',
-		result: 0,
-		type: 'update',
-	})
-	expect(spy).toHaveBeenNthCalledWith(2, {
-		group: 1,
-		kind: 'removeGroup',
-		result: 0,
-		type: 'update',
-	})
-	expect(spy).toHaveBeenNthCalledWith(3, {
-		change: 1,
-		group: 2,
-		kind: 'subquery',
-		result: 2,
-		type: 'update',
-	})
-	expect(spy).toHaveBeenNthCalledWith(4, {
-		change: 1,
-		group: 2,
-		kind: 'subquery',
-		result: 2,
-		type: 'update',
-	})
-	spy.mockClear()
+	// TODO: need to have yielding everywhere for cleaner changes
+	// Adders are responsible for forwarding change to their child during change
+	expect(popChanges()).toStrictEqual([
+		{
+			change: {
+				delta: -1,
+				type: 'update',
+			},
+			group: 2,
+			kind: 'subquery',
+			result: 0,
+			type: 'update',
+		},
+		{
+			group: 2,
+			kind: 'removeGroup',
+			result: 0,
+			type: 'update',
+		},
+		{
+			group: 1,
+			kind: 'addGroup',
+			result: 1,
+			type: 'update',
+		},
+	])
 })
 
 test('grouped count delete change', () => {

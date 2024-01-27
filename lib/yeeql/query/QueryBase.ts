@@ -65,6 +65,7 @@ export abstract class QueryBase<Change> implements QueryInternal<Change> {
 	 * @param doChange - updates this query's result
 	 * @returns a function that sends notifications to observers
 	 */
+	// TODO: rename to something better
 	protected makeChange(doChange: () => Change): () => void {
 		const internalObservers = Array.from(this.internalObservers)
 		const internalObserverNotifications: (() => void)[] = []

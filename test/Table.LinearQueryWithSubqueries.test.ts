@@ -670,3 +670,18 @@ test('self referential', () => {
 		})
 	}).toThrowError()
 })
+
+test('resuse key', () => {
+	expect(() => {
+		children.query({
+			subqueries: {
+				parentId: () => children.query({}),
+			},
+		})
+	}).toThrowError(
+		new Error(
+			// eslint-disable-next-line quotes
+			"key 'parentId' may not be reused for a subquery, since it's already in the schema",
+		),
+	)
+})

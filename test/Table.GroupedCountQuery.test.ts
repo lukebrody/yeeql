@@ -33,7 +33,7 @@ function popChanges() {
 test('grouped count query result', () => {
 	const query = table.count({ groupBy: 'number', filter: { string: 'a' } })
 
-	const row1 = table.insert({ number: 1, string: 'b' })
+	table.insert({ number: 1, string: 'b' })
 
 	expect(query.result.size).toBe(0)
 	expect(popChanges()).toStrictEqual([])
@@ -186,8 +186,6 @@ test('grouped count query result', () => {
 	expect(query.result.get(1)).toBe(1)
 	expect(query.result.get(2)).toBe(0)
 
-	// TODO: need to have yielding everywhere for cleaner changes
-	// Adders are responsible for forwarding change to their child during change
 	expect(popChanges()).toStrictEqual([
 		{
 			change: {
@@ -208,6 +206,16 @@ test('grouped count query result', () => {
 		{
 			group: 1,
 			kind: 'addGroup',
+			result: 0,
+			type: 'update',
+		},
+		{
+			change: {
+				delta: 1,
+				type: 'update',
+			},
+			group: 1,
+			kind: 'subquery',
 			result: 1,
 			type: 'update',
 		},
@@ -215,20 +223,22 @@ test('grouped count query result', () => {
 })
 
 test('grouped count delete change', () => {
-	const query = table.count({ groupBy: 'number', filter: { string: 'a' } })
-	const spy = vi.fn()
-
 	const row1 = table.insert({ number: 1, string: 'a' })
-
-	query.observe(spy)
 
 	table.delete(row1)
 
-	expect(spy).toHaveBeenCalledOnce()
-	expect(spy).toHaveBeenLastCalledWith({
-		group: 1,
-		kind: 'removeGroup',
-		result: 1,
-		type: 'delete',
-	})
+	expect(popChanges()).toStrictEqual([
+		{
+			group: 1,
+			kind: 'addGroup',
+			result: 1,
+			type: 'add',
+		},
+		{
+			group: 1,
+			kind: 'removeGroup',
+			result: 1,
+			type: 'delete',
+		},
+	])
 })

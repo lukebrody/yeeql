@@ -124,9 +124,6 @@ export class GroupedQueryImpl<
 		return query
 	}
 
-	// If we ready-chain everything, we can get our subquery changes when we're creating a group
-	// Things will need to be able to be added/removed *during* the yielding, as we'll be adding/removing subqueries
-	// There can also be cyclic dependencies
 	addRow(row: Row<S>, type: 'add' | 'update'): () => void {
 		const group = row[this.groupBy]
 		const query = this.queries.get(group)

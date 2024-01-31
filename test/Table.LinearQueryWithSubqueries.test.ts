@@ -2,6 +2,7 @@ import { UUID, Field, Table, QueryChange } from 'index'
 import * as Y from 'yjs'
 
 import { beforeEach, expect, test } from 'vitest'
+import { LinearQuery } from 'yeeql/query/interface/LinearQuery'
 
 const child = {
 	id: new Field<UUID>(),
@@ -657,4 +658,15 @@ test('subquery cache', () => {
 
 	// If the subqueries have the same result array, they are the same query
 	expect(query.result[0].parent === query.result[1].parent).toBe(true)
+})
+
+test('self referential', () => {
+	expect(() => {
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const query: LinearQuery<any, any, any> = children.query({
+			subqueries: {
+				children: () => query,
+			},
+		})
+	}).toThrowError()
 })

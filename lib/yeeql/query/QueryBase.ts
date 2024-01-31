@@ -66,22 +66,21 @@ export abstract class QueryBase<Change> implements QueryInternal<Change> {
 	 * @returns a function that sends notifications to observers
 	 */
 	protected notifyingObservers(doChange: () => Change): () => void {
-		const internalObservers = Array.from(this.internalObservers)
+		const internalObservers = this.internalObservers.values()
 		const internalObserverNotifications: (() => void)[] = []
 
 		let change: Change
-		const callObserver = (i: number) => {
-			if (i < internalObservers.length) {
-				internalObserverNotifications.push(
-					internalObservers[i](() => callObserver(i + 1)),
-				)
+		const callObserver = () => {
+			const next = internalObservers.next()
+			if (next.done === undefined || next.done === false) {
+				internalObserverNotifications.push(next.value(callObserver))
 			} else {
 				change = doChange()
 			}
 			return change
 		}
 
-		callObserver(0)
+		callObserver()
 
 		return () => {
 			this.observers.forEach((callback) => callback(change))

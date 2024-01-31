@@ -8,5 +8,14 @@
 	"[typescript]": {
 		"editor.defaultFormatter": "esbenp.prettier-vscode"
 	},
-	"typescript.preferences.importModuleSpecifier": "non-relative"
+	"typescript.preferences.importModuleSpecifier": "non-relative",
+	"coverage-gutters.coverageFileNames": [
+		"lcov.info",
+		"cov.xml",
+		"coverage.xml",
+		"jacoco.xml",
+		"coverage.cobertura.xml",
+		"clover.xml"
+	],
+	"coverage-gutters.showLineCoverage": false
 }

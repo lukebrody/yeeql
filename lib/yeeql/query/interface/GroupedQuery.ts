@@ -1,3 +1,4 @@
+/* v8 ignore start */
 import { ReadonlyDefaultMap } from 'common/DefaultMap'
 import {
 	Query,
@@ -35,3 +36,4 @@ export type GroupedQuery<
 	  }>,
 	ReadonlyDefaultMap<Row<Primitives<S>>[GroupBy], QueryPrimitiveResult<Q>>
 >
+/* v8 ignore stop */

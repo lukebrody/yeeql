@@ -1,3 +1,4 @@
+/* v8 ignore start */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export interface YMap<V> {
 	forEach(f: (v: V, k: string) => void): void
@@ -20,3 +21,4 @@ export interface YEvent {
 export interface YDoc {
 	once(eventName: 'afterTransaction', handler: () => void): void
 }
+/* v8 ignore stop */

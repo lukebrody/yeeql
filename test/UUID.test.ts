@@ -21,3 +21,7 @@ test('UUIDs are unique', () => {
 	}
 	expect(set.size).toBe(quantity)
 })
+
+test('decode error on incorrect length', () => {
+	expect(() => UUID.decode(new Uint8Array())).toThrowError()
+})

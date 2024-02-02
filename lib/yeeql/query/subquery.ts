@@ -1,3 +1,4 @@
+/* v8 ignore start */
 import { DefaultMap } from 'common/DefaultMap'
 import { Query } from 'yeeql/query/Query'
 import { MinimalQueryChange } from 'yeeql/query/QueryBase'
@@ -60,3 +61,4 @@ export type SubqueriesPrimitiveResults<
 > = {
 	[K in keyof Q]: SubqueryPrimitiveResult<S, Q[K]>
 }
+/* v8 ignore stop */

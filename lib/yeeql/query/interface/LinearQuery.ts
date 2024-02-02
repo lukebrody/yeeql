@@ -1,3 +1,4 @@
+/* v8 ignore start */
 import { TableSchema, Row, Primitives } from 'yeeql/table/Schema'
 import {
 	SubqueryChange,
@@ -65,3 +66,4 @@ export type LinearQuery<
 	Change<S, Select, Q>,
 	ReadonlyArray<PrimitiveResultRow<S, Q>>
 >
+/* v8 ignore stop */

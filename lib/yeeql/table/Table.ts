@@ -168,6 +168,7 @@ export class Table<S extends TableSchema> {
 		debugName?: string,
 	) {
 		this.debugName = debugName ?? `table${++debug.counter}`
+		/* v8 ignore start */
 		if (debug.on) {
 			debug.statements.push(
 				`const ${this.debugName} = new Table(ydoc.getMap('${
@@ -175,6 +176,7 @@ export class Table<S extends TableSchema> {
 				}'), ${schemaToDebugString(schema)}, '${this.debugName}')`,
 			)
 		}
+		/* v8 ignore stop */
 
 		this.queryRegistry = new QueryRegistry(schema)
 
@@ -376,6 +378,7 @@ export class Table<S extends TableSchema> {
 		| LinearQuery<S, Select, Q>
 		| GroupedQuery<S, GroupBy, LinearQuery<S, Select, {}>>
 		| GroupedQuery<S, GroupBy, LinearQuery<S, Select, Q>> {
+		/* v8 ignore start */
 		if (debug.on && !debug.makingSubquery) {
 			let subqueriesString: string | undefined
 			if (subqueries !== undefined) {
@@ -393,6 +396,7 @@ export class Table<S extends TableSchema> {
 				)}})`,
 			)
 		}
+		/* v8 ignore stop */
 
 		this.validateColumns([
 			...(select ?? []),
@@ -523,6 +527,7 @@ export class Table<S extends TableSchema> {
 		filter?: Filter<S>
 		groupBy?: GroupBy
 	}): CountQuery | GroupedQuery<S, GroupBy, CountQuery> {
+		/* v8 ignore start */
 		if (debug.on && !debug.makingSubquery) {
 			debug.statements.push(
 				`const query${++debug.counter} = ${this.debugName}.count(${{
@@ -531,6 +536,7 @@ export class Table<S extends TableSchema> {
 				}})`,
 			)
 		}
+		/* v8 ignore stop */
 
 		this.validateColumns([
 			...(groupBy !== undefined ? [groupBy] : []),
@@ -569,11 +575,11 @@ export class Table<S extends TableSchema> {
 		Q extends Query<unknown, MinimalQueryChange, unknown>,
 	>({
 		groupBy,
-		filter,
+		filter = {},
 		subquery,
 	}: {
 		groupBy: GroupBy
-		filter: Filter<S>
+		filter?: Filter<S>
 		subquery: (group: Row<Primitives<S>>[GroupBy]) => Q
 	}): GroupedQuery<S, GroupBy, Q> {
 		return this.getCachedQuery(
@@ -589,6 +595,7 @@ export class Table<S extends TableSchema> {
 	insert(row: Omit<Row<S>, 'id'>): UUID {
 		const id = UUID.create()
 		this.yTable.set(id, new Y.Map(Object.entries(row)))
+		/* v8 ignore start */
 		if (debug.on) {
 			debug.statements.push(
 				`const row${++debug.counter}Id = ${
@@ -597,6 +604,7 @@ export class Table<S extends TableSchema> {
 			)
 			debug.map.set(id, debug.counter)
 		}
+		/* v8 ignore stop */
 		return id
 	}
 
@@ -605,6 +613,7 @@ export class Table<S extends TableSchema> {
 		column: K,
 		value: Row<S>[K],
 	) {
+		/* v8 ignore start */
 		if (debug.on) {
 			debug.statements.push(
 				`${this.debugName}.update(row${debug.map.get(
@@ -612,15 +621,18 @@ export class Table<S extends TableSchema> {
 				)}Id, '${column}', ${JSON.stringify(value)})`,
 			)
 		}
+		/* v8 ignore stop */
 		this.yTable.get(id)?.set(column, value)
 	}
 
 	delete(id: UUID) {
+		/* v8 ignore start */
 		if (debug.on) {
 			debug.statements.push(
 				`${this.debugName}.delete(row${debug.map.get(id)}Id)`,
 			)
 		}
+		/* v8 ignore stop */
 		this.yTable.delete(id)
 	}
 }

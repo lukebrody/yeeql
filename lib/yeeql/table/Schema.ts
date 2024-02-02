@@ -26,8 +26,10 @@ export type Primitives<S extends Schema> = Pick<
 
 export type Filter<S extends TableSchema> = Partial<Row<Primitives<S>>>
 
+/* v8 ignore start */
 export function schemaToDebugString(schema: Schema) {
 	return `{${Object.entries(schema)
 		.map(([key]) => `${key}: new Field<any>()`)
 		.join(', ')}}`
 }
+/* v8 ignore stop */

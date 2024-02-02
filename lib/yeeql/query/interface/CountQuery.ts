@@ -1,3 +1,4 @@
+/* v8 ignore start */
 import { Query } from 'yeeql/query/Query'
 
 export type CountQuery = Query<
@@ -6,3 +7,4 @@ export type CountQuery = Query<
 	| { delta: -1; type: 'update' | 'delete' },
 	number
 >
+/* v8 ignore stop */

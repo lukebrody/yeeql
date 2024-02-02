@@ -1,7 +1,7 @@
 import { UUID, Field, Table, QueryChange } from 'index'
 import * as Y from 'yjs'
 
-import { beforeEach, expect, test } from 'vitest'
+import { beforeEach, expect, test, vi } from 'vitest'
 import { LinearQuery } from 'yeeql/query/interface/LinearQuery'
 
 const child = {
@@ -684,4 +684,45 @@ test('resuse key', () => {
 			"key 'parentId' may not be reused for a subquery, since it's already in the schema",
 		),
 	)
+})
+
+test('makes the same query on update', () => {
+	const query = parents.query({
+		subqueries: {
+			count: ({ order }) =>
+				!isNaN(order)
+					? children.count({})
+					: children.count({ groupBy: 'parentId' }),
+		},
+	})
+
+	const parentId = parents.insert({ order: 0 })
+	parents.update(parentId, 'order', 1)
+
+	const observer = vi.fn()
+	query.observe(observer)
+
+	children.insert({ parentId, order: 0 })
+
+	expect(query.result[0].count).toBe(1)
+	expect(observer.mock.calls).toStrictEqual([
+		[
+			{
+				change: {
+					delta: 1,
+					type: 'add',
+				},
+				key: 'count',
+				kind: 'subquery',
+				newIndex: 0,
+				oldIndex: 0,
+				row: {
+					count: 1,
+					id: parentId,
+					order: 1,
+				},
+				type: 'update',
+			},
+		],
+	])
 })

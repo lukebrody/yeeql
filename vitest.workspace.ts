@@ -12,6 +12,8 @@ export default defineWorkspace([
 				tsconfig: 'test/tsconfig.json',
 			},
 			name: 'type',
+			environment: 'jsdom',
+			globals: true,
 		},
 		plugins: [tsconfigPaths()],
 	},
@@ -19,6 +21,9 @@ export default defineWorkspace([
 		test: {
 			pool: 'vmThreads',
 			name: 'unit',
+			setupFiles: 'vitest.setup.ts',
+			environment: 'jsdom',
+			globals: true,
 		},
 		plugins: [tsconfigPaths()],
 	},

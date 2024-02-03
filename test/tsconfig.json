@@ -1,6 +1,7 @@
 {
 	"extends": "../tsconfig.template.json",
 	"compilerOptions": {
+		"jsx": "react",
 		"baseUrl": "../lib",
 		"noEmit": true
 	}

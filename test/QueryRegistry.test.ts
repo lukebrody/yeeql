@@ -74,18 +74,20 @@ test('register query', () => {
 test('memory management', async () => {
 	const qr = new QueryRegistry(schema)
 
-	let stubQuery: StubQuery | undefined = new StubQuery()
+	let releasedQuery: StubQuery | undefined = new StubQuery()
+	const retainedQuery = new StubQuery()
 
-	qr.register(stubQuery)
+	qr.register(releasedQuery)
+	qr.register(retainedQuery)
 
 	expect(
 		qr.queries(
 			{ id: UUID.create(), number: 1, string: '', boolean: false },
 			addedOrRemoved,
 		).size,
-	).toBe(1)
+	).toBe(2)
 
-	stubQuery = undefined
+	releasedQuery = undefined
 	await new Promise((resolve) => setTimeout(resolve, 10))
 	global.gc!()
 	await new Promise((resolve) => setTimeout(resolve, 10))
@@ -97,7 +99,7 @@ test('memory management', async () => {
 			{ id: UUID.create(), number: 1, string: '', boolean: false },
 			addedOrRemoved,
 		).size,
-	).toBe(0)
+	).toBe(1)
 
-	expect(_testQueryEntries.value).toBe(0)
+	expect(_testQueryEntries.value).toBe(1)
 })

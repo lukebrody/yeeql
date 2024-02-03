@@ -157,3 +157,21 @@ test('groupBy transfer', () => {
 		],
 	])
 })
+
+test('with subqueries', () => {
+	const query = table.query({
+		groupBy: 'number',
+		subqueries: {
+			sameString: (row) =>
+				table.query({
+					filter: { string: row.string },
+					sort: (a, b) => a.number - b.number,
+				}),
+		},
+	})
+
+	table.insert({ number: 1, string: 'a' })
+	const row2Id = table.insert({ number: 2, string: 'a' })
+
+	expect(query.result.get(1)[0].sameString[1].id).toEqual(row2Id)
+})

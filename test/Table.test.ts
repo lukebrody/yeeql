@@ -80,3 +80,10 @@ test('cached queries', () => {
 	expect(queryA).not.toBe(queryC)
 	expect(queryB).not.toBe(queryD)
 })
+
+test('already has data', () => {
+	table.insert({ number: 0, string: 'a' })
+
+	const table2 = new Table(yTable, schema)
+	expect(table2.count({}).result).toBe(1)
+})

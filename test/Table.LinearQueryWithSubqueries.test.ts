@@ -726,3 +726,21 @@ test('makes the same query on update', () => {
 		],
 	])
 })
+
+test('resuse key', () => {
+	expect(() => {
+		children.query({
+			subqueries: {
+				parents: (child) =>
+					parents.query({
+						filter: { id: (child as unknown as { foo: UUID }).foo },
+					}),
+			},
+		})
+	}).toThrowError(
+		new Error(
+			// eslint-disable-next-line quotes
+			"unknown column 'foo' used in subquery generator",
+		),
+	)
+})

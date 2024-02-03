@@ -44,14 +44,11 @@ type Sort<S extends TableSchema, Q extends SubqueryGenerators<S>> = (
 	b: Row<Primitives<S>> & SubqueriesPrimitiveResults<S, Q>,
 ) => number
 
-const stubProxy: unknown = new Proxy(() => undefined, {
+const stubProxy: unknown = new Proxy(() => stubProxy, {
 	get(_, p) {
 		if (p === Symbol.toPrimitive) {
 			return () => '0'
 		}
-		return stubProxy
-	},
-	apply() {
 		return stubProxy
 	},
 })
@@ -64,26 +61,20 @@ function getSortColumns<S extends TableSchema, Q extends SubqueryGenerators<S>>(
 	const accessedKeys = new Set<keyof S>()
 	const proxy = new Proxy({} as Row<S> & SubqueriesPrimitiveResults<S, Q>, {
 		get(_, p) {
-			if (!(p in schema) && (subqueries === undefined || !(p in subqueries))) {
+			if (p in schema) {
+				accessedKeys.add(p as keyof S)
+				return '0'
+			} else if (subqueries !== undefined && p in subqueries) {
+				return stubProxy
+			} else {
 				throw new Error(
 					`unknown column '${p.toString()}' used in 'sort' comparator`,
 				)
 			}
-			if (p in schema) {
-				accessedKeys.add(p as keyof S)
-				return '0'
-			}
-			return stubProxy
 		},
 	})
 
 	sort(proxy, proxy)
-
-	if (subqueries !== undefined) {
-		for (const subquery of Object.values(subqueries)) {
-			subquery(proxy)
-		}
-	}
 
 	return accessedKeys
 }
@@ -94,16 +85,14 @@ function makeSubqueriesProxy<S extends TableSchema>(
 	const accessedKeys = new Set<keyof S>()
 	const proxy = new Proxy({} as Row<S>, {
 		get(_, p) {
-			if (!(p in schema)) {
+			if (p in schema) {
+				accessedKeys.add(p as keyof S)
+				return '0'
+			} else {
 				throw new Error(
 					`unknown column '${p.toString()}' used in subquery generator`,
 				)
 			}
-			if (p in schema) {
-				accessedKeys.add(p as keyof S)
-				return '0'
-			}
-			return stubProxy
 		},
 	})
 

@@ -2,7 +2,7 @@ import { defineWorkspace } from 'vitest/config'
 import tsconfigPaths from 'vite-tsconfig-paths'
 
 export default defineWorkspace([
-	'test/*',
+	'test/**',
 	{
 		test: {
 			pool: 'vmThreads',

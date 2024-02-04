@@ -3,7 +3,7 @@
 <html lang="en">
 
 <head>
-    <title>Code coverage report for lib/common/uuid.ts</title>
+    <title>Code coverage report for lib/yeeql/YInterfaces.ts</title>
     <meta charset="utf-8" />
     <link rel="stylesheet" href="../../prettify.css" />
     <link rel="stylesheet" href="../../base.css" />
@@ -19,34 +19,34 @@
 <body>
 <div class='wrapper'>
     <div class='pad1'>
-        <h1><a href="../../index.html">All files</a> / <a href="index.html">lib/common</a> uuid.ts</h1>
+        <h1><a href="../../index.html">All files</a> / <a href="index.html">lib/yeeql</a> YInterfaces.ts</h1>
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>28/28</span>
+                <span class='fraction'>24/24</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>4/4</span>
+                <span class='fraction'>1/1</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>3/3</span>
+                <span class='fraction'>1/1</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>28/28</span>
+                <span class='fraction'>24/24</span>
             </div>
         
             
@@ -87,66 +87,54 @@
 <a name='L22'></a><a href='#L22'>22</a>
 <a name='L23'></a><a href='#L23'>23</a>
 <a name='L24'></a><a href='#L24'>24</a>
-<a name='L25'></a><a href='#L25'>25</a>
-<a name='L26'></a><a href='#L26'>26</a>
-<a name='L27'></a><a href='#L27'>27</a>
-<a name='L28'></a><a href='#L28'>28</a>
-<a name='L29'></a><a href='#L29'>29</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">20100x</span>
-<span class="cline-any cline-yes">20100x</span>
-<span class="cline-any cline-yes">20100x</span>
-<span class="cline-any cline-yes">20100x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
+<a name='L25'></a><a href='#L25'>25</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import Base256 from 'base256-encoding'
-&nbsp;
-export type UUID = string &amp; { __requestId: true } // 8 bytes
-&nbsp;
-const length = 8
-&nbsp;
-const result = {
-	create(): UUID {
-		const result = new Uint8Array(length)
-		crypto.getRandomValues(result)
-		return Base256.encode(result) as UUID
-	},
-	length,
-	encode(uuid: UUID): Uint8Array {
-		return Base256.decode(uuid)
-	},
-	decode(data: Uint8Array): UUID {
-		const string = Base256.encode(data)
-		if (string.length !== length) {
-			throw new Error(
-				`Encoded UUID of length ${string.length} was unexpected. Expected length is ${length}`,
-			)
-		}
-		return string as UUID
-	},
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">/* v8 ignore start */
+/* eslint-disable @typescript-eslint/no-explicit-any */
+export interface YMap&lt;V&gt; {
+	forEach(f: (v: V, k: string) =&gt; void): void
+	observeDeep(observer: (events: YEvent[]) =&gt; void): void
+	get(key: string): V | undefined
+	set(key: string, value: V): void
+	delete(key: string): void
+	get doc(): YDoc | null
 }
 &nbsp;
-export const UUID: Readonly&lt;typeof result&gt; = result
+export interface YEvent {
+	readonly target: any
+	readonly keys: ReadonlyMap&lt;
+		string,
+		{ action: 'add' | 'update' | 'delete'; oldValue: any; newValue: any }
+	&gt;
+	readonly path: ReadonlyArray&lt;string | number&gt;
+}
+&nbsp;
+export interface YDoc {
+	once(eventName: 'afterTransaction', handler: () =&gt; void): void
+}
+/* v8 ignore stop */
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->

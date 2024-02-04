@@ -25,10 +25,11 @@ npm install yeeql
 
 ### Setup
 
+<!---Setup-->
+
 ```typescript
 import { UUID, Field, Table } from 'yeeql'
 import * as Y from 'yjs'
-
 const doc = new Y.Doc()
 const yTable = doc.getMap('dinosaurs') as Y.Map<Y.Map<unknown>>
 
@@ -43,6 +44,8 @@ const dinoTable = new Table(yTable, dinosaursSchema)
 ```
 
 ### Inserting Rows
+
+<!---Insert-->
 
 ```typescript
 dinoTable.insert({
@@ -66,32 +69,33 @@ dinoTable.insert({
 
 ### Selecting Rows
 
+<!---Select-->
+
 ```typescript
 const herbivoresByAge = dinoTable.query({
 	select: ['genus', 'ageInMillionsOfYears'],
 	filter: { diet: 'herbivore' },
 	sort: (a, b) => a.ageInMillionsOfYears - b.ageInMillionsOfYears,
 })
-
-herbivoresByAge.result /* [
-    { genus: 'Triceratops', ageInMillionsOfYears: 66 }, 
-    { genus: 'Stegosaurus', ageInMillionsOfYears: 152 }
-] */
+herbivoresByAge.result /* {{herbivoresByAge.result 1}} */
 ```
 
 ### Observing Changes
 
+<!---Observe-->
+
 ```typescript
 import { QueryChange } from 'yeeql'
+
 const herbivoresByAgeObserver = (
 	change: QueryChange<typeof herbivoresByAge>,
 ) => {
 	console.log(`herbivoresByAge change ${change}`)
 }
 
-herbivoresByAge.observe(herbivorseByAgeObserver)
+herbivoresByAge.observe(herbivoresByAgeObserver)
 
-dinoTable.insert({
+const brachiosaurusId = dinoTable.insert({
 	genus: 'Brachiosaurus',
 	ageInMillionsOfYears: 150,
 	diet: 'herbivore',
@@ -100,18 +104,14 @@ dinoTable.insert({
 /*
 `herbivoresByAgeObserver` logs:
 herbivorsByAge change {
-    kind: 'add',
-    row: { genus: 'Brachiosaurus', ageInMillionsOfYears: 150 },
-    newIndex: 1, // inserts after Triceratops and before Segosaurus according to query `sort` function
-    type: 'add' // Indicates that the row was newly added to the table. If the row came into the filter of this query due to an update, is 'update'
+	kind: 'add',
+	row: { genus: 'Brachiosaurus', ageInMillionsOfYears: 150 },
+	newIndex: 1, // inserts after Triceratops and before Segosaurus according to query `sort` function
+	type: 'add', // Indicates that the row was newly added to the table. If the row came into the filter of this query due to an update, is 'update'
 }
 */
 
-herbivoresByAge.result /* [
-    { genus: 'Triceratops', ageInMillionsOfYears: 66 },
-    { genus: 'Brachiosaurus', ageInMillionsOfYears: 150 },
-    { genus: 'Stegosaurus', ageInMillionsOfYears: 152 }
-] */
+herbivoresByAge.result /* {{herbivoresByAge.result 2}} */
 
 const velociraptorId: UUID = dinoTable.insert({
 	genus: 'Velociraptor',
@@ -124,55 +124,52 @@ const velociraptorId: UUID = dinoTable.insert({
 
 ### Updating Rows
 
+<!---Update-->
+
 ```typescript
 dinoTable.update(velociraptorId, 'diet', 'herbivore')
 
 /*
 `herbivoresByAgeObserver` logs:
 herbivorsByAge change {
-    kind: 'add',
-    row: { genus: 'Velociraptor', ageInMillionsOfYears: 72 },
-    newIndex: 1, // inserts after Triceratops and before Brachiosaurus according to query `sort` function
-    type: 'update' // Indicates that the row newly came into the query's filter due to an update. If the row was newly added, would be 'add'
+	kind: 'add',
+	row: { genus: 'Velociraptor', ageInMillionsOfYears: 72 },
+	newIndex: 1, // inserts after Triceratops and before Brachiosaurus according to query `sort` function
+	type: 'update' // Indicates that the row newly came into the query's filter due to an update. If the row was newly added, would be 'add'
 }
 */
 
-herbivoresByAge.result /* [
-    { genus: 'Triceratops', ageInMillionsOfYears: 66 },
-    { genus: 'Velociraptor', ageInMillionsOfYears: 72 },
-    { genus: 'Brachiosaurus', ageInMillionsOfYears: 150 },
-    { genus: 'Stegosaurus', ageInMillionsOfYears: 152 }
-] */
+herbivoresByAge.result /* {{result3}} */
 
 dinoTable.update(velociraptorId, 'ageInMillionsOfYears', 160)
 
 /*
 `herbivoresByAgeObserver` logs:
 herbivorsByAge change {
-    kind: 'update',
-    row: { genus: 'Velociraptor', ageInMillionsOfYears: 160 },
-    oldIndex: 1,
-    newIndex: 3, // Has moved to the end of the query results because it has the highest age,
-    oldValues: { ageInMillionsOfYears: 72 },
-    type: 'update' // Always 'update' for `kind: 'update'` changes
+	kind: 'update',
+	row: { genus: 'Velociraptor', ageInMillionsOfYears: 160 },
+	oldIndex: 1,
+	newIndex: 3, // Has moved to the end of the query results because it has the highest age,
+	oldValues: { ageInMillionsOfYears: 72 },
+	type: 'update' // Always 'update' for `kind: 'update'` changes
 }
 */
 ```
 
 ### Deleting Rows
 
+<!---Delete-->
+
 ```typescript
 dinoTable.delete(velociraptorId)
 
 /*
 `herbivoresByAgeObserver` logs:
-herbivorsByAge change {
-    kind: 'remove',
-    row: { genus: 'Velociraptor', ageInMillionsOfYears: 160 },
-    newIndex: 3,
-    type: 'delete'
+	kind: 'remove',
+	row: { genus: 'Velociraptor', ageInMillionsOfYears: 160 },
+	oldIndex: 3,
+	type: 'delete'
 }
-*/
 ```
 
 ## React hook

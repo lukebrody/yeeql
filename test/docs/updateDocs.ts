@@ -24,13 +24,16 @@ import stringify from '@aitodotai/json-stringify-pretty-compact'
 export class UpdateDocs {
 	documentationFiles: string
 	testFiles: string
+	indent: string
 
 	constructor({
 		documentationFiles = '**/*.md',
 		testFiles = 'test/docs/**/*.ts',
+		indent = '  ',
 	} = {}) {
 		this.documentationFiles = documentationFiles
 		this.testFiles = testFiles
+		this.indent = indent
 	}
 
 	exampleRegex(exampleName: string): RegExp {
@@ -38,36 +41,6 @@ export class UpdateDocs {
 			`(<!---${exampleName}-->\\s*\`\`\`typescript)(.+?)(\`\`\`)`,
 			'gs',
 		)
-	}
-
-	replaceToken(
-		exampleName: string,
-		token: RegExp | string,
-		value: unknown,
-	): void {
-		const pattern = this.exampleRegex(exampleName)
-		const stringValue =
-			typeof value === 'string'
-				? value
-				: stringify(value, { indent: '\t', margins: true })
-		const results = replace.sync({
-			files: this.documentationFiles,
-			from: pattern,
-			to: (...args) => {
-				const [, header, content, end] = args as string[]
-				const replacedContent = content.replaceAll(token, stringValue)
-				return [header, replacedContent, end].join('')
-			},
-			countMatches: true,
-		})
-		if (
-			results.reduce(
-				(count, result) => count + (result.numReplacements ?? 0),
-				0,
-			) !== 1
-		) {
-			throw new Error(`token ${token} appeared multiple times`)
-		}
 	}
 
 	codeBlockInTests(): RegExp {
@@ -104,5 +77,34 @@ export class UpdateDocs {
 
 	updateExamples(): void {
 		this.replaceExamples(this.collectExamples())
+	}
+
+	stringifyValue(value: unknown): string {
+		return typeof value === 'string'
+			? value
+			: stringify(value, { indent: this.indent, margins: true })
+	}
+
+	replaceToken(
+		exampleName: string,
+		token: RegExp | string,
+		value: unknown,
+	): void {
+		const pattern = this.exampleRegex(exampleName)
+		const stringValue = this.stringifyValue(value)
+		let count = 0
+		replace.sync({
+			files: this.documentationFiles,
+			from: pattern,
+			to: (...args) => {
+				const [, header, content, end] = args as string[]
+				count += Array.from(content.matchAll(token as RegExp)).length
+				const replacedContent = content.replaceAll(token, stringValue)
+				return [header, replacedContent, end].join('')
+			},
+		})
+		if (count !== 1) {
+			throw new Error(`token ${token} appeared ${count} times`)
+		}
 	}
 }

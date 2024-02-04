@@ -5,10 +5,12 @@ import * as Y from 'yjs'
 // end docs Setup
 import { expect, test } from 'vitest'
 // eslint-disable-next-line no-restricted-imports
-import { replaceToken } from './updateDocs'
+import { UpdateDocs } from './updateDocs'
 // start docs Observe
 import { QueryChange } from 'yeeql'
 // end docs
+
+const docs = new UpdateDocs()
 
 test('README.md', () => {
 	// start docs Setup
@@ -59,7 +61,7 @@ test('README.md', () => {
 
 	expect(herbivoresByAge.result).toMatchObject(expectedResult)
 
-	replaceToken('Select', '{{herbivoresByAge.result 1}}', expectedResult)
+	docs.replaceToken('Select', '{{herbivoresByAge.result 1}}', expectedResult)
 
 	const observerLogs: QueryChange<typeof herbivoresByAge>[] = []
 	herbivoresByAge.observe((change) => observerLogs.push(change))
@@ -115,7 +117,7 @@ herbivorsByAge change {
 		},
 	]
 	expect(herbivoresByAge.result).toMatchObject(expectedResult2)
-	replaceToken('Observe', '{{herbivoresByAge.result 2}}', expectedResult2)
+	docs.replaceToken('Observe', '{{herbivoresByAge.result 2}}', expectedResult2)
 	// start docs Observe
 
 	const velociraptorId: UUID = dinoTable.insert({
@@ -127,7 +129,7 @@ herbivorsByAge change {
 	// herbivoresByAgeObserver does not log, since the Velociraptor is not a herbivore
 	// end docs Observe
 
-	replaceToken('Observe', JSON.stringify(brachiosaurusId), 'brachiosaurusId')
+	docs.replaceToken('Observe', JSON.stringify(brachiosaurusId), 'brachiosaurusId')
 
 	// start docs Update
 	dinoTable.update(velociraptorId, 'diet', 'herbivore')
@@ -158,7 +160,7 @@ herbivorsByAge change {
 
 	expect(herbivoresByAge.result).toMatchObject(expectedResult3)
 
-	replaceToken('Update', '{{result3}}', expectedResult3)
+	docs.replaceToken('Update', '{{result3}}', expectedResult3)
 
 	/*
 	// start docs Update

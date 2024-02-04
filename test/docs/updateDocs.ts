@@ -21,70 +21,88 @@ import stringify from '@aitodotai/json-stringify-pretty-compact'
  * 		For example, you might want to have a comment about the value of an expression.
  */
 
-function exampleRegex(exampleName: string) {
-	return new RegExp(
-		`(<!---${exampleName}-->\\s*\`\`\`typescript)(.+?)(\`\`\`)`,
-		'gs',
-	)
-}
+export class UpdateDocs {
+	documentationFiles: string
+	testFiles: string
 
-export function replaceToken(
-	exampleName: string,
-	token: RegExp | string,
-	value: unknown,
-) {
-	const pattern = exampleRegex(exampleName)
-	const stringValue =
-		typeof value === 'string'
-			? value
-			: stringify(value, { indent: '\t', margins: true })
-	const results = replace.sync({
-		files: '**/*.md',
-		from: pattern,
-		to: (...args) => {
-			const [, header, content, end] = args as string[]
-			const replacedContent = content.replaceAll(token, stringValue)
-			return [header, replacedContent, end].join('')
-		},
-		countMatches: true,
-	})
-	if (
-		results.reduce(
-			(count, result) => count + (result.numReplacements ?? 0),
-			0,
-		) !== 1
-	) {
-		throw new Error(`token ${token} appeared multiple times`)
+	constructor({
+		documentationFiles = '**/*.md',
+		testFiles = 'test/docs/**/*.ts',
+	} = {}) {
+		this.documentationFiles = documentationFiles
+		this.testFiles = testFiles
 	}
-}
 
-const codeBlockInTests =
-	/(?:^|\n)([^\S\n]*)\/\/ start docs (.+?)\n(.+?)\n\s*\/\/ end docs/gs
+	exampleRegex(exampleName: string): RegExp {
+		return new RegExp(
+			`(<!---${exampleName}-->\\s*\`\`\`typescript)(.+?)(\`\`\`)`,
+			'gs',
+		)
+	}
 
-export function collectExamples(): DefaultMap<string, string[]> {
-	const result = new DefaultMap<string, string[]>(() => [])
-
-	for (const file of globSync('test/docs/**/*.ts')) {
-		const fileContents = fs.readFileSync(file).toString()
-		for (const [, indent, exampleName, code] of fileContents.matchAll(
-			codeBlockInTests,
-		)) {
-			const dedentedCode = code.replaceAll(new RegExp(`^${indent}`, 'gm'), '')
-			result.get(exampleName).push(dedentedCode)
+	replaceToken(
+		exampleName: string,
+		token: RegExp | string,
+		value: unknown,
+	): void {
+		const pattern = this.exampleRegex(exampleName)
+		const stringValue =
+			typeof value === 'string'
+				? value
+				: stringify(value, { indent: '\t', margins: true })
+		const results = replace.sync({
+			files: this.documentationFiles,
+			from: pattern,
+			to: (...args) => {
+				const [, header, content, end] = args as string[]
+				const replacedContent = content.replaceAll(token, stringValue)
+				return [header, replacedContent, end].join('')
+			},
+			countMatches: true,
+		})
+		if (
+			results.reduce(
+				(count, result) => count + (result.numReplacements ?? 0),
+				0,
+			) !== 1
+		) {
+			throw new Error(`token ${token} appeared multiple times`)
 		}
 	}
 
-	return result
-}
+	codeBlockInTests(): RegExp {
+		return /(?:^|\n)([^\S\n]*)\/\/ start docs (.+?)\n(.+?)\n\s*\/\/ end docs/gs
+	}
 
-export function replaceExamples(examples: DefaultMap<string, string[]>) {
-	const pattern = exampleRegex('(.+?)')
-	replace.sync({
-		files: '**/*.md',
-		from: pattern,
-		to: (...args) => {
-			const [, header, exampleName, , end] = args as string[]
-			return [header, examples.get(exampleName).join('\n'), end].join('\n')
-		},
-	})
+	collectExamples(): DefaultMap<string, string[]> {
+		const result = new DefaultMap<string, string[]>(() => [])
+
+		for (const file of globSync(this.testFiles)) {
+			const fileContents = fs.readFileSync(file).toString()
+			for (const [, indent, exampleName, code] of fileContents.matchAll(
+				this.codeBlockInTests(),
+			)) {
+				const dedentedCode = code.replaceAll(new RegExp(`^${indent}`, 'gm'), '')
+				result.get(exampleName).push(dedentedCode)
+			}
+		}
+
+		return result
+	}
+
+	replaceExamples(examples: DefaultMap<string, string[]>): void {
+		const pattern = this.exampleRegex('(.+?)')
+		replace.sync({
+			files: this.documentationFiles,
+			from: pattern,
+			to: (...args) => {
+				const [, header, exampleName, , end] = args as string[]
+				return [header, examples.get(exampleName).join('\n'), end].join('\n')
+			},
+		})
+	}
+
+	updateExamples(): void {
+		this.replaceExamples(this.collectExamples())
+	}
 }

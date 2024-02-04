@@ -13,6 +13,7 @@ It allows for creating schematized SQL-like queries on top of `Y.Map`s.
 - `select`, `filter`, `sort`, `groupBy`, `count`
 - subscribe to query changes
 - React support with `useQuery`
+- Nested queries (subqueries)
 
 ## Install
 
@@ -21,6 +22,8 @@ npm install yeeql
 ```
 
 ## Example
+
+### Setup
 
 ```typescript
 import { UUID, Field, Table } from 'yeeql'
@@ -37,7 +40,11 @@ const dinosaursSchema = {
 }
 
 const dinoTable = new Table(yTable, dinosaursSchema)
+```
 
+### Inserting Rows
+
+```typescript
 dinoTable.insert({
 	genus: 'Tyrannosaurus',
 	ageInMillionsOfYears: 67,
@@ -55,7 +62,11 @@ dinoTable.insert({
 	ageInMillionsOfYears: 66,
 	diet: 'herbivore',
 })
+```
 
+### Selecting Rows
+
+```typescript
 const herbivoresByAge = dinoTable.query({
 	select: ['genus', 'ageInMillionsOfYears'],
 	filter: { diet: 'herbivore' },
@@ -66,7 +77,11 @@ herbivoresByAge.result /* [
     { genus: 'Triceratops', ageInMillionsOfYears: 66 }, 
     { genus: 'Stegosaurus', ageInMillionsOfYears: 152 }
 ] */
+```
 
+### Observing Changes
+
+```typescript
 import { QueryChange } from 'yeeql'
 const herbivoresByAgeObserver = (
 	change: QueryChange<typeof herbivoresByAge>,
@@ -105,7 +120,11 @@ const velociraptorId: UUID = dinoTable.insert({
 })
 
 // herbivoresByAgeObserver does not log, since the Velociraptor is not a herbivore
+```
 
+### Updating Rows
+
+```typescript
 dinoTable.update(velociraptorId, 'diet', 'herbivore')
 
 /*
@@ -138,7 +157,11 @@ herbivorsByAge change {
     type: 'update' // Always 'update' for `kind: 'update'` changes
 }
 */
+```
 
+### Deleting Rows
+
+```typescript
 dinoTable.delete(velociraptorId)
 
 /*
@@ -201,6 +224,11 @@ dinoTable.update(allosaurusId, 'genus', 'Allosaurus ❤️')
 ```
 
 # [API Documentation](https://github.com/lukebrody/yeeql/blob/main/doc/index.md)
+
+# Correctness
+
+- [100% test coverage](coverage/index.html)
+- Predictable handling of Y.js transactions. (At the end of the transaction, all observers are called with a consistent view of all tables.)
 
 # Performance
 

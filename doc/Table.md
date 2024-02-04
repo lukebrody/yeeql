@@ -64,6 +64,8 @@ doc.transact(() => {
 })
 ```
 
+Query observers are called after the transaction completes, at the point where observers have a consistent view of every table on the document.
+
 ## `table.update(id: UUID, column, value)`
 
 Updates the specified `column` in the row of `id` to a new `value`.

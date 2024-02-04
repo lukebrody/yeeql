@@ -10,7 +10,9 @@ import { UpdateDocs } from './updateDocs'
 import { QueryChange } from 'yeeql'
 // end docs
 
-const docs = new UpdateDocs()
+const docs = new UpdateDocs({
+	indent: '\t'
+})
 
 test('README.md', () => {
 	// start docs Setup
@@ -75,7 +77,7 @@ test('README.md', () => {
 
 	herbivoresByAge.observe(herbivoresByAgeObserver)
 
-	const brachiosaurusId = dinoTable.insert({
+	dinoTable.insert({
 		genus: 'Brachiosaurus',
 		ageInMillionsOfYears: 150,
 		diet: 'herbivore',
@@ -128,8 +130,6 @@ herbivorsByAge change {
 
 	// herbivoresByAgeObserver does not log, since the Velociraptor is not a herbivore
 	// end docs Observe
-
-	docs.replaceToken('Observe', JSON.stringify(brachiosaurusId), 'brachiosaurusId')
 
 	// start docs Update
 	dinoTable.update(velociraptorId, 'diet', 'herbivore')
@@ -214,4 +214,5 @@ herbivorsByAge change {
 	/*
 	// start docs Delete
 	*/
+	// end docs
 })

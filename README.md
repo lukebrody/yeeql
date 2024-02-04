@@ -30,6 +30,7 @@ npm install yeeql
 ```typescript
 import { UUID, Field, Table } from 'yeeql'
 import * as Y from 'yjs'
+
 const doc = new Y.Doc()
 const yTable = doc.getMap('dinosaurs') as Y.Map<Y.Map<unknown>>
 
@@ -77,7 +78,10 @@ const herbivoresByAge = dinoTable.query({
 	filter: { diet: 'herbivore' },
 	sort: (a, b) => a.ageInMillionsOfYears - b.ageInMillionsOfYears,
 })
-herbivoresByAge.result /* {{herbivoresByAge.result 1}} */
+herbivoresByAge.result /* [
+	{ "genus": "Triceratops", "ageInMillionsOfYears": 66 },
+	{ "genus": "Stegosaurus", "ageInMillionsOfYears": 152 }
+] */
 ```
 
 ### Observing Changes
@@ -95,7 +99,7 @@ const herbivoresByAgeObserver = (
 
 herbivoresByAge.observe(herbivoresByAgeObserver)
 
-const brachiosaurusId = dinoTable.insert({
+dinoTable.insert({
 	genus: 'Brachiosaurus',
 	ageInMillionsOfYears: 150,
 	diet: 'herbivore',
@@ -111,7 +115,11 @@ herbivorsByAge change {
 }
 */
 
-herbivoresByAge.result /* {{herbivoresByAge.result 2}} */
+herbivoresByAge.result /* [
+	{ "genus": "Triceratops", "ageInMillionsOfYears": 66 },
+	{ "genus": "Brachiosaurus", "ageInMillionsOfYears": 150 },
+	{ "genus": "Stegosaurus", "ageInMillionsOfYears": 152 }
+] */
 
 const velociraptorId: UUID = dinoTable.insert({
 	genus: 'Velociraptor',
@@ -139,7 +147,12 @@ herbivorsByAge change {
 }
 */
 
-herbivoresByAge.result /* {{result3}} */
+herbivoresByAge.result /* [
+	{ "genus": "Triceratops", "ageInMillionsOfYears": 66 },
+	{ "genus": "Velociraptor", "ageInMillionsOfYears": 72 },
+	{ "genus": "Brachiosaurus", "ageInMillionsOfYears": 150 },
+	{ "genus": "Stegosaurus", "ageInMillionsOfYears": 152 }
+] */
 
 dinoTable.update(velociraptorId, 'ageInMillionsOfYears', 160)
 
@@ -170,6 +183,7 @@ dinoTable.delete(velociraptorId)
 	oldIndex: 3,
 	type: 'delete'
 }
+*/
 ```
 
 ## React hook

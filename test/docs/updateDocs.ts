@@ -44,7 +44,7 @@ export class UpdateDocs {
 	}
 
 	codeBlockInTests(): RegExp {
-		return /(?:^|\n)([^\S\n]*)\/\/ start docs (.+?)\n(.+?)\n\s*\/\/ end docs/gs
+		return /(?:^|\n)([^\S\n]*)\/\/ start docs (.+?)\n(.+?)\n[^\S\n]*\/\/ end docs/gs
 	}
 
 	collectExamples(): DefaultMap<string, string[]> {

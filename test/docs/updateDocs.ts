@@ -1,5 +1,4 @@
 import { DefaultMap } from 'common/DefaultMap'
-import replace from 'replace-in-file'
 import { globSync } from 'glob'
 import * as fs from 'fs'
 // @ts-expect-error Module problems
@@ -21,9 +20,24 @@ import stringify from '@aitodotai/json-stringify-pretty-compact'
  * 		For example, you might want to have a comment about the value of an expression.
  */
 
+type File = { readonly path: string; contents: string }
+
+function readFiles(glob: string): File[] {
+	return globSync(glob).map((path) => ({
+		path,
+		contents: fs.readFileSync(path).toString(),
+	}))
+}
+
+function writeFiles(files: File[]) {
+	for (const { path, contents } of files) {
+		fs.writeFileSync(path, contents)
+	}
+}
+
 export class UpdateDocs {
-	documentationFiles: string
-	testFiles: string
+	readonly documentationFiles: File[]
+	readonly testFiles: Readonly<File>[]
 	indent: string
 
 	constructor({
@@ -31,9 +45,14 @@ export class UpdateDocs {
 		testFiles = 'test/docs/**/*.tsx',
 		indent = '  ',
 	} = {}) {
-		this.documentationFiles = documentationFiles
-		this.testFiles = testFiles
+		this.documentationFiles = readFiles(documentationFiles)
+		this.testFiles = readFiles(testFiles)
 		this.indent = indent
+	}
+
+	write() {
+		console.log('writing...')
+		writeFiles(this.documentationFiles)
 	}
 
 	exampleRegex(exampleName: string): RegExp {
@@ -50,9 +69,8 @@ export class UpdateDocs {
 	collectExamples(): DefaultMap<string, string[]> {
 		const result = new DefaultMap<string, string[]>(() => [])
 
-		for (const file of globSync(this.testFiles)) {
-			const fileContents = fs.readFileSync(file).toString()
-			for (const [, indent, exampleName, code] of fileContents.matchAll(
+		for (const { contents } of this.testFiles) {
+			for (const [, indent, exampleName, code] of contents.matchAll(
 				this.codeBlockInTests(),
 			)) {
 				const dedentedCode = code.replaceAll(new RegExp(`^${indent}`, 'gm'), '')
@@ -65,14 +83,12 @@ export class UpdateDocs {
 
 	replaceExamples(examples: DefaultMap<string, string[]>): void {
 		const pattern = this.exampleRegex('(.+?)')
-		replace.sync({
-			files: this.documentationFiles,
-			from: pattern,
-			to: (...args) => {
+		for (const file of this.documentationFiles) {
+			file.contents = file.contents.replaceAll(pattern, (...args) => {
 				const [, header, exampleName, , end] = args as string[]
 				return [header, examples.get(exampleName).join('\n'), end].join('\n')
-			},
-		})
+			})
+		}
 	}
 
 	updateExamples(): void {
@@ -93,16 +109,14 @@ export class UpdateDocs {
 		const pattern = this.exampleRegex(exampleName)
 		const stringValue = this.stringifyValue(value)
 		let count = 0
-		replace.sync({
-			files: this.documentationFiles,
-			from: pattern,
-			to: (...args) => {
+		for (const file of this.documentationFiles) {
+			file.contents = file.contents.replaceAll(pattern, (...args) => {
 				const [, header, content, end] = args as string[]
 				count += Array.from(content.matchAll(token as RegExp)).length
 				const replacedContent = content.replaceAll(token, stringValue)
 				return [header, replacedContent, end].join('')
-			},
-		})
+			})
+		}
 		if (count !== 1) {
 			throw new Error(`token ${token} appeared ${count} times`)
 		}

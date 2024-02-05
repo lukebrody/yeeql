@@ -1,11 +1,9 @@
+import { expect, test } from 'vitest'
 // start docs Setup
 import { UUID, Field, Table } from 'yeeql'
 import * as Y from 'yjs'
 
 // end docs Setup
-import { expect, test } from 'vitest'
-// eslint-disable-next-line no-restricted-imports
-import { UpdateDocs } from './updateDocs'
 // start docs Observe
 import { QueryChange } from 'yeeql'
 // end docs
@@ -17,9 +15,8 @@ import { useQuery } from 'yeeql'
 import { act, render } from '@testing-library/react'
 // end docs
 
-const docs = new UpdateDocs({
-	indent: '\t'
-})
+// eslint-disable-next-line no-restricted-imports
+import { docs } from '../../vitest.global.setup'
 
 test('README.md', () => {
 	// start docs Setup
@@ -310,7 +307,7 @@ herbivorsByAge change {
 		sort,
 	})
 
-	console.log(queryA === queryB) // Prints `true`
+	console.log(queryA !== queryB) // Prints `true`
 	// end docs
 	expect(queryA).toBe(queryB)
 })

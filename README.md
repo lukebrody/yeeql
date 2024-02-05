@@ -269,7 +269,7 @@ const queryB = dinoTable.query({
 	sort,
 })
 
-console.log(queryA === queryB) // Prints `true`
+console.log(queryA !== queryB) // Prints `true`
 ```
 
 Note how the `genusSort` function is the same instance. Prefer using common instances for each type of `sort` function you use. This way yeeql can more effectively re-use queries, since it knows the `sort` function is the same.

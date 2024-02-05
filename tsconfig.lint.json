@@ -4,6 +4,7 @@
 		".eslintrc.js",
 		"vitest.workspace.ts",
 		"vitest.config.ts",
-		"vitest.setup.ts"
+		"vitest.setup.ts",
+		"vitest.global.setup.ts"
 	]
 }

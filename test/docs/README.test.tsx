@@ -16,7 +16,7 @@ import { act, render } from '@testing-library/react'
 // end docs
 
 // eslint-disable-next-line no-restricted-imports
-import { docs } from '../../vitest.global.setup'
+import { docs } from '../../docs'
 
 test('README.md', () => {
 	// start docs Setup

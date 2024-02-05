@@ -23,7 +23,6 @@ export default defineWorkspace([
 			pool: 'vmThreads',
 			name: 'unit',
 			setupFiles: 'vitest.setup.ts',
-			globalSetup: 'vitest.global.setup.ts',
 			environment: 'jsdom',
 			globals: true,
 		},

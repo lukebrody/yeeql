@@ -1,4 +1,5 @@
-import { DefaultMap } from 'common/DefaultMap'
+// eslint-disable-next-line no-restricted-imports
+import { DefaultMap } from '../../lib/common/DefaultMap'
 import { globSync } from 'glob'
 import * as fs from 'fs'
 // @ts-expect-error Module problems
@@ -36,23 +37,36 @@ function writeFiles(files: File[]) {
 }
 
 export class UpdateDocs {
-	readonly documentationFiles: File[]
-	readonly testFiles: Readonly<File>[]
+	documentationGlob: string
+	testGlob: string
+
+	documentationFiles: File[]
+	testFiles: Readonly<File>[]
 	indent: string
 
 	constructor({
-		documentationFiles = '**/*.md',
-		testFiles = 'test/docs/**/*.tsx',
+		documentationGlob = '**/*.md',
+		testGlob = 'test/docs/**/*.tsx',
 		indent = '  ',
 	} = {}) {
-		this.documentationFiles = readFiles(documentationFiles)
-		this.testFiles = readFiles(testFiles)
+		this.documentationGlob = documentationGlob
+		this.testGlob = testGlob
+		this.documentationFiles = readFiles(this.documentationGlob)
+		this.testFiles = readFiles(this.testGlob)
 		this.indent = indent
 	}
 
+	read() {
+		const start = Date.now()
+		this.documentationFiles = readFiles(this.documentationGlob)
+		this.testFiles = readFiles(this.testGlob)
+		console.log(`UpdateDocs took ${Date.now() - start}ms to read files`)
+	}
+
 	write() {
-		console.log('writing...')
+		const start = Date.now()
 		writeFiles(this.documentationFiles)
+		console.log(`UpdateDocs took ${Date.now() - start}ms to write files`)
 	}
 
 	exampleRegex(exampleName: string): RegExp {

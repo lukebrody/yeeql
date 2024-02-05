@@ -7,8 +7,9 @@ export default defineWorkspace([
 		test: {
 			pool: 'vmThreads',
 			typecheck: {
+				only: true,
 				enabled: true,
-				include: ['**/*.test.ts'],
+				include: ['**/*.tsx', '**/*.ts'],
 				tsconfig: 'test/tsconfig.json',
 			},
 			name: 'type',

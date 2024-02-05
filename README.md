@@ -78,10 +78,7 @@ const herbivoresByAge = dinoTable.query({
 	filter: { diet: 'herbivore' },
 	sort: (a, b) => a.ageInMillionsOfYears - b.ageInMillionsOfYears,
 })
-herbivoresByAge.result /* [
-	{ "genus": "Triceratops", "ageInMillionsOfYears": 66 },
-	{ "genus": "Stegosaurus", "ageInMillionsOfYears": 152 }
-] */
+herbivoresByAge.result /* {{result1}} */
 ```
 
 ### Observing Changes
@@ -115,11 +112,7 @@ herbivorsByAge change {
 }
 */
 
-herbivoresByAge.result /* [
-	{ "genus": "Triceratops", "ageInMillionsOfYears": 66 },
-	{ "genus": "Brachiosaurus", "ageInMillionsOfYears": 150 },
-	{ "genus": "Stegosaurus", "ageInMillionsOfYears": 152 }
-] */
+herbivoresByAge.result /* {{herbivoresByAge.result 2}} */
 
 const velociraptorId: UUID = dinoTable.insert({
 	genus: 'Velociraptor',
@@ -147,12 +140,7 @@ herbivorsByAge change {
 }
 */
 
-herbivoresByAge.result /* [
-	{ "genus": "Triceratops", "ageInMillionsOfYears": 66 },
-	{ "genus": "Velociraptor", "ageInMillionsOfYears": 72 },
-	{ "genus": "Brachiosaurus", "ageInMillionsOfYears": 150 },
-	{ "genus": "Stegosaurus", "ageInMillionsOfYears": 152 }
-] */
+herbivoresByAge.result /* {{result3}} */
 
 dinoTable.update(velociraptorId, 'ageInMillionsOfYears', 160)
 
@@ -188,39 +176,42 @@ dinoTable.delete(velociraptorId)
 
 ## React hook
 
+<!---React Hook-->
+
 ```typescript
 // (Assuming we're using the dinosarus table above)
 
 import React from 'react'
 import { useQuery } from 'yeeql'
+import { act, render } from '@testing-library/react'
 
 const genusSort = (a: { genus: string }, b: { genus: string }) => a.genus.localeCompare(b.genus)
 
 function DinoListComponent({ diet }: { diet: 'herbivore' | 'carnivore' }) {
-    const dinos = useQuery(() => dinoTable.query({
-        select: ['id', 'genus'],
-        filter: { diet }
-        sort: genusSort
-    }), [diet])
+	const dinos = useQuery(() => dinoTable.query({
+		select: ['id', 'genus'],
+		filter: { diet },
+		sort: genusSort
+	}), [diet])
 
-    const dinoNames = dinos.map(dino => (
-        <p key={dino.id}>
-            ${dino.genus}
-        </p>
-    ))
+	const dinoNames = dinos.map(dino => (
+		<p key={dino.id}>
+			${dino.genus}
+		</p>
+	))
 
-    return (
-        <>
-            <h1>
-                ${diet}s
-            </h1>
-            {dinoNames}
-        </>
-    )
-}
+
+return (
+	<>
+		<h1>
+			${diet}s
+		</h1>
+		{dinoNames}
+	</>
+)
+	}
 
 <DinoListComponent diet='carnivore'/> // Rendered somewhere
-
 const allosaurusId = dinoTable.insert({ genus: 'Allosaurus', ageInMillionsOfYears: 145, diet: 'carnivore' })
 // DinoListComponent re-renders
 
@@ -262,18 +253,20 @@ The `Table` weakly caches queries, and returns the same instance for duplicate q
 
 ### Example
 
+<!---Query Caching-->
+
 ```typescript
-const genusSort = (a: { genus: string }, b: { genus: string }) =>
+const sort = (a: { genus: string }, b: { genus: string }) =>
 	a.genus.localeCompare(b.genus)
 
 const queryA = dinoTable.query({
 	select: ['genus', 'diet'],
-	sort: genusSort,
+	sort,
 })
 
 const queryB = dinoTable.query({
 	select: ['genus', 'diet'],
-	sort: genusSort,
+	sort,
 })
 
 console.log(queryA === queryB) // Prints `true`

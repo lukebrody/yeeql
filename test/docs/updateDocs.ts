@@ -28,7 +28,7 @@ export class UpdateDocs {
 
 	constructor({
 		documentationFiles = '**/*.md',
-		testFiles = 'test/docs/**/*.ts',
+		testFiles = 'test/docs/**/*.tsx',
 		indent = '  ',
 	} = {}) {
 		this.documentationFiles = documentationFiles

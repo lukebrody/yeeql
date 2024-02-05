@@ -9,6 +9,13 @@ import { UpdateDocs } from './updateDocs'
 // start docs Observe
 import { QueryChange } from 'yeeql'
 // end docs
+// start docs React Hook
+// (Assuming we're using the dinosarus table above)
+
+import React from 'react'
+import { useQuery } from 'yeeql'
+import { act, render } from '@testing-library/react'
+// end docs
 
 const docs = new UpdateDocs({
 	indent: '\t'
@@ -53,7 +60,7 @@ test('README.md', () => {
 		filter: { diet: 'herbivore' },
 		sort: (a, b) => a.ageInMillionsOfYears - b.ageInMillionsOfYears,
 	})
-	herbivoresByAge.result /* {{herbivoresByAge.result 1}} */
+	herbivoresByAge.result /* {{result1}} */
 	// end docs Select
 
 	const expectedResult = [
@@ -63,7 +70,7 @@ test('README.md', () => {
 
 	expect(herbivoresByAge.result).toMatchObject(expectedResult)
 
-	docs.replaceToken('Select', '{{herbivoresByAge.result 1}}', expectedResult)
+	docs.replaceToken('Select', '{{result1}}', expectedResult)
 
 	const observerLogs: QueryChange<typeof herbivoresByAge>[] = []
 	herbivoresByAge.observe((change) => observerLogs.push(change))
@@ -215,4 +222,95 @@ herbivorsByAge change {
 	// start docs Delete
 	*/
 	// end docs
+
+	let renderCount = 0
+	// start docs React Hook
+
+	const genusSort = (a: { genus: string }, b: { genus: string }) => a.genus.localeCompare(b.genus)
+
+	function DinoListComponent({ diet }: { diet: 'herbivore' | 'carnivore' }) {
+		const dinos = useQuery(() => dinoTable.query({
+			select: ['id', 'genus'],
+			filter: { diet },
+			sort: genusSort
+		}), [diet])
+
+		const dinoNames = dinos.map(dino => (
+			<p key={dino.id}>
+				${dino.genus}
+			</p>
+		))
+
+		// end docs
+		renderCount++
+		// start docs React Hook
+
+		return (
+			<>
+				<h1>
+					${diet}s
+				</h1>
+				{dinoNames}
+			</>
+		)
+	}
+
+	// end docs
+
+	render(
+		// start docs React Hook
+		<DinoListComponent diet='carnivore'/> // Rendered somewhere
+		// end docs
+	)
+
+	let allosaurusIdAct: UUID | undefined
+	act(() => {
+		// start docs React Hook
+		const allosaurusId = dinoTable.insert({ genus: 'Allosaurus', ageInMillionsOfYears: 145, diet: 'carnivore' })
+		// DinoListComponent re-renders
+
+		// end docs
+		allosaurusIdAct = allosaurusId
+	})
+	const allosaurusId = allosaurusIdAct!
+
+	expect(renderCount).toBe(2)
+	
+	// start docs React Hook
+	dinoTable.update(allosaurusId, 'ageInMillionsOfYears', 150)
+	// DinoListComponent DOES NOT re-render, since 'ageInMillionsOfYears' is not selected in the query
+
+	dinoTable.insert({ genus: 'Styracosaurus', ageInMillionsOfYears: 75, diet: 'herbivore' })
+	// DinoListComponent DOES NOT re-render, since Styracosaurus is not a carnivore
+	
+	// end docs
+
+	expect(renderCount).toBe(2)
+
+	act(() => {
+		// start docs React Hook
+		dinoTable.update(allosaurusId, 'genus', 'Allosaurus ❤️')
+		// DinoListComponent re-renders, since 'genus' is selected
+		// end docs
+	})
+
+	expect(renderCount).toBe(3)
+
+	// start docs Query Caching
+	const sort = (a: { genus: string }, b: { genus: string }) =>
+		a.genus.localeCompare(b.genus)
+
+	const queryA = dinoTable.query({
+		select: ['genus', 'diet'],
+		sort,
+	})
+
+	const queryB = dinoTable.query({
+		select: ['genus', 'diet'],
+		sort,
+	})
+
+	console.log(queryA === queryB) // Prints `true`
+	// end docs
+	expect(queryA).toBe(queryB)
 })

@@ -45,10 +45,14 @@ export class UpdateDocs {
 	indent: string
 
 	constructor({
-		documentationGlob = '**/*.md',
-		testGlob = 'test/docs/**/*.tsx',
-		indent = '  ',
-	} = {}) {
+		documentationGlob,
+		testGlob,
+		indent,
+	}: {
+		documentationGlob: string
+		testGlob: string
+		indent: string
+	}) {
 		this.documentationGlob = documentationGlob
 		this.testGlob = testGlob
 		this.documentationFiles = readFiles(this.documentationGlob)

@@ -6,15 +6,15 @@ import * as fs from 'fs'
 import stringify from '@aitodotai/json-stringify-pretty-compact'
 
 /**
- * Implements syncing test cases to code examples in *.md files.
+ * Implements syncing test cases to code examples in documentation files.
  *
- *	1.	Use `collectExamples()` to scan through *.ts files and collect code between
+ *	1.	Use `collectExamples()` to scan through test files and collect code between
  *		`// start docs Example Name`
  *		and
  *		`// end docs`
  *		comments. Multiple blocks for the same example will be concatenated.
  *
- *	2.	Use `replaceExamples(...)` to scan through *.md files and update ```typescript code blocks
+ *	2.	Use `replaceExamples(...)` to scan through documentation files and update code blocks
  *		under <!---Example Name--> comments.
  *
  *	3.	Run the tests. Use calls of `replaceToken(...)` to inject test data into the generated examples.
@@ -75,7 +75,7 @@ export class UpdateDocs {
 
 	exampleRegex(exampleName: string): RegExp {
 		return new RegExp(
-			`(<!---${exampleName}-->\\s*\`\`\`typescript)(.+?)(\`\`\`)`,
+			`(<!---${exampleName}-->\\s*\`\`\`[A-z0-9]*)(.+?)(\`\`\`)`,
 			'gs',
 		)
 	}

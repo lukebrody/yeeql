@@ -2,9 +2,9 @@
 	"extends": "./tsconfig.template.json",
 	"include": [
 		".eslintrc.js",
-		"vitest.workspace.ts",
-		"vitest.config.ts",
-		"vitest.setup.ts",
+		"vitest.workspace.mts",
+		"vitest.config.mts",
+		"vitest.setup.mts",
 		"docs.ts"
 	]
 }

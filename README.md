@@ -35,10 +35,10 @@ const doc = new Y.Doc()
 const yTable = doc.getMap('dinosaurs') as Y.Map<Y.Map<unknown>>
 
 const dinosaursSchema = {
-	id: new Field<UUID>(),
-	genus: new Field<string>(),
-	ageInMillionsOfYears: new Field<number>(),
-	diet: new Field<'herbivore' | 'carnivore'>(),
+    id: new Field<UUID>(),
+    genus: new Field<string>(),
+    ageInMillionsOfYears: new Field<number>(),
+    diet: new Field<'herbivore' | 'carnivore'>(),
 }
 
 const dinoTable = new Table(yTable, dinosaursSchema)
@@ -50,21 +50,21 @@ const dinoTable = new Table(yTable, dinosaursSchema)
 
 ```typescript
 dinoTable.insert({
-	genus: 'Tyrannosaurus',
-	ageInMillionsOfYears: 67,
-	diet: 'carnivore',
+    genus: 'Tyrannosaurus',
+    ageInMillionsOfYears: 67,
+    diet: 'carnivore',
 })
 
 dinoTable.insert({
-	genus: 'Stegosaurus',
-	ageInMillionsOfYears: 152,
-	diet: 'herbivore',
+    genus: 'Stegosaurus',
+    ageInMillionsOfYears: 152,
+    diet: 'herbivore',
 })
 
 dinoTable.insert({
-	genus: 'Triceratops',
-	ageInMillionsOfYears: 66,
-	diet: 'herbivore',
+    genus: 'Triceratops',
+    ageInMillionsOfYears: 66,
+    diet: 'herbivore',
 })
 ```
 
@@ -74,9 +74,9 @@ dinoTable.insert({
 
 ```typescript
 const herbivoresByAge = dinoTable.query({
-	select: ['genus', 'ageInMillionsOfYears'],
-	filter: { diet: 'herbivore' },
-	sort: (a, b) => a.ageInMillionsOfYears - b.ageInMillionsOfYears,
+    select: ['genus', 'ageInMillionsOfYears'],
+    filter: { diet: 'herbivore' },
+    sort: (a, b) => a.ageInMillionsOfYears - b.ageInMillionsOfYears,
 })
 herbivoresByAge.result /* {{result1}} */
 ```
@@ -89,35 +89,35 @@ herbivoresByAge.result /* {{result1}} */
 import { QueryChange } from 'yeeql'
 
 const herbivoresByAgeObserver = (
-	change: QueryChange<typeof herbivoresByAge>,
+    change: QueryChange<typeof herbivoresByAge>,
 ) => {
-	console.log(`herbivoresByAge change ${change}`)
+    console.log(`herbivoresByAge change ${change}`)
 }
 
 herbivoresByAge.observe(herbivoresByAgeObserver)
 
 dinoTable.insert({
-	genus: 'Brachiosaurus',
-	ageInMillionsOfYears: 150,
-	diet: 'herbivore',
+    genus: 'Brachiosaurus',
+    ageInMillionsOfYears: 150,
+    diet: 'herbivore',
 })
 
 /*
 `herbivoresByAgeObserver` logs:
 herbivorsByAge change {
-	kind: 'add',
-	row: { genus: 'Brachiosaurus', ageInMillionsOfYears: 150 },
-	newIndex: 1, // inserts after Triceratops and before Segosaurus according to query `sort` function
-	type: 'add', // Indicates that the row was newly added to the table. If the row came into the filter of this query due to an update, is 'update'
+    kind: 'add',
+    row: { genus: 'Brachiosaurus', ageInMillionsOfYears: 150 },
+    newIndex: 1, // inserts after Triceratops and before Segosaurus according to query `sort` function
+    type: 'add', // Indicates that the row was newly added to the table. If the row came into the filter of this query due to an update, is 'update'
 }
 */
 
 herbivoresByAge.result /* {{herbivoresByAge.result 2}} */
 
 const velociraptorId: UUID = dinoTable.insert({
-	genus: 'Velociraptor',
-	ageInMillionsOfYears: 72,
-	diet: 'carnivore',
+    genus: 'Velociraptor',
+    ageInMillionsOfYears: 72,
+    diet: 'carnivore',
 })
 
 // herbivoresByAgeObserver does not log, since the Velociraptor is not a herbivore
@@ -133,10 +133,10 @@ dinoTable.update(velociraptorId, 'diet', 'herbivore')
 /*
 `herbivoresByAgeObserver` logs:
 herbivorsByAge change {
-	kind: 'add',
-	row: { genus: 'Velociraptor', ageInMillionsOfYears: 72 },
-	newIndex: 1, // inserts after Triceratops and before Brachiosaurus according to query `sort` function
-	type: 'update' // Indicates that the row newly came into the query's filter due to an update. If the row was newly added, would be 'add'
+    kind: 'add',
+    row: { genus: 'Velociraptor', ageInMillionsOfYears: 72 },
+    newIndex: 1, // inserts after Triceratops and before Brachiosaurus according to query `sort` function
+    type: 'update' // Indicates that the row newly came into the query's filter due to an update. If the row was newly added, would be 'add'
 }
 */
 
@@ -147,12 +147,12 @@ dinoTable.update(velociraptorId, 'ageInMillionsOfYears', 160)
 /*
 `herbivoresByAgeObserver` logs:
 herbivorsByAge change {
-	kind: 'update',
-	row: { genus: 'Velociraptor', ageInMillionsOfYears: 160 },
-	oldIndex: 1,
-	newIndex: 3, // Has moved to the end of the query results because it has the highest age,
-	oldValues: { ageInMillionsOfYears: 72 },
-	type: 'update' // Always 'update' for `kind: 'update'` changes
+    kind: 'update',
+    row: { genus: 'Velociraptor', ageInMillionsOfYears: 160 },
+    oldIndex: 1,
+    newIndex: 3, // Has moved to the end of the query results because it has the highest age,
+    oldValues: { ageInMillionsOfYears: 72 },
+    type: 'update' // Always 'update' for `kind: 'update'` changes
 }
 */
 ```
@@ -166,10 +166,10 @@ dinoTable.delete(velociraptorId)
 
 /*
 `herbivoresByAgeObserver` logs:
-	kind: 'remove',
-	row: { genus: 'Velociraptor', ageInMillionsOfYears: 160 },
-	oldIndex: 3,
-	type: 'delete'
+    kind: 'remove',
+    row: { genus: 'Velociraptor', ageInMillionsOfYears: 160 },
+    oldIndex: 3,
+    type: 'delete'
 }
 */
 ```
@@ -188,28 +188,28 @@ import { act, render } from '@testing-library/react'
 const genusSort = (a: { genus: string }, b: { genus: string }) => a.genus.localeCompare(b.genus)
 
 function DinoListComponent({ diet }: { diet: 'herbivore' | 'carnivore' }) {
-	const dinos = useQuery(() => dinoTable.query({
-		select: ['id', 'genus'],
-		filter: { diet },
-		sort: genusSort
-	}), [diet])
+    const dinos = useQuery(() => dinoTable.query({
+        select: ['id', 'genus'],
+        filter: { diet },
+        sort: genusSort
+    }), [diet])
 
-	const dinoNames = dinos.map(dino => (
-		<p key={dino.id}>
-			${dino.genus}
-		</p>
-	))
+    const dinoNames = dinos.map(dino => (
+        <p key={dino.id}>
+            ${dino.genus}
+        </p>
+    ))
 
 
 return (
-	<>
-		<h1>
-			${diet}s
-		</h1>
-		{dinoNames}
-	</>
+    <>
+        <h1>
+            ${diet}s
+        </h1>
+        {dinoNames}
+    </>
 )
-	}
+    }
 
 <DinoListComponent diet='carnivore'/> // Rendered somewhere
 const allosaurusId = dinoTable.insert({ genus: 'Allosaurus', ageInMillionsOfYears: 145, diet: 'carnivore' })
@@ -257,16 +257,16 @@ The `Table` weakly caches queries, and returns the same instance for duplicate q
 
 ```typescript
 const sort = (a: { genus: string }, b: { genus: string }) =>
-	a.genus.localeCompare(b.genus)
+    a.genus.localeCompare(b.genus)
 
 const queryA = dinoTable.query({
-	select: ['genus', 'diet'],
-	sort,
+    select: ['genus', 'diet'],
+    sort,
 })
 
 const queryB = dinoTable.query({
-	select: ['genus', 'diet'],
-	sort,
+    select: ['genus', 'diet'],
+    sort,
 })
 
 console.log(queryA !== queryB) // Prints `true`

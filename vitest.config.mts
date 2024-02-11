@@ -6,6 +6,7 @@ export default defineConfig({
 	test: {
 		coverage: {
 			enabled: true,
+			exclude: ['vitest.*.mts', '.eslintrc.js', 'docs.ts'],
 		},
 		reporters: [
 			'default',

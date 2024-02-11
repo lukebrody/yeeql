@@ -6,14 +6,14 @@ import * as Y from 'yjs'
 // end docs Setup
 // start docs Observe
 import { QueryChange } from 'yeeql'
-// end docs
+// end docs Observe
 // start docs React Hook
 // (Assuming we're using the dinosarus table above)
 
 import React from 'react'
 import { useQuery } from 'yeeql'
 import { act, render } from '@testing-library/react'
-// end docs
+// end docs React Hook
 
 // eslint-disable-next-line no-restricted-imports
 import { docs } from '../../docs'
@@ -90,7 +90,7 @@ test('README.md', () => {
 	/*
 `herbivoresByAgeObserver` logs:
 herbivorsByAge change {
-	// end docs
+	// end docs Observe
 */
 	const expectedChange = {
 	// start docs Observe
@@ -99,7 +99,7 @@ herbivorsByAge change {
 		newIndex: 1, // inserts after Triceratops and before Segosaurus according to query `sort` function
 		type: 'add', // Indicates that the row was newly added to the table. If the row came into the filter of this query due to an update, is 'update'
 	}
-	// end docs
+	// end docs Observe
 	/*
 	// start docs Observe
 	*/
@@ -141,7 +141,7 @@ herbivorsByAge change {
 	/*
 	`herbivoresByAgeObserver` logs:
 	herbivorsByAge change {
-	// end docs
+	// end docs Update
 	*/
 
 	const expectedChange2 = {
@@ -151,7 +151,7 @@ herbivorsByAge change {
 		newIndex: 1, // inserts after Triceratops and before Brachiosaurus according to query `sort` function
 		type: 'update' // Indicates that the row newly came into the query's filter due to an update. If the row was newly added, would be 'add'
 	}
-	// end docs
+	// end docs Update
 
 	expect(observerLogs[1]).toMatchObject(expectedChange2)
 
@@ -177,7 +177,7 @@ herbivorsByAge change {
 	/*
 	`herbivoresByAgeObserver` logs:
 	herbivorsByAge change {
-	// end docs
+	// end docs Update
 	*/
 	const expectedChange3 = {
 	// start docs Update
@@ -188,21 +188,21 @@ herbivorsByAge change {
 		oldValues: { ageInMillionsOfYears: 72 },
 		type: 'update' // Always 'update' for `kind: 'update'` changes
 	}
-	// end docs
+	// end docs Update
 
 	expect(observerLogs[2]).toMatchObject(expectedChange3)
 
 	/*
 	// start docs Update
 	*/
-	// end docs
+	// end docs Update
 
 	// start docs Delete
 	dinoTable.delete(velociraptorId)
 
 	/*
 	`herbivoresByAgeObserver` logs:
-	// end docs
+	// end docs Delete
 	*/
 	const expectedChange4 = {
 	// start docs Delete
@@ -211,14 +211,14 @@ herbivorsByAge change {
 		oldIndex: 3,
 		type: 'delete'
 	}
-	// end docs
+	// end docs Delete
 
 	expect(observerLogs[3]).toMatchObject(expectedChange4)
 
 	/*
 	// start docs Delete
 	*/
-	// end docs
+	// end docs Delete
 
 	let renderCount = 0
 	// start docs React Hook
@@ -238,7 +238,7 @@ herbivorsByAge change {
 			</p>
 		))
 
-		// end docs
+		// end docs React Hook
 		renderCount++
 		// start docs React Hook
 
@@ -252,12 +252,12 @@ herbivorsByAge change {
 		)
 	}
 
-	// end docs
+	// end docs React Hook
 
 	render(
 		// start docs React Hook
 		<DinoListComponent diet='carnivore'/> // Rendered somewhere
-		// end docs
+		// end docs React Hook
 	)
 
 	let allosaurusIdAct: UUID | undefined
@@ -266,7 +266,7 @@ herbivorsByAge change {
 		const allosaurusId = dinoTable.insert({ genus: 'Allosaurus', ageInMillionsOfYears: 145, diet: 'carnivore' })
 		// DinoListComponent re-renders
 
-		// end docs
+		// end docs React Hook
 		allosaurusIdAct = allosaurusId
 	})
 	const allosaurusId = allosaurusIdAct!
@@ -280,7 +280,7 @@ herbivorsByAge change {
 	dinoTable.insert({ genus: 'Styracosaurus', ageInMillionsOfYears: 75, diet: 'herbivore' })
 	// DinoListComponent DOES NOT re-render, since Styracosaurus is not a carnivore
 	
-	// end docs
+	// end docs React Hook
 
 	expect(renderCount).toBe(2)
 
@@ -288,7 +288,7 @@ herbivorsByAge change {
 		// start docs React Hook
 		dinoTable.update(allosaurusId, 'genus', 'Allosaurus ❤️')
 		// DinoListComponent re-renders, since 'genus' is selected
-		// end docs
+		// end docs React Hook
 	})
 
 	expect(renderCount).toBe(3)
@@ -308,6 +308,6 @@ herbivorsByAge change {
 	})
 
 	console.log(queryA !== queryB) // Prints `true`
-	// end docs
+	// end docs Query Caching
 	expect(queryA).toBe(queryB)
 })

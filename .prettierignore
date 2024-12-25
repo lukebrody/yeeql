@@ -1,2 +1,3 @@
 dist
-test/docs/README.test.ts
+test/docs/README.test.tsx
+test/docs/Query.test.ts

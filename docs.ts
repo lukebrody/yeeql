@@ -2,8 +2,8 @@
 import { UpdateDocs } from 'update-docs'
 
 export const docs = new UpdateDocs({
-	documentationGlobs: ['**/*.md'],
-	testGlobs: ['test/docs/**/*.tsx?'],
+	documentationGlobs: ['README.md', 'doc/*.md'],
+	testGlobs: ['test/docs/**/*.{ts,tsx}'],
 	valueIndent: '    ',
 	modifyIndent: (indent) => indent.replace(/\t/g, '    '),
 })

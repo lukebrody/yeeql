@@ -89,7 +89,7 @@ test('README.md', () => {
 
 	/*
 `herbivoresByAgeObserver` logs:
-herbivorsByAge change {
+herbivoresByAge change {
 	// end docs Observe
 */
 	const expectedChange = {

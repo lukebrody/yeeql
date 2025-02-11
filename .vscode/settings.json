@@ -17,5 +17,6 @@
 		"coverage.cobertura.xml",
 		"clover.xml"
 	],
-	"coverage-gutters.showLineCoverage": false
+	"coverage-gutters.showLineCoverage": false,
+	"cSpell.enabled": false
 }

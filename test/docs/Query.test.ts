@@ -24,7 +24,7 @@ test('Query.md', () => {
     
 	const titlesObserver = (change: QueryChange<typeof titles>) => {
 		console.log(change)
-		// ends docs QueryObserve
+		// end docs QueryObserve
 		changes.push(change)
 	// start docs QueryObserve
 	}
@@ -37,7 +37,7 @@ test('Query.md', () => {
     `titlesObserver` prints:
     {{titlesObserver1}}
     */
-	// ends docs QueryObserve
+	// end docs QueryObserve
 	const titlesObserver1 = {
 		kind: 'add',
 		row: { id: rowId, title: 'Give Life Back to Music' },

@@ -13,7 +13,9 @@ You can use the `QueryResult` utility type to get the rersult type from a `Query
 <!---QueryResult-->
 
 ```typescript
+const query = songsTable.query({ select: ['id'] })
 
+// QueryResult<typeof query> // ReadonlyArray<{ id: UUID }>
 ```
 
 ## `query.observe(observer: (change: Change) => void)`
@@ -25,7 +27,33 @@ Pass a function to observe changes to the query's result.
 <!---QueryObserve-->
 
 ```typescript
+const songsSchema = {
+    id: new Field<UUID>(),
+    title: new Field<string>(),
+    genre: new Field<'jazz' | 'electronic' | 'pop' | 'folk'>(),
+}
+    
+const songsTable = new Table(yTable, songsSchema)
+    
+const titles = songsTable.query({
+    select: ['id', 'title'],
+    sort: (a, b) => a.title.localeCompare(b.title),
+})
+    
+const titlesObserver = (change: QueryChange<typeof titles>) => {
+    console.log(change)
+}
+    
+titles.observe(titlesObserver)
+    
+const rowId = songsTable.insert({ title: 'Give Life Back to Music', genre: 'pop' })
 
+/*
+    `titlesObserver` prints:
+    {{titlesObserver1}}
+    */
+songsTable.update(rowId, 'genre', 'electronic')
+// `titlesObserver` does not run, since we are not observing the genre
 ```
 
 As shown above, you can use the `QueryChange` untility type to get the type of a query's `Change`.
@@ -35,7 +63,26 @@ Queries that return rows have the following change type:
 <!---QueryChange-->
 
 ```typescript
-
+{
+    kind: 'add',
+    row: Readonly<Result>,
+    newIndex: number, // The index in the query result array where the row was inserted
+    type: 'add' | 'update' // 'add' if the row is newly added to the table, 'update' if an update caused it to come into scope of this query
+} |
+{
+    kind: 'remove',
+    row: Readonly<Result>,
+    oldIndex: number,
+    type: 'delete' | 'update'
+} |
+{
+    kind: 'update',
+    row: Readonly<Result>, // The row after the update
+    oldIndex: number,
+    newIndex: number,
+    oldValues: Readonly<Partial<Result>> // Of the columns that changed, these are the old values
+    type: 'update'
+}
 ```
 
 For row queries that use `groupBy`, their changes are the same as above but include a `group` parameter.

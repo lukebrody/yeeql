@@ -709,26 +709,29 @@ test('makes the same query on update', () => {
 	children.insert({ parentId, order: 0 })
 
 	assert.equal(query.result[0].count, 1)
-	assert.deepEqual(observer.mock.calls, [
+	assert.deepEqual(
+		observer.mock.calls.map((c) => c.arguments),
 		[
-			{
-				change: {
-					delta: 1,
-					type: 'add',
+			[
+				{
+					change: {
+						delta: 1,
+						type: 'add',
+					},
+					key: 'count',
+					kind: 'subquery',
+					newIndex: 0,
+					oldIndex: 0,
+					row: {
+						count: 1,
+						id: parentId,
+						order: 1,
+					},
+					type: 'update',
 				},
-				key: 'count',
-				kind: 'subquery',
-				newIndex: 0,
-				oldIndex: 0,
-				row: {
-					count: 1,
-					id: parentId,
-					order: 1,
-				},
-				type: 'update',
-			},
+			],
 		],
-	])
+	)
 })
 
 test('resuse key', () => {

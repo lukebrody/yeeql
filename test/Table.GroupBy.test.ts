@@ -71,10 +71,13 @@ test('iterators', () => {
 
 	const spy = mock.fn()
 	query.result.forEach(spy)
-	assert.deepEqual(spy.mock.calls, [
-		[1, 1, query.result],
-		[1, 2, query.result],
-	])
+	assert.deepEqual(
+		spy.mock.calls.map((c) => c.arguments),
+		[
+			[1, 1, query.result],
+			[1, 2, query.result],
+		],
+	)
 
 	assert.equal(query.result.has(1), true)
 	assert.equal(query.result.has(3), false)

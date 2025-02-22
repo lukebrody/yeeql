@@ -115,48 +115,51 @@ test('groupBy transfer', () => {
 
 	table.update(rowId, 'number', 2)
 
-	assert.deepEqual(observer.mock.calls, [
+	assert.deepEqual(
+		observer.mock.calls.map((c) => c.arguments),
 		[
-			{
-				kind: 'subquery',
-				result: [],
-				group: 1,
-				change: {
-					kind: 'remove',
-					row: {
-						id: rowId,
-						number: 2,
-						string: 'a',
+			[
+				{
+					kind: 'subquery',
+					result: [],
+					group: 1,
+					change: {
+						kind: 'remove',
+						row: {
+							id: rowId,
+							number: 2,
+							string: 'a',
+						},
+						oldIndex: 0,
+						type: 'update',
 					},
-					oldIndex: 0,
 					type: 'update',
 				},
-				type: 'update',
-			},
+			],
+			[
+				{
+					kind: 'removeGroup',
+					group: 1,
+					result: [],
+					type: 'update',
+				},
+			],
+			[
+				{
+					kind: 'addGroup',
+					group: 2,
+					type: 'update',
+					result: [
+						{
+							id: rowId,
+							number: 2,
+							string: 'a',
+						},
+					],
+				},
+			],
 		],
-		[
-			{
-				kind: 'removeGroup',
-				group: 1,
-				result: [],
-				type: 'update',
-			},
-		],
-		[
-			{
-				kind: 'addGroup',
-				group: 2,
-				type: 'update',
-				result: [
-					{
-						id: rowId,
-						number: 2,
-						string: 'a',
-					},
-				],
-			},
-		],
-	])
+	)
 })
 
 test('with subqueries', () => {

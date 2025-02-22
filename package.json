@@ -9,8 +9,8 @@
 	],
 	"license": "MIT",
 	"scripts": {
-		"test": "tsx --expose-gc --tsconfig test/tsconfig.json --require global-jsdom/register --test 'test/*.test.{ts,tsx}'",
-		"test:only": "tsx --expose-gc --tsconfig test/tsconfig.json --require global-jsdom/register --test-only --test",
+		"test": "tsx --expose-gc --tsconfig test/tsconfig.json --require global-jsdom/register --test-isolation none --test 'test/**/*.test.{ts,tsx}'",
+		"test:only": "tsx --expose-gc --tsconfig test/tsconfig.json --require global-jsdom/register --test-isolation none --test",
 		"build": "rm -r dist && tsc --project lib/tsconfig.json && tsc-alias -p lib/tsconfig.json",
 		"lint": "prettier . --write && eslint --fix \"./**/*.{ts, tsx, js, cjs}\""
 	},

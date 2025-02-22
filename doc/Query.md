@@ -181,7 +181,7 @@ You must pass the same function that was passed to `observe`.
 
 ## On Observation Order and Consistency
 
-When change are made to a table, all observers are called **after** all changes in the Y.js transaction are complete.
+When changes are made to a table, all observers are called **after** all changes in the Y.js transaction are complete.
 
 This ensures that when each query's observers are called, all observers of all queries have a consistent view of the table.
 

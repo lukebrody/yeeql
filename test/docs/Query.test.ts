@@ -1,6 +1,7 @@
 import { Field, QueryChange, QueryResult, Table, UUID } from 'index'
-import { expect, test } from 'vitest'
+import assert from 'assert/strict'
 import * as Y from 'yjs'
+import test from 'node:test'
 // eslint-disable-next-line no-restricted-imports
 import { docs } from '../../docs'
 
@@ -44,7 +45,7 @@ test('Query.md', () => {
 		newIndex: 0,
 		type: 'add'
 	}
-	expect(changes[0]).toMatchObject(titlesObserver1)
+	assert.partialDeepStrictEqual(changes[0], titlesObserver1)
 	docs.replaceToken('QueryObserve', '{{titlesObserver1}}', titlesObserver1)
 
 	// Should be assignable
@@ -55,7 +56,7 @@ test('Query.md', () => {
 	songsTable.update(rowId, 'genre', 'electronic')
 	// `titlesObserver` does not run, since we are not observing the genre
 	// end docs QueryObserve
-	expect(changes[1]).toBeUndefined()
+	assert.equal(changes[1], undefined)
 
 	// start docs QueryResult
 	const query = songsTable.query({ select: ['id'] })

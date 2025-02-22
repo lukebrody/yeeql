@@ -1,7 +1,8 @@
 import { Field, Table, UUID } from 'index'
 import * as Y from 'yjs'
 
-import { beforeEach, expect, test, vi } from 'vitest'
+import { beforeEach, test, mock } from 'node:test'
+import assert from 'assert/strict'
 
 const schema = {
 	id: new Field<UUID>(),
@@ -25,7 +26,7 @@ test('simple grouped query', () => {
 		{ number: 2, string: 'b' },
 	].forEach((row) => table.insert(row))
 	const query = table.query({ groupBy: 'number' })
-	expect(query.result.get(1)[0].string).toBe('a')
+	assert.equal(query.result.get(1)[0].string, 'a')
 })
 
 test('category hopping', () => {
@@ -54,18 +55,18 @@ test('category hopping', () => {
 		twosChanges.push(JSON.parse(JSON.stringify(change))),
 	)
 
-	expect(onlyOnes.result).toStrictEqual([{ id: aId, number: 1, string: 'a' }])
-	expect(onlyTwos.result).toStrictEqual([{ id: bId, number: 2, string: 'b' }])
+	assert.deepEqual(onlyOnes.result, [{ id: aId, number: 1, string: 'a' }])
+	assert.deepEqual(onlyTwos.result, [{ id: bId, number: 2, string: 'b' }])
 
 	table.update(aId, 'number', 2)
 
-	expect(onlyOnes.result).toStrictEqual([])
-	expect(onlyTwos.result).toStrictEqual([
+	assert.deepEqual(onlyOnes.result, [])
+	assert.deepEqual(onlyTwos.result, [
 		{ id: aId, number: 2, string: 'a' },
 		{ id: bId, number: 2, string: 'b' },
 	])
 
-	expect(onesChanges).toStrictEqual([
+	assert.deepEqual(onesChanges, [
 		{
 			kind: 'remove',
 			row: { id: aId, number: 2, string: 'a' },
@@ -74,7 +75,7 @@ test('category hopping', () => {
 		},
 	])
 
-	expect(twosChanges).toStrictEqual([
+	assert.deepEqual(twosChanges, [
 		{
 			kind: 'add',
 			row: { id: aId, number: 2, string: 'a' },
@@ -88,12 +89,12 @@ test('category hopping', () => {
 
 	table.update(bId, 'number', 0)
 
-	expect(onlyOnes.result).toStrictEqual([])
-	expect(onlyTwos.result).toStrictEqual([{ id: aId, number: 2, string: 'a' }])
+	assert.deepEqual(onlyOnes.result, [])
+	assert.deepEqual(onlyTwos.result, [{ id: aId, number: 2, string: 'a' }])
 
-	expect(onesChanges).toStrictEqual([])
+	assert.deepEqual(onesChanges, [])
 
-	expect(twosChanges).toStrictEqual([
+	assert.deepEqual(twosChanges, [
 		{
 			kind: 'remove',
 			row: { id: bId, number: 0, string: 'b' },
@@ -108,13 +109,13 @@ test('groupBy transfer', () => {
 
 	const byNumber = table.query({ groupBy: 'number' })
 
-	const observer = vi.fn()
+	const observer = mock.fn()
 
 	byNumber.observe(observer)
 
 	table.update(rowId, 'number', 2)
 
-	expect(observer.mock.calls).toStrictEqual([
+	assert.deepEqual(observer.mock.calls, [
 		[
 			{
 				kind: 'subquery',
@@ -173,5 +174,5 @@ test('with subqueries', () => {
 	table.insert({ number: 1, string: 'a' })
 	const row2Id = table.insert({ number: 2, string: 'a' })
 
-	expect(query.result.get(1)[0].sameString[1].id).toEqual(row2Id)
+	assert.equal(query.result.get(1)[0].sameString[1].id, row2Id)
 })

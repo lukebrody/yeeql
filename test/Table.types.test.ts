@@ -1,7 +1,8 @@
 import { UUID, Field, Table } from 'index'
 import * as Y from 'yjs'
 
-import { beforeEach, test, expect } from 'vitest'
+import { beforeEach, test } from 'node:test'
+import assert from 'assert/strict'
 
 const schema = {
 	id: new Field<UUID>(),
@@ -21,18 +22,19 @@ beforeEach(() => {
 })
 
 test('select type checking', () => {
-	expect(
+	assert.throws(
 		() =>
 			table.query({
 				// @ts-expect-error Can't select unknown column id2
 				select: ['id2'],
 			}),
 		// eslint-disable-next-line quotes
-	).toThrow("unknown column 'id2'")
+		new Error("unknown column 'id2'"),
+	)
 })
 
 test('filter type checking', () => {
-	expect(
+	assert.throws(
 		() =>
 			table.query({
 				select: ['id'],
@@ -40,22 +42,24 @@ test('filter type checking', () => {
 				filter: { number2: 1 },
 			}),
 		// eslint-disable-next-line quotes
-	).toThrow("unknown column 'number2'")
+		new Error("unknown column 'number2'"),
+	)
 })
 
 test('groupBy count type checking', () => {
-	expect(
+	assert.throws(
 		() =>
 			table.count({
 				// @ts-expect-error Can't group by uknown column string2
 				groupBy: 'string2',
 			}),
 		// eslint-disable-next-line quotes
-	).toThrow("unknown column 'string2'")
+		new Error("unknown column 'string2'"),
+	)
 })
 
 test('sort type checking', () => {
-	expect(
+	assert.throws(
 		() =>
 			table.query({
 				select: [],
@@ -63,7 +67,8 @@ test('sort type checking', () => {
 				sort: (a, b) => a.string2.localeCompare(b.string2),
 			}),
 		// eslint-disable-next-line quotes
-	).toThrow("unknown column 'string2' used in 'sort' comparator")
+		new Error("unknown column 'string2' used in 'sort' comparator"),
+	)
 })
 
 test('filter primitive type checking', () => {

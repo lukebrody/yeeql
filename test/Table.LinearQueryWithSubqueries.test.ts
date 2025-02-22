@@ -1,7 +1,8 @@
 import { UUID, Field, Table, QueryChange } from 'index'
 import * as Y from 'yjs'
 
-import { beforeEach, expect, test, vi } from 'vitest'
+import { beforeEach, test, mock } from 'node:test'
+import assert from 'assert/strict'
 import { LinearQuery } from 'yeeql/query/interface/LinearQuery'
 
 const child = {
@@ -39,7 +40,7 @@ test('subquery read', () => {
 		},
 	})
 
-	expect(query.result).toStrictEqual([
+	assert.deepEqual(query.result, [
 		{ id: childId, order: 0, parentId, parent: [{ id: parentId, order: 0 }] },
 	])
 })
@@ -55,19 +56,19 @@ test('subquery update', () => {
 	const wrongId = UUID.create()
 	const childId = children.insert({ parentId: wrongId, order: 0 })
 
-	expect(query.result).toStrictEqual([
+	assert.deepEqual(query.result, [
 		{ id: childId, parentId: wrongId, parent: [], order: 0 },
 	])
 
 	children.update(childId, 'parentId', parentId)
 
-	expect(query.result).toStrictEqual([
+	assert.deepEqual(query.result, [
 		{ id: childId, parentId, parent: [{ id: parentId, order: 0 }], order: 0 },
 	])
 
-	expect(query.result[0].parent[0].id).toBe(parentId) // Type checking
-	expect(query.result[0].id).toBe(childId) // Type checking
-	expect(query.result[0].parentId).toBe(parentId) // Type checking
+	assert.equal(query.result[0].parent[0].id, parentId) // Type checking
+	assert.equal(query.result[0].id, childId) // Type checking
+	assert.equal(query.result[0].parentId, parentId) // Type checking
 })
 
 test('subquery sort', () => {
@@ -90,7 +91,7 @@ test('subquery sort', () => {
 
 	const child1 = children.insert({ parentId: parentA, order: 0 })
 
-	expect(query.result).toStrictEqual([
+	assert.deepEqual(query.result, [
 		{ id: parentB, children: [], order: 1 },
 		{
 			id: parentA,
@@ -102,7 +103,7 @@ test('subquery sort', () => {
 	const child2 = children.insert({ parentId: parentB, order: 1 })
 	const child3 = children.insert({ parentId: parentB, order: 2 })
 
-	expect(query.result).toStrictEqual([
+	assert.deepEqual(query.result, [
 		{
 			id: parentA,
 			children: [{ id: child1, parentId: parentA, order: 0 }],
@@ -140,7 +141,7 @@ test('subquery changes', () => {
 	const parentA = parents.insert({ order: 0 })
 	const parentB = parents.insert({ order: 1 })
 
-	expect(changes).toStrictEqual([
+	assert.deepEqual(changes, [
 		{
 			kind: 'add',
 			newIndex: 0,
@@ -167,7 +168,7 @@ test('subquery changes', () => {
 
 	const child1 = children.insert({ parentId: parentA, order: 0 })
 
-	expect(changes).toStrictEqual([
+	assert.deepEqual(changes, [
 		{
 			kind: 'subquery',
 			newIndex: 1,
@@ -202,7 +203,7 @@ test('subquery changes', () => {
 	const child2 = children.insert({ parentId: parentB, order: 1 })
 	const child3 = children.insert({ parentId: parentB, order: 2 })
 
-	expect(changes).toStrictEqual([
+	assert.deepEqual(changes, [
 		{
 			kind: 'subquery',
 			newIndex: 1,
@@ -299,7 +300,7 @@ test('subquery sort update', () => {
 	const child1 = children.insert({ parentId: parentA, order: 1 })
 	const child2 = children.insert({ parentId: parentB, order: 0 })
 
-	expect(query.result).toStrictEqual([
+	assert.deepEqual(query.result, [
 		{
 			children: [
 				{
@@ -330,7 +331,7 @@ test('subquery sort update', () => {
 	// Expect order to flip when child2 weight is increased
 	children.update(child2, 'order', 2)
 
-	expect(query.result).toStrictEqual([
+	assert.deepEqual(query.result, [
 		{
 			children: [
 				{
@@ -355,7 +356,7 @@ test('subquery sort update', () => {
 		},
 	])
 
-	expect(changes).toStrictEqual([
+	assert.deepEqual(changes, [
 		{
 			kind: 'subquery',
 			newIndex: 1,
@@ -410,7 +411,7 @@ test('subquery on self', () => {
 	const child1 = children.insert({ parentId: parentA, order: 0 })
 	const child2 = children.insert({ parentId: parentB, order: 1 })
 
-	expect(query.result).toStrictEqual([
+	assert.deepEqual(query.result, [
 		{
 			siblings: [
 				{
@@ -439,7 +440,7 @@ test('subquery on self', () => {
 
 	children.update(child2, 'parentId', parentA)
 
-	expect(query.result).toStrictEqual([
+	assert.deepEqual(query.result, [
 		{
 			siblings: [
 				{
@@ -495,7 +496,7 @@ test('deep subquery', () => {
 	const parentA = parents.insert({ order: 0 })
 	const child1 = children.insert({ parentId: parentA, order: 0 })
 
-	expect(query.result).toStrictEqual([
+	assert.deepEqual(query.result, [
 		{
 			id: parentA,
 			order: 0,
@@ -519,7 +520,7 @@ test('deep subquery', () => {
 
 	children.update(child1, 'parentId', parentB)
 
-	expect(query.result).toStrictEqual([
+	assert.deepEqual(query.result, [
 		{ id: parentA, order: 0, children: [] },
 		{
 			id: parentB,
@@ -564,25 +565,26 @@ test('subquery multiple updates', () => {
 	const child1 = children.insert({ parentId: parentA, order: 0 })
 	const child2 = children.insert({ parentId: parentA, order: 1 })
 
-	expect(
+	assert.deepEqual(
 		query.result.map((row) => ({
 			...row,
 			childrenByOrder: Array.from(row.childrenByOrder.entries()),
 		})),
-	).toStrictEqual([
-		{
-			id: parentA,
-			order: 0,
-			children: [
-				{ id: child1, order: 0, parentId: parentA },
-				{ id: child2, order: 1, parentId: parentA },
-			],
-			childrenByOrder: [
-				[0, [{ id: child1, order: 0, parentId: parentA }]],
-				[1, [{ id: child2, order: 1, parentId: parentA }]],
-			],
-		},
-	])
+		[
+			{
+				id: parentA,
+				order: 0,
+				children: [
+					{ id: child1, order: 0, parentId: parentA },
+					{ id: child2, order: 1, parentId: parentA },
+				],
+				childrenByOrder: [
+					[0, [{ id: child1, order: 0, parentId: parentA }]],
+					[1, [{ id: child2, order: 1, parentId: parentA }]],
+				],
+			},
+		],
+	)
 
 	let parentB = UUID.create()
 	doc.transact(() => {
@@ -591,25 +593,26 @@ test('subquery multiple updates', () => {
 		children.update(child2, 'parentId', parentB)
 	})
 
-	expect(
+	assert.deepEqual(
 		query.result.map((row) => ({
 			...row,
 			childrenByOrder: Array.from(row.childrenByOrder.entries()),
 		})),
-	).toStrictEqual([
-		{
-			id: parentB,
-			order: -1,
-			children: [{ id: child2, order: -1, parentId: parentB }],
-			childrenByOrder: [[-1, [{ id: child2, order: -1, parentId: parentB }]]],
-		},
-		{
-			id: parentA,
-			order: 0,
-			children: [{ id: child1, order: 0, parentId: parentA }],
-			childrenByOrder: [[0, [{ id: child1, order: 0, parentId: parentA }]]],
-		},
-	])
+		[
+			{
+				id: parentB,
+				order: -1,
+				children: [{ id: child2, order: -1, parentId: parentB }],
+				childrenByOrder: [[-1, [{ id: child2, order: -1, parentId: parentB }]]],
+			},
+			{
+				id: parentA,
+				order: 0,
+				children: [{ id: child1, order: 0, parentId: parentA }],
+				childrenByOrder: [[0, [{ id: child1, order: 0, parentId: parentA }]]],
+			},
+		],
+	)
 })
 
 test('subquery dependencies', () => {
@@ -640,8 +643,8 @@ test('subquery dependencies', () => {
 
 	parents.update(parentA, 'order', 1)
 
-	expect(childrenSubqueryCount).toBe(0)
-	expect(sameOrderSubqueryCount).toBe(1)
+	assert.equal(childrenSubqueryCount, 0)
+	assert.equal(sameOrderSubqueryCount, 1)
 })
 
 // The Table query cache should be used for subqueries
@@ -657,28 +660,29 @@ test('subquery cache', () => {
 	children.insert({ parentId: parentA, order: 1 })
 
 	// If the subqueries have the same result array, they are the same query
-	expect(query.result[0].parent === query.result[1].parent).toBe(true)
+	assert.equal(query.result[0].parent === query.result[1].parent, true)
 })
 
 test('self referential', () => {
-	expect(() => {
+	assert.throws(() => {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		const query: LinearQuery<any, any, any> = children.query({
 			subqueries: {
 				children: () => query,
 			},
 		})
-	}).toThrowError()
+	})
 })
 
 test('resuse key', () => {
-	expect(() => {
-		children.query({
-			subqueries: {
-				parentId: () => children.query({}),
-			},
-		})
-	}).toThrowError(
+	assert.throws(
+		() => {
+			children.query({
+				subqueries: {
+					parentId: () => children.query({}),
+				},
+			})
+		},
 		new Error(
 			// eslint-disable-next-line quotes
 			"key 'parentId' may not be reused for a subquery, since it's already in the schema",
@@ -699,13 +703,13 @@ test('makes the same query on update', () => {
 	const parentId = parents.insert({ order: 0 })
 	parents.update(parentId, 'order', 1)
 
-	const observer = vi.fn()
+	const observer = mock.fn()
 	query.observe(observer)
 
 	children.insert({ parentId, order: 0 })
 
-	expect(query.result[0].count).toBe(1)
-	expect(observer.mock.calls).toStrictEqual([
+	assert.equal(query.result[0].count, 1)
+	assert.deepEqual(observer.mock.calls, [
 		[
 			{
 				change: {
@@ -728,16 +732,17 @@ test('makes the same query on update', () => {
 })
 
 test('resuse key', () => {
-	expect(() => {
-		children.query({
-			subqueries: {
-				parents: (child) =>
-					parents.query({
-						filter: { id: (child as unknown as { foo: UUID }).foo },
-					}),
-			},
-		})
-	}).toThrowError(
+	assert.throws(
+		() => {
+			children.query({
+				subqueries: {
+					parents: (child) =>
+						parents.query({
+							filter: { id: (child as unknown as { foo: UUID }).foo },
+						}),
+				},
+			})
+		},
 		new Error(
 			// eslint-disable-next-line quotes
 			"unknown column 'foo' used in subquery generator",

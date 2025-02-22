@@ -1,10 +1,10 @@
 import { UUID, Field, Table, useQuery } from 'index'
 import * as Y from 'yjs'
 
-import { beforeEach, expect, test } from 'vitest'
+import { beforeEach, test } from 'node:test'
+import assert from 'assert/strict'
 import React, { useState } from 'react'
 import { render, screen, act } from '@testing-library/react'
-import '@testing-library/jest-dom'
 
 const child = {
 	id: new Field<UUID>(),
@@ -113,20 +113,20 @@ function ChangeCounter({
 test('add parent, children, then re-order', () => {
 	const { container } = render(<List />)
 
-	expect(container.getElementsByClassName('parent').length).toBe(0)
+	assert.equal(container.getElementsByClassName('parent').length, 0)
 
 	let parentId: UUID
 	act(() => (parentId = parents.insert({ order: 0 })))
 
 	const parentElems = () => container.getElementsByClassName('parent')
-	expect(parentElems().length).toBe(1)
+	assert.equal(parentElems().length, 1)
 
 	let child1Id: UUID | undefined
 	act(() => (child1Id = children.insert({ parentId: parentId, order: 0 })))
 
 	const childElems = () => parentElems()[0].getElementsByClassName('child')
 
-	expect(childElems().length).toBe(1)
+	assert.equal(childElems().length, 1)
 
 	let child2Id: UUID | undefined
 	act(() => (child2Id = children.insert({ parentId: parentId, order: 1 })))
@@ -136,7 +136,7 @@ test('add parent, children, then re-order', () => {
 			(childElem) => childElem.getAttribute('data-testid')!,
 		)
 
-	expect(childIds()).toStrictEqual([child1Id, child2Id])
+	assert.deepEqual(childIds(), [child1Id, child2Id])
 
 	act(() => {
 		doc.transact(() => {
@@ -145,7 +145,7 @@ test('add parent, children, then re-order', () => {
 		})
 	})
 
-	expect(childIds()).toStrictEqual([child2Id, child1Id])
+	assert.deepEqual(childIds(), [child2Id, child1Id])
 
-	expect(screen.getByTestId('updates')).toHaveTextContent('4 Updates')
+	assert.equal(screen.getByTestId('updates').textContent, '4 Updates')
 })

@@ -1,7 +1,8 @@
 import { UUID, Field, Table, QueryChange } from 'index'
 import * as Y from 'yjs'
 
-import { beforeEach, test, expect, vi, Mock } from 'vitest'
+import { test, beforeEach, mock, Mock } from 'node:test'
+import assert from 'assert/strict'
 
 const schema = {
 	id: new Field<UUID>(),
@@ -13,7 +14,7 @@ let doc: Y.Doc
 let yTable: Y.Map<Y.Map<unknown>>
 let table: Table<typeof schema>
 let query: ReturnType<typeof table.groupBy>
-let spy: Mock<QueryChange<typeof query>[], undefined>
+let spy: Mock<(change: QueryChange<typeof query>) => void>
 
 beforeEach(() => {
 	doc = new Y.Doc()
@@ -23,13 +24,13 @@ beforeEach(() => {
 		groupBy: 'number',
 		subquery: (number) => table.count({ filter: { number } }),
 	})
-	spy = vi.fn()
+	spy = mock.fn()
 	query.observe(spy)
 })
 
 function popChanges() {
-	const result = spy.mock.calls.map((calls) => calls[0])
-	spy.mockClear()
+	const result = spy.mock.calls.map((calls) => calls.arguments[0])
+	spy.mock.resetCalls()
 	return result
 }
 
@@ -42,41 +43,41 @@ test('add query when already has data', () => {
 		groupBy: 'number',
 		subquery: (number) => table.count({ filter: { string: 'a', number } }),
 	})
-	expect(query.result.size).toBe(2)
-	expect(query.result.get(1)).toBe(1)
-	expect(query.result.get(2)).toBe(1)
+	assert.equal(query.result.size, 2)
+	assert.equal(query.result.get(1), 1)
+	assert.equal(query.result.get(2), 1)
 })
 
 test('nothing update', () => {
 	const rowId = table.insert({ number: 1, string: 'a' })
 	popChanges()
 	table.update(rowId, 'number', 1)
-	expect(popChanges()).toStrictEqual([])
-	expect(query.result.size).toBe(1)
+	assert.deepEqual(popChanges(), [])
+	assert.equal(query.result.size, 1)
 })
 
 test('iterators', () => {
 	table.insert({ number: 1, string: 'a' })
 	table.insert({ number: 2, string: 'a' })
-	expect(Array.from(query.result)).toStrictEqual([
+	assert.deepEqual(Array.from(query.result), [
 		[1, 1],
 		[2, 1],
 	])
-	expect(Array.from(query.result.entries())).toStrictEqual([
+	assert.deepEqual(Array.from(query.result.entries()), [
 		[1, 1],
 		[2, 1],
 	])
-	expect(Array.from(query.result.values())).toStrictEqual([1, 1])
+	assert.deepEqual(Array.from(query.result.values()), [1, 1])
 
-	const spy = vi.fn()
+	const spy = mock.fn()
 	query.result.forEach(spy)
-	expect(spy.mock.calls).toStrictEqual([
+	assert.deepEqual(spy.mock.calls, [
 		[1, 1, query.result],
 		[1, 2, query.result],
 	])
 
-	expect(query.result.has(1)).toBe(true)
-	expect(query.result.has(3)).toBe(false)
+	assert.equal(query.result.has(1), true)
+	assert.equal(query.result.has(3), false)
 
-	expect(Array.from(query.result.keys())).toStrictEqual([1, 2])
+	assert.deepEqual(Array.from(query.result.keys()), [1, 2])
 })

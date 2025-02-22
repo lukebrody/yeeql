@@ -1,6 +1,6 @@
 import { UUID } from 'yeeql'
 import * as Y from 'yjs'
-import { test } from 'vitest'
+import test from 'node:test'
 // start docs Field
 import { Field } from 'yeeql'
 

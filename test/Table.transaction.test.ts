@@ -1,7 +1,8 @@
 import { UUID, Field, Table, QueryChange } from 'index'
 import * as Y from 'yjs'
 
-import { beforeEach, expect, test, vi } from 'vitest'
+import { beforeEach, test, mock } from 'node:test'
+import assert from 'assert/strict'
 
 const schema = {
 	id: new Field<UUID>(),
@@ -41,15 +42,15 @@ test('transaction changes', () => {
 		const bId = table2.insert({ number: 2, string: 'b' })
 		table1.insert({ number: 3, string: 'c' })
 		table2.update(bId, 'string', 'b2')
-		expect(changes1.length).toBe(0)
-		expect(changes2.length).toBe(0)
+		assert.equal(changes1.length, 0)
+		assert.equal(changes2.length, 0)
 	})
 
-	expect(changes1.length).toBe(2)
-	expect(changes2.length).toBe(1)
+	assert.equal(changes1.length, 2)
+	assert.equal(changes2.length, 1)
 
-	expect(changes2[0].kind).toBe('add')
-	expect(changes2[0].row.string).toBe('b2')
+	assert.equal(changes2[0].kind, 'add')
+	assert.equal(changes2[0].row.string, 'b2')
 })
 
 /*
@@ -63,17 +64,17 @@ test('transaction consistency', () => {
 	const negativeOneId = table1.insert({ number: -1, string: '!' })
 	const zeroId = table1.insert({ number: 0, string: 'zero' })
 
-	const observer1 = vi.fn(() => {
-		expect(table1.count({}).result).toBe(2)
-		expect(table1.query({ filter: { id: zeroId } }).result[0].string).toBe('0')
-		expect(table2.count({}).result).toBe(1)
+	const observer1 = mock.fn(() => {
+		assert.equal(table1.count({}).result, 2)
+		assert.equal(table1.query({ filter: { id: zeroId } }).result[0].string, '0')
+		assert.equal(table2.count({}).result, 1)
 	})
 	q1.observe(observer1)
 
-	const observer2 = vi.fn(() => {
-		expect(table1.count({}).result).toBe(2)
-		expect(table1.query({ filter: { id: zeroId } }).result[0].string).toBe('0')
-		expect(table2.count({}).result).toBe(1)
+	const observer2 = mock.fn(() => {
+		assert.equal(table1.count({}).result, 2)
+		assert.equal(table1.query({ filter: { id: zeroId } }).result[0].string, '0')
+		assert.equal(table2.count({}).result, 1)
 	})
 	q2.observe(observer2)
 
@@ -86,10 +87,10 @@ test('transaction consistency', () => {
 	})
 
 	// Once when inserting 1, again when updating 0, again when removing -1
-	expect(observer1).toHaveBeenCalledTimes(3)
+	assert.equal(observer1.mock.callCount(), 3)
 
 	// Once when inserting 2 (update is combined)
-	expect(observer2).toHaveBeenCalledTimes(1)
+	assert.equal(observer2.mock.callCount(), 1)
 })
 
 /*
@@ -105,16 +106,16 @@ test('transaction many inserts', () => {
 		table1.insert({ number: 2, string: 'b' })
 	})
 
-	expect(changes1.length).toBe(2)
+	assert.equal(changes1.length, 2)
 	if (changes1[0].kind === 'add') {
-		expect(changes1[0]['newIndex']).toBe(0)
+		assert.equal(changes1[0]['newIndex'], 0)
 	} else {
-		expect.fail()
+		assert.fail()
 	}
 	if (changes1[1].kind === 'add') {
-		expect(changes1[1]['newIndex']).toBe(1)
+		assert.equal(changes1[1]['newIndex'], 1)
 	} else {
-		expect.fail()
+		assert.fail()
 	}
 })
 
@@ -136,7 +137,7 @@ test('transaction many updates', () => {
 		table1.update(itemB, 'number', 4)
 	})
 
-	expect(query.result.get('a')).toStrictEqual([
+	assert.deepEqual(query.result.get('a'), [
 		{ id: itemA, string: 'a', number: 3 },
 		{ id: itemB, string: 'a', number: 4 },
 	])

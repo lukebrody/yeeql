@@ -1,16 +1,17 @@
-import { expect, test } from 'vitest'
+import assert from 'assert/strict'
 import { UUID } from 'index'
+import test from 'node:test'
 
 test('length', () => {
 	for (let i = 0; i < 10000; i++) {
-		expect(UUID.create().length).toBe(UUID.length)
+		assert.equal(UUID.create().length, UUID.length)
 	}
 })
 
 test('encoding/decoding', () => {
 	const id = UUID.create()
 	const coded = UUID.decode(UUID.encode(id))
-	expect(coded).toBe(id)
+	assert.equal(coded, id)
 })
 
 test('UUIDs are unique', () => {
@@ -19,9 +20,9 @@ test('UUIDs are unique', () => {
 	for (let i = 0; i < quantity; i++) {
 		set.add(UUID.create())
 	}
-	expect(set.size).toBe(quantity)
+	assert.equal(set.size, quantity)
 })
 
 test('decode error on incorrect length', () => {
-	expect(() => UUID.decode(new Uint8Array())).toThrowError()
+	assert.throws(() => UUID.decode(new Uint8Array()))
 })

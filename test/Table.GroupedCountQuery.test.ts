@@ -1,7 +1,8 @@
 import { UUID, Field, Table, QueryChange } from 'index'
 import * as Y from 'yjs'
 
-import { beforeEach, test, expect, vi, Mock } from 'vitest'
+import { beforeEach, test, Mock, mock } from 'node:test'
+import assert from 'assert/strict'
 
 const schema = {
 	id: new Field<UUID>(),
@@ -13,20 +14,20 @@ let doc: Y.Doc
 let yTable: Y.Map<Y.Map<unknown>>
 let table: Table<typeof schema>
 let query: ReturnType<typeof table.count>
-let spy: Mock<QueryChange<typeof query>[], undefined>
+let spy: Mock<(change: QueryChange<typeof query>) => void>
 
 beforeEach(() => {
 	doc = new Y.Doc()
 	yTable = doc.getMap('table') as Y.Map<Y.Map<unknown>>
 	table = new Table(yTable, schema)
 	query = table.count({ groupBy: 'number', filter: { string: 'a' } })
-	spy = vi.fn()
+	spy = mock.fn()
 	query.observe(spy)
 })
 
 function popChanges() {
-	const result = spy.mock.calls.map((calls) => calls[0])
-	spy.mockClear()
+	const result = spy.mock.calls.map((calls) => calls.arguments[0])
+	spy.mock.resetCalls()
 	return result
 }
 
@@ -35,14 +36,14 @@ test('grouped count query result', () => {
 
 	table.insert({ number: 1, string: 'b' })
 
-	expect(query.result.size).toBe(0)
-	expect(popChanges()).toStrictEqual([])
+	assert.equal(query.result.size, 0)
+	assert.deepEqual(popChanges(), [])
 
 	const row2 = table.insert({ number: 1, string: 'a' })
 
-	expect(query.result.size).toBe(1)
-	expect(query.result.get(1)).toBe(1)
-	expect(popChanges()).toStrictEqual([
+	assert.equal(query.result.size, 1)
+	assert.equal(query.result.get(1), 1)
+	assert.deepEqual(popChanges(), [
 		{
 			group: 1,
 			kind: 'addGroup',
@@ -53,9 +54,9 @@ test('grouped count query result', () => {
 
 	const row3 = table.insert({ number: 1, string: 'a' })
 
-	expect(query.result.size).toBe(1)
-	expect(query.result.get(1)).toBe(2)
-	expect(popChanges()).toStrictEqual([
+	assert.equal(query.result.size, 1)
+	assert.equal(query.result.get(1), 2)
+	assert.deepEqual(popChanges(), [
 		{
 			change: {
 				delta: 1,
@@ -70,10 +71,10 @@ test('grouped count query result', () => {
 
 	const row4 = table.insert({ number: 2, string: 'a' })
 
-	expect(query.result.size).toBe(2)
-	expect(query.result.get(1)).toBe(2)
-	expect(query.result.get(2)).toBe(1)
-	expect(popChanges()).toStrictEqual([
+	assert.equal(query.result.size, 2)
+	assert.equal(query.result.get(1), 2)
+	assert.equal(query.result.get(2), 1)
+	assert.deepEqual(popChanges(), [
 		{
 			group: 2,
 			kind: 'addGroup',
@@ -84,10 +85,10 @@ test('grouped count query result', () => {
 
 	table.update(row3, 'number', 2)
 
-	expect(query.result.size).toBe(2)
-	expect(query.result.get(1)).toBe(1)
-	expect(query.result.get(2)).toBe(2)
-	expect(popChanges()).toStrictEqual([
+	assert.equal(query.result.size, 2)
+	assert.equal(query.result.get(1), 1)
+	assert.equal(query.result.get(2), 2)
+	assert.deepEqual(popChanges(), [
 		{
 			change: {
 				delta: -1,
@@ -112,10 +113,10 @@ test('grouped count query result', () => {
 
 	table.update(row3, 'string', 'b')
 
-	expect(query.result.size).toBe(2)
-	expect(query.result.get(1)).toBe(1)
-	expect(query.result.get(2)).toBe(1)
-	expect(popChanges()).toStrictEqual([
+	assert.equal(query.result.size, 2)
+	assert.equal(query.result.get(1), 1)
+	assert.equal(query.result.get(2), 1)
+	assert.deepEqual(popChanges(), [
 		{
 			change: {
 				delta: -1,
@@ -130,10 +131,10 @@ test('grouped count query result', () => {
 
 	table.update(row2, 'number', 2)
 
-	expect(query.result.size).toBe(1)
-	expect(query.result.get(1)).toBe(0)
-	expect(query.result.get(2)).toBe(2)
-	expect(popChanges()).toStrictEqual([
+	assert.equal(query.result.size, 1)
+	assert.equal(query.result.get(1), 0)
+	assert.equal(query.result.get(2), 2)
+	assert.deepEqual(popChanges(), [
 		{
 			change: {
 				delta: -1,
@@ -164,10 +165,10 @@ test('grouped count query result', () => {
 
 	table.delete(row2)
 
-	expect(query.result.size).toBe(1)
-	expect(query.result.get(1)).toBe(0)
-	expect(query.result.get(2)).toBe(1)
-	expect(popChanges()).toStrictEqual([
+	assert.equal(query.result.size, 1)
+	assert.equal(query.result.get(1), 0)
+	assert.equal(query.result.get(2), 1)
+	assert.deepEqual(popChanges(), [
 		{
 			change: {
 				delta: -1,
@@ -182,11 +183,11 @@ test('grouped count query result', () => {
 
 	table.update(row4, 'number', 1)
 
-	expect(query.result.size).toBe(1)
-	expect(query.result.get(1)).toBe(1)
-	expect(query.result.get(2)).toBe(0)
+	assert.equal(query.result.size, 1)
+	assert.equal(query.result.get(1), 1)
+	assert.equal(query.result.get(2), 0)
 
-	expect(popChanges()).toStrictEqual([
+	assert.deepEqual(popChanges(), [
 		{
 			change: {
 				delta: -1,
@@ -227,7 +228,7 @@ test('grouped count delete change', () => {
 
 	table.delete(row1)
 
-	expect(popChanges()).toStrictEqual([
+	assert.deepEqual(popChanges(), [
 		{
 			group: 1,
 			kind: 'addGroup',

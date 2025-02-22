@@ -1,4 +1,5 @@
-import { expect, test } from 'vitest'
+import test from 'node:test'
+import assert from 'assert/strict'
 // start docs Setup
 import { UUID, Field, Table } from 'yeeql'
 import * as Y from 'yjs'
@@ -65,7 +66,7 @@ test('README.md', () => {
 		{ genus: 'Stegosaurus', ageInMillionsOfYears: 152 },
 	]
 
-	expect(herbivoresByAge.result).toMatchObject(expectedResult)
+	assert.deepEqual(herbivoresByAge.result.map(({ genus, ageInMillionsOfYears }) => ({ genus, ageInMillionsOfYears })), expectedResult)
 
 	docs.replaceToken('Select', '{{result1}}', expectedResult)
 
@@ -106,7 +107,7 @@ herbivoresByAge change {
 
 	herbivoresByAge.result /* {{herbivoresByAge.result 2}} */
 	// end docs Observe
-	expect(observerLogs[0]).toMatchObject(expectedChange)
+	assert.partialDeepStrictEqual(observerLogs[0], expectedChange)
 
 	const expectedResult2 = [
 		{
@@ -122,7 +123,7 @@ herbivoresByAge change {
 			ageInMillionsOfYears: 152,
 		},
 	]
-	expect(herbivoresByAge.result).toMatchObject(expectedResult2)
+	assert.deepEqual(herbivoresByAge.result.map(({ genus, ageInMillionsOfYears }) => ({ genus, ageInMillionsOfYears })), expectedResult2)
 	docs.replaceToken('Observe', '{{herbivoresByAge.result 2}}', expectedResult2)
 	// start docs Observe
 
@@ -153,7 +154,7 @@ herbivoresByAge change {
 	}
 	// end docs Update
 
-	expect(observerLogs[1]).toMatchObject(expectedChange2)
+	assert.partialDeepStrictEqual(observerLogs[1], expectedChange2)
 
 	const expectedResult3 = [
 		{ genus: 'Triceratops', ageInMillionsOfYears: 66 },
@@ -162,7 +163,7 @@ herbivoresByAge change {
 		{ genus: 'Stegosaurus', ageInMillionsOfYears: 152 }
 	]
 
-	expect(herbivoresByAge.result).toMatchObject(expectedResult3)
+	assert.deepEqual(herbivoresByAge.result.map(({ genus, ageInMillionsOfYears }) => ({ genus, ageInMillionsOfYears })), expectedResult3)
 
 	docs.replaceToken('Update', '{{result3}}', expectedResult3)
 
@@ -190,7 +191,7 @@ herbivoresByAge change {
 	}
 	// end docs Update
 
-	expect(observerLogs[2]).toMatchObject(expectedChange3)
+	assert.partialDeepStrictEqual(observerLogs[2], expectedChange3)
 
 	/*
 	// start docs Update
@@ -213,7 +214,7 @@ herbivoresByAge change {
 	}
 	// end docs Delete
 
-	expect(observerLogs[3]).toMatchObject(expectedChange4)
+	assert.partialDeepStrictEqual(observerLogs[3], expectedChange4)
 
 	/*
 	// start docs Delete
@@ -271,7 +272,7 @@ herbivoresByAge change {
 	})
 	const allosaurusId = allosaurusIdAct!
 
-	expect(renderCount).toBe(2)
+	assert.equal(renderCount, 2)
 	
 	// start docs React Hook
 	dinoTable.update(allosaurusId, 'ageInMillionsOfYears', 150)
@@ -282,7 +283,7 @@ herbivoresByAge change {
 	
 	// end docs React Hook
 
-	expect(renderCount).toBe(2)
+	assert.equal(renderCount, 2)
 
 	act(() => {
 		// start docs React Hook
@@ -291,7 +292,7 @@ herbivoresByAge change {
 		// end docs React Hook
 	})
 
-	expect(renderCount).toBe(3)
+	assert.equal(renderCount, 3)
 
 	// start docs Query Caching
 	const sort = (a: { genus: string }, b: { genus: string }) =>
@@ -309,5 +310,5 @@ herbivoresByAge change {
 
 	console.log(queryA !== queryB) // Prints `true`
 	// end docs Query Caching
-	expect(queryA).toBe(queryB)
+	assert.equal(queryA, queryB)
 })

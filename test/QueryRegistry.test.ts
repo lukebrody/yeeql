@@ -6,7 +6,8 @@ import {
 	_testQueryEntries,
 } from 'yeeql/table/QueryRegistry'
 
-import { expect, test } from 'vitest'
+import assert from 'assert/strict'
+import test from 'node:test'
 
 const schema = {
 	id: new Field<UUID>(),
@@ -38,37 +39,42 @@ test('register query', () => {
 	const stubQuery = new StubQuery()
 	qr.register(stubQuery)
 
-	expect(
+	assert.equal(
 		qr.queries(
 			{ id: UUID.create(), number: 1, string: '', boolean: false },
 			addedOrRemoved,
 		).size,
-	).toBe(1)
-	expect(
+		1,
+	)
+	assert.equal(
 		qr.queries(
 			{ id: UUID.create(), number: 2, string: '', boolean: false },
 			addedOrRemoved,
 		).size,
-	).toBe(0)
+		0,
+	)
 
-	expect(
+	assert.equal(
 		qr.queries(
 			{ id: UUID.create(), number: 1, string: '', boolean: false },
 			{ string: '' },
 		).size,
-	).toBe(1)
-	expect(
+		1,
+	)
+	assert.equal(
 		qr.queries(
 			{ id: UUID.create(), number: 1, string: '', boolean: false },
 			{ number: 1 },
 		).size,
-	).toBe(1)
-	expect(
+		1,
+	)
+	assert.equal(
 		qr.queries(
 			{ id: UUID.create(), number: 1, string: '', boolean: false },
 			{ boolean: true },
 		).size,
-	).toBe(0)
+		0,
+	)
 })
 
 test('memory management', async () => {
@@ -80,12 +86,13 @@ test('memory management', async () => {
 	qr.register(releasedQuery)
 	qr.register(retainedQuery)
 
-	expect(
+	assert.equal(
 		qr.queries(
 			{ id: UUID.create(), number: 1, string: '', boolean: false },
 			addedOrRemoved,
 		).size,
-	).toBe(2)
+		2,
+	)
 
 	releasedQuery = undefined
 	await new Promise((resolve) => setTimeout(resolve, 10))
@@ -94,12 +101,13 @@ test('memory management', async () => {
 
 	_testQueryEntries.value = 0
 
-	expect(
+	assert.equal(
 		qr.queries(
 			{ id: UUID.create(), number: 1, string: '', boolean: false },
 			addedOrRemoved,
 		).size,
-	).toBe(1)
+		1,
+	)
 
-	expect(_testQueryEntries.value).toBe(1)
+	assert.equal(_testQueryEntries.value, 1)
 })

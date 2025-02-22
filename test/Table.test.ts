@@ -1,7 +1,8 @@
 import { UUID, Field, Table } from 'index'
 import * as Y from 'yjs'
 
-import { beforeEach, expect, test } from 'vitest'
+import { beforeEach, test } from 'node:test'
+import assert from 'assert/strict'
 
 const schema = {
 	id: new Field<UUID>(),
@@ -27,18 +28,18 @@ test('insert', () => {
 		sort: (a, b) => a.number - b.number,
 	})
 
-	expect(queryAll.result).toStrictEqual([{ id: aId, number: 1, string: 'a' }])
+	assert.deepEqual(queryAll.result, [{ id: aId, number: 1, string: 'a' }])
 
 	const bId = table.insert({ number: 2, string: 'b' })
 
-	expect(queryAll.result).toStrictEqual([
+	assert.deepEqual(queryAll.result, [
 		{ id: aId, number: 1, string: 'a' },
 		{ id: bId, number: 2, string: 'b' },
 	])
 
 	table.update(aId, 'number', 3)
 
-	expect(queryAll.result).toStrictEqual([
+	assert.deepEqual(queryAll.result, [
 		{ id: bId, number: 2, string: 'b' },
 		{ id: aId, number: 3, string: 'a' },
 	])
@@ -56,7 +57,7 @@ test('cached queries', () => {
 		filter: { number: 3 },
 	})
 
-	expect(queryA).toBe(queryB)
+	assert.equal(queryA, queryB)
 
 	const sort = (a: { number: number }, b: { number: number }) =>
 		a.number - b.number
@@ -75,15 +76,15 @@ test('cached queries', () => {
 		groupBy: 'string',
 	})
 
-	expect(queryC).toBe(queryD)
+	assert.equal(queryC, queryD)
 
-	expect(queryA).not.toBe(queryC)
-	expect(queryB).not.toBe(queryD)
+	assert.notEqual(queryA, queryC)
+	assert.notEqual(queryB, queryD)
 })
 
 test('already has data', () => {
 	table.insert({ number: 0, string: 'a' })
 
 	const table2 = new Table(yTable, schema)
-	expect(table2.count({}).result).toBe(1)
+	assert.equal(table2.count({}).result, 1)
 })

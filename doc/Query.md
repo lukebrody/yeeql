@@ -52,7 +52,7 @@ const rowId = songsTable.insert({ title: 'Give Life Back to Music', genre: 'pop'
     `titlesObserver` prints:
     {
     "kind": "add",
-    "row": { "id": "±\"¢ ­5", "title": "Give Life Back to Music" },
+    "row": { "id": "\u0011#Ìb¿Zñ", "title": "Give Life Back to Music" },
     "newIndex": 0,
     "type": "add"
 }

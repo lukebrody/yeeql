@@ -18,3 +18,5 @@ yarn-debug.log*
 yarn-error.log*
 
 tsconfig.vitest-temp.json
+
+coverage

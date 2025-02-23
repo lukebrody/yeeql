@@ -17,7 +17,7 @@ import { act, render } from '@testing-library/react'
 // end docs React Hook
 
 // eslint-disable-next-line no-restricted-imports
-import { docs } from '../../docs'
+import { docs } from '../run'
 
 test('README.md', () => {
 	// start docs Setup

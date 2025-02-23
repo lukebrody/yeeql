@@ -78,7 +78,10 @@ const herbivoresByAge = dinoTable.query({
     filter: { diet: 'herbivore' },
     sort: (a, b) => a.ageInMillionsOfYears - b.ageInMillionsOfYears,
 })
-herbivoresByAge.result /* {{result1}} */
+herbivoresByAge.result /* [
+    { "genus": "Triceratops", "ageInMillionsOfYears": 66 },
+    { "genus": "Stegosaurus", "ageInMillionsOfYears": 152 }
+] */
 ```
 
 ### Observing Changes
@@ -112,7 +115,11 @@ herbivoresByAge change {
 }
 */
 
-herbivoresByAge.result /* {{herbivoresByAge.result 2}} */
+herbivoresByAge.result /* [
+    { "genus": "Triceratops", "ageInMillionsOfYears": 66 },
+    { "genus": "Brachiosaurus", "ageInMillionsOfYears": 150 },
+    { "genus": "Stegosaurus", "ageInMillionsOfYears": 152 }
+] */
 
 const velociraptorId: UUID = dinoTable.insert({
     genus: 'Velociraptor',
@@ -140,7 +147,12 @@ herbivorsByAge change {
 }
 */
 
-herbivoresByAge.result /* {{result3}} */
+herbivoresByAge.result /* [
+    { "genus": "Triceratops", "ageInMillionsOfYears": 66 },
+    { "genus": "Velociraptor", "ageInMillionsOfYears": 72 },
+    { "genus": "Brachiosaurus", "ageInMillionsOfYears": 150 },
+    { "genus": "Stegosaurus", "ageInMillionsOfYears": 152 }
+] */
 
 dinoTable.update(velociraptorId, 'ageInMillionsOfYears', 160)
 

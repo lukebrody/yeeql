@@ -15,7 +15,7 @@ You can use the `QueryResult` utility type to get the rersult type from a `Query
 ```typescript
 const query = songsTable.query({ select: ['id'] })
 
-// QueryResult<typeof query> // ReadonlyArray<{ id: UUID }>
+QueryResult<typeof query> // ReadonlyArray<{ id: UUID }>
 ```
 
 ## `query.observe(observer: (change: Change) => void)`
@@ -50,7 +50,12 @@ const rowId = songsTable.insert({ title: 'Give Life Back to Music', genre: 'pop'
 
 /*
     `titlesObserver` prints:
-    {{titlesObserver1}}
+    {
+    "kind": "add",
+    "row": { "id": "ÌyTp)Îª", "title": "Give Life Back to Music" },
+    "newIndex": 0,
+    "type": "add"
+}
     */
 songsTable.update(rowId, 'genre', 'electronic')
 // `titlesObserver` does not run, since we are not observing the genre

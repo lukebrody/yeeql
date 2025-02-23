@@ -3,7 +3,7 @@ import assert from 'assert/strict'
 import * as Y from 'yjs'
 import test from 'node:test'
 // eslint-disable-next-line no-restricted-imports
-import { docs } from '../../docs'
+import { docs } from '../run'
 
 test('Query.md', () => {
 	const yDoc = new Y.Doc()

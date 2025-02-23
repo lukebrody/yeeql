@@ -1,6 +1,7 @@
 import { UpdateDocs } from 'update-docs'
 import { run } from 'node:test'
-import { spec } from 'node:test/reporters'
+import { spec, lcov } from 'node:test/reporters'
+import fs from 'fs'
 
 export const docs = new UpdateDocs({
 	documentationGlobs: ['README.md', 'doc/*.md'],
@@ -14,6 +15,8 @@ docs.updateExamples()
 const testStream = run({
 	globPatterns: ['test/**/*.test.{ts,tsx}'],
 	isolation: 'none',
+	coverage: true,
+	coverageIncludeGlobs: ['lib/**/*.ts'],
 })
 
 testStream.on('test:summary', (event) => {
@@ -23,3 +26,5 @@ testStream.on('test:summary', (event) => {
 })
 
 testStream.compose(spec).pipe(process.stdout)
+
+testStream.compose(lcov).pipe(fs.createWriteStream('lcov.info'))

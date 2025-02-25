@@ -6,7 +6,7 @@ Create a `Query` using `table.query` or `table.count`.
 
 Contains the result of the query. Automatically updates when the underlying data changes.
 
-You can use the `QueryResult` utility type to get the rersult type from a `Query` type.
+You can use the `QueryResult` utility type to get the result type from a `Query` type.
 
 ### Example
 
@@ -49,19 +49,20 @@ titles.observe(titlesObserver)
 const rowId = songsTable.insert({ title: 'Give Life Back to Music', genre: 'pop' })
 
 /*
-    `titlesObserver` prints:
-    {
+`titlesObserver` prints:
+{
     "kind": "add",
-    "row": { "id": "\u0011#Ìb¿Zñ", "title": "Give Life Back to Music" },
+    "row": { "id": "\u001e\u001cRF°uä", "title": "Give Life Back to Music" },
     "newIndex": 0,
     "type": "add"
 }
-    */
+*/
+
 songsTable.update(rowId, 'genre', 'electronic')
 // `titlesObserver` does not run, since we are not observing the genre
 ```
 
-As shown above, you can use the `QueryChange` untility type to get the type of a query's `Change`.
+As shown above, you can use the `QueryChange` utility type to get the type of a query's `Change`.
 
 Queries that return rows have the following change type:
 
@@ -97,7 +98,63 @@ For row queries that use `groupBy`, their changes are the same as above but incl
 <!---QueryObserveGroupBy-->
 
 ```typescript
+const byGenre = songsTable.query({ 
+    groupBy: 'genre',
+    sort: (a, b) => b.title.localeCompare(a.title) // Reverse alphabetical order
+})
 
+byGenre.observe(change => {
+    console.log(change)
+})
+
+// `rowId` is the row of 'Give Life Back to Music' inserted above
+songsTable.update(rowId, 'genre', 'pop')
+
+/*
+byGenre observer logs three changes.
+
+First, the song is removed from the 'electronic' group:
+{
+    "change": {
+        "kind": "remove",
+        "oldIndex": 0,
+        "row": {
+            "genre": "pop",
+            "id": "\u001e\u001cRF°uä",
+            "title": "Give Life Back to Music"
+        },
+        "type": "update"
+    },
+    "group": "electronic",
+    "kind": "subquery",
+    "result": [  ],
+    "type": "update"
+}
+
+Then, the electronic group is removed, as it no longer has any entries:
+{
+    "group": "electronic",
+    "kind": "removeGroup",
+    "result": [  ],
+    "type": "update"
+}
+
+Finally, a new 'pop' group is created with the song:
+{
+    "group": "pop",
+    "kind": "addGroup",
+    "result": [
+        {
+            "genre": "pop",
+            "id": "\u001e\u001cRF°uä",
+            "title": "Give Life Back to Music"
+        }
+    ],
+    "type": "update"
+}
+
+`titlesObserver` does not log, because no titles were changed
+*/
 ```
 
 <!---QueryObserveGroupBy2-->
@@ -152,7 +209,7 @@ byGenre observer logs:
 */
 ```
 
-For `count` queries, without a group, the `Change` is simply either `1` or `-1`.
+For `count` queries without a group, the `Change` is simply either `1` or `-1`.
 
 `count` queries with a `groupBy` take the following format:
 
@@ -167,7 +224,52 @@ For `count` queries, without a group, the `Change` is simply either `1` or `-1`.
 <!---CountObserve-->
 
 ```typescript
+const popSongs = songsTable.count({ filter: { genre: 'pop' }})
+const genreCounts = songsTable.count({ groupBy: 'genre' })
 
+popSongs.observe(change => console.log(change))
+genreCounts.observe(change => console.log(change))
+// stop docs CountObserve
+
+let popSongsChanges: QueryChange<typeof popSongs>[] = []
+popSongs.observe(change => popSongsChanges.push(change))
+
+let genreCountsChanges: QueryChange<typeof genreCounts>[] = []
+genreCounts.observe(change => genreCountsChanges.push(change))
+
+// start docs CountObserve
+
+// Remove 'Around the World'
+songsTable.delete(titles.result[0].id)
+
+/*
+`titlesObserver` logs:
+{
+    "kind": "remove",
+    "row": { "id": "\u001e\u001cRF°uä", "title": "Around the World" },
+    "oldIndex": 0,
+    "type": "delete"
+}
+
+byGenre observer logs:
+{
+    "change": {
+        "kind": "remove",
+        "row": {
+            "id": "\u001e\u001cRF°uä",
+            "title": "Around the World",
+            "genre": "pop"
+        },
+        "oldIndex": 1
+    },
+    "type": "delete",
+    "group": "pop"
+}
+
+popSongs observer logs: { "delta": -1, "type": "delete" }
+
+genreCounts observer logs: { "group": "pop", "change": { "delta": -1, "type": "delete" } }
+*/
 ```
 
 ## `query.unobserve(observer: (change: Change) => void)`
@@ -181,7 +283,28 @@ You must pass the same function that was passed to `observe`.
 <!---Unobserve-->
 
 ```typescript
+titles.unobserve(titlesObserver)
+// stop docs Unobserve
 
+const xtalId =
+// start docs Unobserve
+songsTable.insert({ title: 'Xtal', genre: 'electronic' })
+
+/*
+`titlesObserver` is not called
+
+byGenre observer logs:
+{
+    "kind": "addGroup",
+    "result": [ { "genre": "electronic", "id": "¾¡`Dmvau", "title": "Xtal" } ],
+    "type": "add",
+    "group": "electronic"
+}
+
+popSongs observer is not called
+
+genreCounts observer logs: { "group": "electronic", "kind": "addGroup", "result": 1, "type": "add" }
+*/
 ```
 
 ## On Observation Order and Consistency
@@ -199,7 +322,28 @@ You should expect no other guarantees of observer execution order.
 <!---Observer Ordering-->
 
 ```typescript
+// Assuming we've removed all previous observers
 
+const electronicSongs = songsTable.count({ filter: { genre: 'electronic' }})
+
+const printReport = () => {
+    console.log(`There are ${popSongs.result} pop songs and ${electronicSongs.result} electronic songs`)
+}
+
+popSongs.observe(printReport)
+electronicSongs.observe(printReport)
+
+// Change 'Beat It''s genre from pop to electronic
+songsTable.update(titles.result[0].id, 'genre', 'electronic')
+
+/*
+`printReport` is called twice, once because it's observing `popSongs`, and again because it's observing `electronicSongs`
+
+It logs the following:
+
+There are 0 pop songs and 2 electronic songs
+There are 0 pop songs and 2 electronic songs
+*/
 ```
 
 Note that even though one of the observers hasn't been called yet when the first observer fires, the result is still consistent.

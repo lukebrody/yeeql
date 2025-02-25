@@ -56,13 +56,13 @@ test('subquery update', () => {
 	const wrongId = UUID.create()
 	const childId = children.insert({ parentId: wrongId, order: 0 })
 
-	assert.deepEqual(query.result, [
+	assert.deepEqual((() => query.result)(), [
 		{ id: childId, parentId: wrongId, parent: [], order: 0 },
 	])
 
 	children.update(childId, 'parentId', parentId)
 
-	assert.deepEqual(query.result, [
+	assert.deepEqual((() => query.result)(), [
 		{ id: childId, parentId, parent: [{ id: parentId, order: 0 }], order: 0 },
 	])
 

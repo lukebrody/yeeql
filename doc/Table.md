@@ -8,15 +8,18 @@ Construct a new `Table` with some `Schema`, based on a `Y.Map`.
 
 ### Example of `Table` usage:
 
+<!---Table Setup-->
+
 ```typescript
 import { Field, Table, UUID } from 'yeeql'
+import * as Y from 'yjs'
 
 // Define your schema
 const schema = {
-    id: new Field<UUID>() // Table schemas must include an `id` column with type `UUID`
-    game: new Field<'pinball' | 'skeeball'>
-    playerName: new Field<string>()
-    score: new Field<number>()
+    id: new Field<UUID>(), // Table schemas must include an `id` column with type `UUID`
+    game: new Field<'pinball' | 'skeeball'>(),
+    playerName: new Field<string>(),
+    score: new Field<number>(),
 }
 
 // Obtain a Y.Map
@@ -37,11 +40,13 @@ Use this method to insert a row into your table.
 
 ### Example
 
+<!---Table Insert-->
+
 ```typescript
 const kaylaId: UUID = scoresTable.insert({
-	game: 'pinball',
-	playerName: 'Kayla',
-	score: 900,
+    game: 'pinball',
+    playerName: 'Kayla',
+    score: 900,
 })
 ```
 
@@ -53,14 +58,16 @@ You can also use `Y` transactions when making modifications to tables.
 
 Modifications to tables are compatible with `Y.UndoManager`
 
+<!---Table Transact-->
+
 ```typescript
 doc.transact(() => {
-	;[
-		{ game: 'skeeball', playerName: 'Andreas', score: 800 },
-		{ game: 'pinball', playerName: 'Maytal', score: 1200 },
-		{ game: 'skeeball', playerName: 'Tomi', score: 700 },
-		{ game: 'pinball', playerName: 'Kayla', score: 1000 },
-	].forEach((row) => scoresTable.insert(row))
+    ;[
+        { game: 'skeeball' as const, playerName: 'Andreas', score: 800 },
+        { game: 'pinball' as const, playerName: 'Maytal', score: 1200 },
+        { game: 'skeeball' as const, playerName: 'Tomi', score: 700 },
+        { game: 'pinball' as const, playerName: 'Kayla', score: 1000 },
+    ].forEach((row) => scoresTable.insert(row))
 })
 ```
 
@@ -74,8 +81,10 @@ You cannot update `id`.
 
 ### Example
 
+<!---Table Update-->
+
 ```typescript
-table.update(kaylaId, 'score', 1100)
+scoresTable.update(kaylaId, 'score', 1100)
 ```
 
 ## `table.delete(id: UUID)`
@@ -84,9 +93,11 @@ Removes a row with `id` from the table.
 
 If the row does not exist in the table, this methods succeeds without doing anything.
 
+<!---Table Delete-->
+
 ```typescript
 // Tilt!
-table.delete(kaylaId)
+scoresTable.delete(kaylaId)
 ```
 
 ## `table.query({ select?, filter?, sort? }): Query`
@@ -95,14 +106,16 @@ Gets or creates a query on the `table`.
 
 ### Example Usage:
 
+<!---Table Query 1-->
+
 ```typescript
-const highestPinballScores = table.query({
-	select: ['score'],
-	filter: { game: 'pinball' },
-	sort: (a, b) => b.score - a.score,
+const highestPinballScores = scoresTable.query({
+    select: ['score'],
+    filter: { game: 'pinball' },
+    sort: (a, b) => b.score - a.score,
 })
 
-highestPinballScores.result // [ { score: 1200 }, { score: 1000 } ]
+highestPinballScores.result // [ { "score": 1200 }, { "score": 1000 } ]
 ```
 
 ## `table.query({ select?, filter?, sort?, groupBy }): Query`
@@ -111,14 +124,16 @@ Gets or creates a grouped query on the `table`.
 
 ### Example Usage
 
+<!---Table Query 2-->
+
 ```typescript
-const bestPlayersByGame = table.query({
-	select: ['playerName'],
-	sort: (a, b) => b.score - a.score,
-	groupBy: 'game',
+const bestPlayersByGame = scoresTable.query({
+    select: ['playerName'],
+    sort: (a, b) => b.score - a.score,
+    groupBy: 'game',
 })
 
-bestPlayersByGame.get('skeeball') // [ { playerName: 'Andreas' }, { playerName: 'Tomi' } ]
+bestPlayersByGame.result.get('skeeball') // [ { "playerName": "Andreas" }, { "playerName": "Tomi" } ]
 ```
 
 If you `get` a group with no elements, the empty array `[]` is returned.
@@ -131,9 +146,11 @@ If no filter is specificed, returns a query whose result is the number of rows i
 
 ### Example
 
+<!---Table Count 1-->
+
 ```typescript
-table.count({ filter: { game: 'pinball' } }).result // 2
-table.count({}) // 4
+scoresTable.count({ filter: { game: 'pinball' } }).result // 2
+scoresTable.count({}).result // 4
 ```
 
 ## `table.count({ filter?, groupBy }): Query`
@@ -142,8 +159,10 @@ Like normal `count`, but splits the counts into groups.
 
 ### Example
 
+<!---Table Count 2-->
+
 ```typescript
-table.count({ groupBy: 'game' }).result.get('skeeball') // 2
+scoresTable.count({ groupBy: 'game' }).result.get('skeeball') // 2
 ```
 
 ## Query Parameters
@@ -165,21 +184,23 @@ The `Table` weakly caches queries, and returns the same instance for duplicate q
 
 ### Example
 
+<!---Query Caching-->
+
 ```typescript
-const genusSort = (a: { genus: string }, b: { genus: string }) =>
-	a.genus.localeCompare(b.genus)
+const sort = (a: { genus: string }, b: { genus: string }) =>
+    a.genus.localeCompare(b.genus)
 
 const queryA = dinoTable.query({
-	select: ['genus', 'diet'],
-	sort: genusSort,
+    select: ['genus', 'diet'],
+    sort,
 })
 
 const queryB = dinoTable.query({
-	select: ['genus', 'diet'],
-	sort: genusSort,
+    select: ['genus', 'diet'],
+    sort,
 })
 
-console.log(queryA === queryB) // Prints `true`
+console.log(queryA !== queryB) // Prints `true`
 ```
 
 Note how the `genusSort` function is the same instance. Prefer using common instances for each type of `sort` function you use. This way yeeql can more effectively re-use queries, since it knows the `sort` function is the same.
@@ -190,18 +211,20 @@ Additionally, `Table` will reuse queries that are functionally equivalent in wha
 
 For example:
 
+<!---Advanced Query Caching-->
+
 ```typescript
-const queryA = dinoTable.query({
-	select: ['diet'],
-	sort: genusSort,
+const queryC = dinoTable.query({
+    select: ['diet'],
+    sort,
 })
 
-const queryB = dinoTable.query({
-	select: ['diet', 'genus'],
-	sort: genusSort,
+const queryD = dinoTable.query({
+    select: ['diet', 'genus'],
+    sort,
 })
 
-console.log(queryA === queryB) // Prints `true`
+console.log(queryC === queryD) // Prints `true`
 ```
 
-Even though `queryA` doesn't select the `genus` column, its sort relies on `genus`. Therefore, `queryA` and `queryB` always return the same set of data, and update when the same columns change.
+Even though `queryC` doesn't select the `genus` column, its sort relies on `genus`. Therefore, `queryC` and `queryD` always return the same set of data, and update when the same columns change.

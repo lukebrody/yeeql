@@ -311,4 +311,19 @@ herbivoresByAge change {
 	console.log(queryA !== queryB) // Prints `true`
 	// end docs Query Caching
 	assert.equal(queryA, queryB)
+
+	// start docs Advanced Query Caching
+	const queryC = dinoTable.query({
+		select: ['diet'],
+		sort,
+	})
+	
+	const queryD = dinoTable.query({
+		select: ['diet', 'genus'],
+		sort,
+	})
+	
+	console.log(queryC === queryD) // Prints `true`
+	// end docs Advanced Query Caching
+	assert.equal(queryC, queryD)
 })

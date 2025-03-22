@@ -27,7 +27,7 @@ const yTable = doc.getMap('scores') as Y.Map<Y.Map<unknown>>
 const scoresTable = new Table(yTable, schema)
 ```
 
-You should aim to create only one `Table` per `Y.Map`. While multiple `Table`s with the same schema will work fine together (and in fact do over the network), using multiple `Tables` decreases effeciency, as each table will have to respone to changes. Additionally, you will not be able to take advantage of cached queries.
+You should aim to create only one `Table` per `Y.Map`. While multiple `Table`s with the same schema will work fine together (and in fact do over the network), using multiple `Tables` decreases effeciency, as each table will have to respond to changes. Additionally, you will not be able to take advantage of cached queries.
 
 Additionally, you should avoid creating multiple `Table`s with different schemas on the same `Y.Map`. While this may work in some cases (if the schemas are compatible), it's probably a better idea to define a schema that covers all the columns, and use the `select` feature.
 

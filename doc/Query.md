@@ -52,7 +52,7 @@ const rowId = songsTable.insert({ title: 'Give Life Back to Music', genre: 'pop'
 `titlesObserver` prints:
 {
     "kind": "add",
-    "row": { "id": "\u001e\u001cRF°uä", "title": "Give Life Back to Music" },
+    "row": { "id": "PÀSÙ·µ8", "title": "Give Life Back to Music" },
     "newIndex": 0,
     "type": "add"
 }
@@ -120,7 +120,7 @@ First, the song is removed from the 'electronic' group:
         "oldIndex": 0,
         "row": {
             "genre": "pop",
-            "id": "\u001e\u001cRF°uä",
+            "id": "PÀSÙ·µ8",
             "title": "Give Life Back to Music"
         },
         "type": "update"
@@ -144,11 +144,7 @@ Finally, a new 'pop' group is created with the song:
     "group": "pop",
     "kind": "addGroup",
     "result": [
-        {
-            "genre": "pop",
-            "id": "\u001e\u001cRF°uä",
-            "title": "Give Life Back to Music"
-        }
+        { "genre": "pop", "id": "PÀSÙ·µ8", "title": "Give Life Back to Music" }
     ],
     "type": "update"
 }
@@ -246,7 +242,7 @@ songsTable.delete(titles.result[0].id)
 `titlesObserver` logs:
 {
     "kind": "remove",
-    "row": { "id": "\u001e\u001cRF°uä", "title": "Around the World" },
+    "row": { "id": "PÀSÙ·µ8", "title": "Around the World" },
     "oldIndex": 0,
     "type": "delete"
 }
@@ -256,7 +252,7 @@ byGenre observer logs:
     "change": {
         "kind": "remove",
         "row": {
-            "id": "\u001e\u001cRF°uä",
+            "id": "PÀSÙ·µ8",
             "title": "Around the World",
             "genre": "pop"
         },
@@ -296,7 +292,9 @@ songsTable.insert({ title: 'Xtal', genre: 'electronic' })
 byGenre observer logs:
 {
     "kind": "addGroup",
-    "result": [ { "genre": "electronic", "id": "¾¡`Dmvau", "title": "Xtal" } ],
+    "result": [
+        { "genre": "electronic", "id": "=»\u0015ÈLîqÝ", "title": "Xtal" }
+    ],
     "type": "add",
     "group": "electronic"
 }

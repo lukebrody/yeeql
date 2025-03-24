@@ -2,12 +2,14 @@
 
 ### Function Signature
 
+<!---useQuery Signature-->
+
 ```typescript
-function useQuery<Q extends Query<QueryResult<Q>, QueryChange<Q>>>(
-	makeQuery: () => Q,
-	deps: React.DependencyList | undefined,
-	observe?: (change: QueryChange<Q>) => void,
-): QueryResult<Q>
+function useQuery<Q extends AnyQuery>(
+    makeQuery: () => Q,
+    deps: React.DependencyList | undefined,
+    observe?: (change: QueryChange<Q>) => void,
+): QueryResult<Q> {
 ```
 
 Use this React hook to easily use Yeeql queries inside React components.
@@ -18,6 +20,8 @@ You can optionally pass in an `observe` function that is automatically called by
 
 ### Example
 
+<!---useQuery1-->
+
 ```typescript
 import React from 'react'
 import { useQuery, Table } from 'yeeql'
@@ -26,11 +30,11 @@ const genusSort = (a: { genus: string }, b: { genus: string }) => a.genus.locale
 
 function DinoListComponent({ diet, dinoTable }: {
     diet: 'herbivore' | 'carnivore',
-    dinoTable: Table<typof dinosaursSchema>
+    dinoTable: Table<typeof dinosaursSchema>
 }) {
     const dinos = useQuery(() => dinoTable.query({
         select: ['id', 'genus'],
-        filter: { diet }
+        filter: { diet },
         sort: genusSort
     }), [diet])
 
@@ -50,7 +54,7 @@ function DinoListComponent({ diet, dinoTable }: {
     )
 }
 
-<DinoListComponent diet='carnivore'/> // Rendered somewhere
+<DinoListComponent diet='carnivore' dinoTable={dinoTable}/> // Rendered somewhere
 
 const allosaurusId = dinoTable.insert({ genus: 'Allosaurus', ageInMillionsOfYears: 145, diet: 'carnivore' })
 // DinoListComponent re-renders

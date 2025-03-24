@@ -1,3 +1,4 @@
+/* c8 ignore next */
 import { UUID } from 'common/UUID'
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars

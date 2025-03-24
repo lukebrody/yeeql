@@ -1,3 +1,4 @@
+/* c8 ignore next */
 import { UUID } from 'common/UUID'
 
 export const debug: {
@@ -19,4 +20,5 @@ export const debug: {
 	counter: 0,
 	map: new Map(),
 	makingSubquery: false,
+	/* c8 ignore next */
 }

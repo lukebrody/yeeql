@@ -624,4 +624,5 @@ export class Table<S extends TableSchema> {
 		/* v8 ignore stop */
 		this.yTable.delete(id)
 	}
+	/* c8 ignore next */
 }

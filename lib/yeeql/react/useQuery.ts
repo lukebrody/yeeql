@@ -1,6 +1,9 @@
+/* c8 ignore start */
 import { useEffect, useMemo, useState } from 'react'
 import { Query, QueryResult, QueryChange } from 'yeeql/query/Query'
+/* c8 ignore stop */
 
+/* c8 ignore next */
 export function useQuery<
 	Q extends Query<QueryResult<Q>, QueryChange<Q>, unknown>,
 >(

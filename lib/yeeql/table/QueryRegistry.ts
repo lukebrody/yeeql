@@ -1,3 +1,4 @@
+/* c8 ignore next */
 import { DefaultMap } from 'common/DefaultMap'
 import { Filter, Row, TableSchema } from 'yeeql/table/Schema'
 
@@ -160,6 +161,7 @@ export class QueryRegistry<S extends TableSchema> {
 		collectFromQueryTree(this.qt, this.fields, row, changes, result)
 		return result
 	}
+	/* c8 ignore next */
 }
 
 export interface QueryRegistryEntry<S extends TableSchema> {

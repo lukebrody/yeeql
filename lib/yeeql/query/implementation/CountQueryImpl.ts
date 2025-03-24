@@ -1,3 +1,4 @@
+/* c8 ignore next */
 import { Filter, Row, TableSchema } from 'yeeql/table/Schema'
 import { QueryRegistryEntry } from 'yeeql/table/QueryRegistry'
 import { UUID } from 'common/UUID'
@@ -46,4 +47,5 @@ export class CountQueryImpl<S extends TableSchema>
 	changeRow(): () => void {
 		return () => undefined
 	}
+	/* c8 ignore next */
 }

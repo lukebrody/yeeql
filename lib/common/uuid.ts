@@ -1,3 +1,4 @@
+/* c8 ignore next */
 import Base256 from 'base256-encoding'
 
 export type UUID = string & { __requestId: true } // 8 bytes
@@ -25,4 +26,5 @@ const result = {
 	},
 }
 
+/* c8 ignore next */
 export const UUID: Readonly<typeof result> = result

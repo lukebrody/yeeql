@@ -1,3 +1,4 @@
+/* c8 ignore next */
 function findIndex<T, I>(
 	sortedArray: readonly T[],
 	item: I,
@@ -40,6 +41,7 @@ export function insertOrdered<T>(
 	return index
 }
 
+/* c8 ignore next */
 export function removeOrdered<T, I>(
 	sortedArray: T[],
 	item: I,

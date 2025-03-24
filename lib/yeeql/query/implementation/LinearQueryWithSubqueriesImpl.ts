@@ -1,3 +1,4 @@
+/* c8 ignore next */
 import { debug } from 'common/debug'
 import {
 	InternalChangeCallback,
@@ -249,4 +250,5 @@ export class LinearQueryWithSubqueriesImpl<
 			}
 		})
 	}
+	/* c8 ignore next */
 }

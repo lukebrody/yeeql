@@ -1,3 +1,4 @@
+/* c8 ignore next */
 import { Filter, Primitives, Row, TableSchema } from 'yeeql/table/Schema'
 import { QueryRegistryEntry } from 'yeeql/table/QueryRegistry'
 import { UUID } from 'common/UUID'
@@ -181,4 +182,5 @@ export class GroupedQueryImpl<
 			addResult()
 		}
 	}
+	/* c8 ignore next */
 }

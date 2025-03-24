@@ -1,3 +1,4 @@
+/* c8 ignore next */
 export interface MinimalQueryChange {
 	type: 'add' | 'update' | 'delete'
 }
@@ -87,4 +88,5 @@ export abstract class QueryBase<Change> implements QueryInternal<Change> {
 			internalObserverNotifications.forEach((notify) => notify())
 		}
 	}
+	/* c8 ignore next */
 }

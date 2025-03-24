@@ -17,7 +17,7 @@ function useQuery2<Q extends AnyQuery>(
 	deps: React.DependencyList | undefined,
 	observe?: (change: QueryChange<Q>) => void,
 ): QueryResult<Q> {
-// end docs useQuery Signature
+	// end docs useQuery Signature
 	throw new Error('not implemented')
 }
 
@@ -44,43 +44,53 @@ test('useQuery.md', () => {
 
 	// start docs useQuery1
 
-	const genusSort = (a: { genus: string }, b: { genus: string }) => a.genus.localeCompare(b.genus)
+	const genusSort = (a: { genus: string }, b: { genus: string }) =>
+		a.genus.localeCompare(b.genus)
 
-	function DinoListComponent({ diet, dinoTable }: {
-		diet: 'herbivore' | 'carnivore',
+	function DinoListComponent({
+		diet,
+		dinoTable,
+	}: {
+		diet: 'herbivore' | 'carnivore'
 		dinoTable: Table<typeof dinosaursSchema>
 	}) {
-		const dinos = useQuery(() => dinoTable.query({
-			select: ['id', 'genus'],
-			filter: { diet },
-			sort: genusSort
-		}), [diet])
+		const dinos = useQuery(
+			() =>
+				dinoTable.query({
+					select: ['id', 'genus'],
+					filter: { diet },
+					sort: genusSort,
+				}),
+			[diet],
+		)
 
-		const dinoNames = dinos.map(dino => (
-			<p key={dino.id}>
-				${dino.genus}
-			</p>
-		))
+		const dinoNames = dinos.map((dino) => <p key={dino.id}>${dino.genus}</p>)
 
 		return (
 			<>
-				<h1>
-					${diet}s
-				</h1>
+				<h1>${diet}s</h1>
 				{dinoNames}
 			</>
 		)
 	}
 
-	<DinoListComponent diet='carnivore' dinoTable={dinoTable}/> // Rendered somewhere
+	;<DinoListComponent diet="carnivore" dinoTable={dinoTable} /> // Rendered somewhere
 
-	const allosaurusId = dinoTable.insert({ genus: 'Allosaurus', ageInMillionsOfYears: 145, diet: 'carnivore' })
+	const allosaurusId = dinoTable.insert({
+		genus: 'Allosaurus',
+		ageInMillionsOfYears: 145,
+		diet: 'carnivore',
+	})
 	// DinoListComponent re-renders
 
 	dinoTable.update(allosaurusId, 'ageInMillionsOfYears', 150)
 	// DinoListComponent DOES NOT re-render, since 'ageInMillionsOfYears' is not selected in the query
 
-	dinoTable.insert({ genus: 'Styracosaurus', ageInMillionsOfYears: 75, diet: 'herbivore' })
+	dinoTable.insert({
+		genus: 'Styracosaurus',
+		ageInMillionsOfYears: 75,
+		diet: 'herbivore',
+	})
 	// DinoListComponent DOES NOT re-render, since Styracosaurus is not a carnivore
 
 	dinoTable.update(allosaurusId, 'genus', 'Allosaurus ❤️')

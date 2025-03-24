@@ -26,43 +26,53 @@ You can optionally pass in an `observe` function that is automatically called by
 import React from 'react'
 import { useQuery, Table } from 'yeeql'
 
-const genusSort = (a: { genus: string }, b: { genus: string }) => a.genus.localeCompare(b.genus)
+const genusSort = (a: { genus: string }, b: { genus: string }) =>
+    a.genus.localeCompare(b.genus)
 
-function DinoListComponent({ diet, dinoTable }: {
-    diet: 'herbivore' | 'carnivore',
+function DinoListComponent({
+    diet,
+    dinoTable,
+}: {
+    diet: 'herbivore' | 'carnivore'
     dinoTable: Table<typeof dinosaursSchema>
 }) {
-    const dinos = useQuery(() => dinoTable.query({
-        select: ['id', 'genus'],
-        filter: { diet },
-        sort: genusSort
-    }), [diet])
+    const dinos = useQuery(
+        () =>
+            dinoTable.query({
+                select: ['id', 'genus'],
+                filter: { diet },
+                sort: genusSort,
+            }),
+        [diet],
+    )
 
-    const dinoNames = dinos.map(dino => (
-        <p key={dino.id}>
-            ${dino.genus}
-        </p>
-    ))
+    const dinoNames = dinos.map((dino) => <p key={dino.id}>${dino.genus}</p>)
 
     return (
         <>
-            <h1>
-                ${diet}s
-            </h1>
+            <h1>${diet}s</h1>
             {dinoNames}
         </>
     )
 }
 
-<DinoListComponent diet='carnivore' dinoTable={dinoTable}/> // Rendered somewhere
+;<DinoListComponent diet="carnivore" dinoTable={dinoTable} /> // Rendered somewhere
 
-const allosaurusId = dinoTable.insert({ genus: 'Allosaurus', ageInMillionsOfYears: 145, diet: 'carnivore' })
+const allosaurusId = dinoTable.insert({
+    genus: 'Allosaurus',
+    ageInMillionsOfYears: 145,
+    diet: 'carnivore',
+})
 // DinoListComponent re-renders
 
 dinoTable.update(allosaurusId, 'ageInMillionsOfYears', 150)
 // DinoListComponent DOES NOT re-render, since 'ageInMillionsOfYears' is not selected in the query
 
-dinoTable.insert({ genus: 'Styracosaurus', ageInMillionsOfYears: 75, diet: 'herbivore' })
+dinoTable.insert({
+    genus: 'Styracosaurus',
+    ageInMillionsOfYears: 75,
+    diet: 'herbivore',
+})
 // DinoListComponent DOES NOT re-render, since Styracosaurus is not a carnivore
 
 dinoTable.update(allosaurusId, 'genus', 'Allosaurus ❤️')

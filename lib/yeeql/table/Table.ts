@@ -1,3 +1,4 @@
+/* c8 ignore next */
 import stringify from 'json-stable-stringify'
 import * as Y from 'yjs'
 import { DefaultMap } from 'common/DefaultMap'

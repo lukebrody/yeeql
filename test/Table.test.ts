@@ -88,3 +88,15 @@ test('already has data', () => {
 	const table2 = new Table(yTable, schema)
 	assert.equal(table2.count({}).result, 1)
 })
+
+test('memory management', async () => {
+	let query: ReturnType<typeof table.query> | undefined = table.query({})
+	const weakQuery = new WeakRef(query)
+	query = undefined
+
+	await new Promise((resolve) => setTimeout(resolve, 10))
+	global.gc!()
+	await new Promise((resolve) => setTimeout(resolve, 10))
+
+	assert.equal(weakQuery.deref(), undefined)
+})

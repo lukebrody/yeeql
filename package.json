@@ -1,41 +1,55 @@
 {
-  "name": "yeeql",
-  "version": "1.0.7",
-  "description": "A SQL-like interface around Y.js",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "files": [
-    "/dist"
-  ],
-  "license": "MIT",
-  "scripts": {
-    "test": "node --expose-gc node_modules/.bin/vitest",
-    "build": "tsc",
-    "lint": "eslint --fix \"./**/*.{ts, tsx, js, cjs}\""
-  },
-  "dependencies": {
-    "base256-encoding": "^2.0.2",
-    "json-stable-stringify": "^1.0.2"
-  },
-  "devDependencies": {
-    "@types/json-stable-stringify": "^1.0.34",
-    "@types/react": "^18.2.18",
-    "@typescript-eslint/eslint-plugin": "^5.27.1",
-    "@typescript-eslint/parser": "^5.27.1",
-    "eslint": "^8.17.0",
-    "eslint-plugin-import": "^2.26.0",
-    "eslint-plugin-react": "^7.33.1",
-    "react": "^18.2.0",
-    "typescript": "^4.6.4",
-    "vitest": "^0.34.1",
-    "yjs": "^13.6.7"
-  },
-  "peerDependencies": {
-    "react": "^18.0.0",
-    "yjs": "^13.0.0"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/lukebrody/yeeql.git"
-  }
+	"name": "yeeql",
+	"version": "2.0.0",
+	"description": "A SQL-like interface around Y.js",
+	"main": "dist/index.js",
+	"types": "dist/index.d.ts",
+	"files": [
+		"/dist"
+	],
+	"license": "MIT",
+	"scripts": {
+		"test": "npx tsc --project test/tsconfig.json && c8 --reporter=text --reporter=clover tsx --expose-gc --tsconfig test/tsconfig.json --require global-jsdom/register test/run.ts",
+		"build": "rm -r dist && tsc --project lib/tsconfig.json && tsc-alias -p lib/tsconfig.json",
+		"lint": "prettier . --write && eslint --fix \"./**/*.{ts, tsx, js, cjs}\""
+	},
+	"dependencies": {
+		"base256-encoding": "^2.0.2",
+		"json-stable-stringify": "^1.0.2"
+	},
+	"devDependencies": {
+		"@aitodotai/json-stringify-pretty-compact": "^1.3.0",
+		"@testing-library/jest-dom": "^6.4.1",
+		"@testing-library/react": "^14.2.1",
+		"@types/json-stable-stringify": "^1.0.34",
+		"@types/node": "^22.13.5",
+		"@types/react": "^18.2.18",
+		"@typescript-eslint/eslint-plugin": "^5.27.1",
+		"@typescript-eslint/parser": "^5.27.1",
+		"@typescript-eslint/typescript-estree": "^6.12.0",
+		"c8": "^10.1.3",
+		"eslint": "^8.17.0",
+		"eslint-config-prettier": "^9.0.0",
+		"eslint-plugin-import": "^2.26.0",
+		"eslint-plugin-no-restricted-imports": "^0.0.0",
+		"eslint-plugin-react": "^7.33.1",
+		"global-jsdom": "^26.0.0",
+		"jsdom": "^26.0.0",
+		"prettier": "^3.1.0",
+		"react": "^18.2.0",
+		"replace-in-file": "^7.1.0",
+		"tsc-alias": "^1.8.8",
+		"tsx": "^4.19.3",
+		"typescript": "^5.3.3",
+		"update-docs": "^1.0.0",
+		"yjs": "^13.6.7"
+	},
+	"peerDependencies": {
+		"react": "^18.0.0",
+		"yjs": "^13.0.0"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/lukebrody/yeeql.git"
+	}
 }

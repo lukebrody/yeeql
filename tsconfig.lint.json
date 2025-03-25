@@ -1,18 +1,10 @@
 {
-  "compilerOptions": {
-    "outDir": "./dist",
-    "target": "ES2021",
-    "strict": true,
-    "declaration": true,
-    "moduleResolution": "Node",
-    "module": "ESNext",
-    "lib": [
-      "DOM",
-      "ES2021"
-    ],
-    "allowSyntheticDefaultImports": true
-  },
-  "exclude": [
-    "dist/**/*"
-  ]
+	"extends": "./tsconfig.template.json",
+	"include": [
+		".eslintrc.js",
+		"vitest.workspace.mts",
+		"vitest.config.mts",
+		"vitest.setup.mts",
+		"docs.ts"
+	]
 }

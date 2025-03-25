@@ -1,6 +1,22 @@
 {
-    "editor.insertSpaces": true,
-    "javascript.preferences.quoteStyle": "single",
-    "typescript.preferences.quoteStyle": "single",
-    "eslint.enable": true
+	"editor.insertSpaces": true,
+	"javascript.preferences.quoteStyle": "single",
+	"typescript.preferences.quoteStyle": "single",
+	"eslint.enable": true,
+	"editor.formatOnSave": true,
+	"editor.defaultFormatter": "esbenp.prettier-vscode",
+	"[typescript]": {
+		"editor.defaultFormatter": "esbenp.prettier-vscode"
+	},
+	"typescript.preferences.importModuleSpecifier": "non-relative",
+	"coverage-gutters.coverageFileNames": [
+		"lcov.info",
+		"cov.xml",
+		"coverage.xml",
+		"jacoco.xml",
+		"coverage.cobertura.xml",
+		"clover.xml"
+	],
+	"coverage-gutters.showLineCoverage": false,
+	"cSpell.enabled": false
 }

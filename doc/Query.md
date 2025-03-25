@@ -6,11 +6,14 @@ Create a `Query` using `table.query` or `table.count`.
 
 Contains the result of the query. Automatically updates when the underlying data changes.
 
-You can use the `QueryResult` utility type to get the rersult type from a `Query` type.
+You can use the `QueryResult` utility type to get the result type from a `Query` type.
 
 ### Example
+
+<!---QueryResult-->
+
 ```typescript
-const query = table.query({ select: ['id'] })
+const query = songsTable.query({ select: ['id'] })
 
 QueryResult<typeof query> // ReadonlyArray<{ id: UUID }>
 ```
@@ -20,56 +23,62 @@ QueryResult<typeof query> // ReadonlyArray<{ id: UUID }>
 Pass a function to observe changes to the query's result.
 
 ### Example
+
+<!---QueryObserve-->
+
 ```typescript
 const songsSchema = {
     id: new Field<UUID>(),
     title: new Field<string>(),
-    genre: new Field<'jazz' | 'electronic' | 'pop' | 'folk'>()
+    genre: new Field<'jazz' | 'electronic' | 'pop' | 'folk'>(),
 }
-
+    
 const songsTable = new Table(yTable, songsSchema)
-
-const titles = songTable.query({ 
+    
+const titles = songsTable.query({
     select: ['id', 'title'],
-    sort: (a, b) => a.title.localeCompare(b.title)
+    sort: (a, b) => a.title.localeCompare(b.title),
 })
-
+    
 const titlesObserver = (change: QueryChange<typeof titles>) => {
     console.log(change)
 }
-
+    
 titles.observe(titlesObserver)
-
-titles.insert({ title: 'Give Life Back to Music', genre: 'pop' })
+    
+const rowId = songsTable.insert({ title: 'Give Life Back to Music', genre: 'pop' })
 
 /*
 `titlesObserver` prints:
 {
-    kind: 'add',
-    row: { id: 'éÊ×DQ', title: 'Give Life Back to Music' },
-    newIndex: 0,
-    type: 'add'
+    "kind": "add",
+    "row": { "id": "PÀSÙ·µ8", "title": "Give Life Back to Music" },
+    "newIndex": 0,
+    "type": "add"
 }
 */
 
-songsTable.update(titles.result[0].id, 'genre', 'electronic')
+songsTable.update(rowId, 'genre', 'electronic')
+// `titlesObserver` does not run, since we are not observing the genre
 ```
 
-As shown above, you can use the `QueryChange` untility type to get the type of a query's `Change`.
+As shown above, you can use the `QueryChange` utility type to get the type of a query's `Change`.
 
 Queries that return rows have the following change type:
 
+<!---QueryChange-->
+
 ```typescript
-{ 
-    kind: 'add', 
+{
+    kind: 'add',
     row: Readonly<Result>,
     newIndex: number, // The index in the query result array where the row was inserted
     type: 'add' | 'update' // 'add' if the row is newly added to the table, 'update' if an update caused it to come into scope of this query
 } |
-{ 
-    kind: 'remove', 
-    row: Readonly<Result>, 
-    oldIndex: number, 
+{
+    kind: 'remove',
+    row: Readonly<Result>,
+    oldIndex: number,
     type: 'delete' | 'update'
 } |
 {
@@ -85,6 +94,9 @@ Queries that return rows have the following change type:
 For row queries that use `groupBy`, their changes are the same as above but include a `group` parameter.
 
 ### Example
+
+<!---QueryObserveGroupBy-->
+
 ```typescript
 const byGenre = songsTable.query({ 
     groupBy: 'genre',
@@ -95,34 +107,57 @@ byGenre.observe(change => {
     console.log(change)
 })
 
-songsTable.update(byGenre.result.get('electronic')[0].id, 'genre', 'pop')
+// `rowId` is the row of 'Give Life Back to Music' inserted above
+songsTable.update(rowId, 'genre', 'pop')
 
 /*
-byGenre observer logs:
+byGenre observer logs three changes.
+
+First, the song is removed from the 'electronic' group:
 {
-    kind: 'remove',
-    row: { id: 'éÊ×DQ', title: 'Give Life Back to Music', genre: 'pop' },
-    oldIndex: 0,
-    type: 'update',
-    group: 'electronic'
+    "change": {
+        "kind": "remove",
+        "oldIndex": 0,
+        "row": {
+            "genre": "pop",
+            "id": "PÀSÙ·µ8",
+            "title": "Give Life Back to Music"
+        },
+        "type": "update"
+    },
+    "group": "electronic",
+    "kind": "subquery",
+    "result": [  ],
+    "type": "update"
 }
-it's called again with:
+
+Then, the electronic group is removed, as it no longer has any entries:
 {
-    kind: 'add',
-    row: { id: 'éÊ×DQ', title: 'Give Life Back to Music', genre: 'pop' },
-    oldIndex: 0,
-    type: 'update',
-    group: 'pop'
+    "group": "electronic",
+    "kind": "removeGroup",
+    "result": [  ],
+    "type": "update"
+}
+
+Finally, a new 'pop' group is created with the song:
+{
+    "group": "pop",
+    "kind": "addGroup",
+    "result": [
+        { "genre": "pop", "id": "PÀSÙ·µ8", "title": "Give Life Back to Music" }
+    ],
+    "type": "update"
 }
 
 `titlesObserver` does not log, because no titles were changed
 */
 ```
 
+<!---QueryObserveGroupBy2-->
+
 ### Example
 
 ```typescript
-
 songsTable.insert({ title: 'Beat It', genre: 'pop' })
 
 /*
@@ -170,14 +205,19 @@ byGenre observer logs:
 */
 ```
 
-For `count` queries, without a group, the `Change` is simply either `1` or `-1`.
+For `count` queries without a group, the `Change` is simply either `1` or `-1`.
 
 `count` queries with a `groupBy` take the following format:
+
+<!---GroupedCountChange-->
+
 ```typescript
-{ group: Group, change: 1 | -1 }
+
 ```
 
 ### Example
+
+<!---CountObserve-->
 
 ```typescript
 const popSongs = songsTable.count({ filter: { genre: 'pop' }})
@@ -185,6 +225,15 @@ const genreCounts = songsTable.count({ groupBy: 'genre' })
 
 popSongs.observe(change => console.log(change))
 genreCounts.observe(change => console.log(change))
+// stop docs CountObserve
+
+let popSongsChanges: QueryChange<typeof popSongs>[] = []
+popSongs.observe(change => popSongsChanges.push(change))
+
+let genreCountsChanges: QueryChange<typeof genreCounts>[] = []
+genreCounts.observe(change => genreCountsChanges.push(change))
+
+// start docs CountObserve
 
 // Remove 'Around the World'
 songsTable.delete(titles.result[0].id)
@@ -192,24 +241,30 @@ songsTable.delete(titles.result[0].id)
 /*
 `titlesObserver` logs:
 {
-    kind: 'remove',
-    row: { id: 'éÊ×DQ', title: 'Around the World' },
-    oldIndex: 0,
-    type: 'delete'
+    "kind": "remove",
+    "row": { "id": "PÀSÙ·µ8", "title": "Around the World" },
+    "oldIndex": 0,
+    "type": "delete"
 }
 
 byGenre observer logs:
 {
-    kind: 'remove',
-    row: { id: 'éÊ×DQ', title: 'Around the World', genre: 'pop' },
-    oldIndex: 1,
-    type: 'delete',
-    group: 'pop'
+    "change": {
+        "kind": "remove",
+        "row": {
+            "id": "PÀSÙ·µ8",
+            "title": "Around the World",
+            "genre": "pop"
+        },
+        "oldIndex": 1
+    },
+    "type": "delete",
+    "group": "pop"
 }
 
-popSongs observer logs: -1
+popSongs observer logs: { "delta": -1, "type": "delete" }
 
-genreCounts observer logs: { group: 'pop', change: -1 }
+genreCounts observer logs: { "group": "pop", "change": { "delta": -1, "type": "delete" } }
 */
 ```
 
@@ -221,9 +276,14 @@ You must pass the same function that was passed to `observe`.
 
 ### Example
 
-```typescript
-songsTable.unobserve(titlesObserver)
+<!---Unobserve-->
 
+```typescript
+titles.unobserve(titlesObserver)
+// stop docs Unobserve
+
+const xtalId =
+// start docs Unobserve
 songsTable.insert({ title: 'Xtal', genre: 'electronic' })
 
 /*
@@ -231,22 +291,23 @@ songsTable.insert({ title: 'Xtal', genre: 'electronic' })
 
 byGenre observer logs:
 {
-    kind: 'add',
-    row: {id: 'ÑªFÐ', title: 'Xtal', genre: 'electronic' },
-    newIndex: 0,
-    type: 'add',
-    group: 'electronic'
+    "kind": "addGroup",
+    "result": [
+        { "genre": "electronic", "id": "=»\u0015ÈLîqÝ", "title": "Xtal" }
+    ],
+    "type": "add",
+    "group": "electronic"
 }
 
 popSongs observer is not called
 
-genreCounts observer logs: { group: 'electronic', change: 1 }
+genreCounts observer logs: { "group": "electronic", "kind": "addGroup", "result": 1, "type": "add" }
 */
 ```
 
 ## On Observation Order and Consistency
 
-When change are made to a table, all observers are called __after__ all changes are complete.
+When changes are made to a table, all observers are called **after** all changes in the Y.js transaction are complete.
 
 This ensures that when each query's observers are called, all observers of all queries have a consistent view of the table.
 
@@ -255,6 +316,9 @@ If you access Query A's result from Query B's observer, Query A's result will al
 You should expect no other guarantees of observer execution order.
 
 ### Example
+
+<!---Observer Ordering-->
+
 ```typescript
 // Assuming we've removed all previous observers
 
@@ -268,7 +332,7 @@ popSongs.observe(printReport)
 electronicSongs.observe(printReport)
 
 // Change 'Beat It''s genre from pop to electronic
-songsTable.update(popSongs.result[0].id, 'genre', 'electronic')
+songsTable.update(titles.result[0].id, 'genre', 'electronic')
 
 /*
 `printReport` is called twice, once because it's observing `popSongs`, and again because it's observing `electronicSongs`

@@ -161,7 +161,7 @@ test('Query.md', () => {
 	byGenre observer logs:
 	{{byGenre4}}
 	*/
-	// stop docs QueryObserveGroupBy2
+	// end docs QueryObserveGroupBy2
 
 	const titlesObserver2 = {
 		kind: 'add',
@@ -201,7 +201,7 @@ test('Query.md', () => {
 	byGenre observer logs:
 	{{byGenre5}}
 	*/
-	// stop docs QueryObserveGroupBy2
+	// end docs QueryObserveGroupBy2
 	const titlesObserver3 = {
 		kind: 'update',
 		row: { id: rowId, title: 'Around the World' },
@@ -239,7 +239,7 @@ test('Query.md', () => {
 
 	popSongs.observe(change => console.log(change))
 	genreCounts.observe(change => console.log(change))
-	// stop docs CountObserve
+	// end docs CountObserve
 	
 	let popSongsChanges: QueryChange<typeof popSongs>[] = []
 	popSongs.observe(change => popSongsChanges.push(change))
@@ -302,7 +302,7 @@ test('Query.md', () => {
 
 	// start docs Unobserve
 	titles.unobserve(titlesObserver)
-	// stop docs Unobserve
+	// end docs Unobserve
 
 	const xtalId =
 	// start docs Unobserve

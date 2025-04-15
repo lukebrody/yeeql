@@ -52,7 +52,7 @@ const rowId = songsTable.insert({ title: 'Give Life Back to Music', genre: 'pop'
 `titlesObserver` prints:
 {
     "kind": "add",
-    "row": { "id": "PÀSÙ·µ8", "title": "Give Life Back to Music" },
+    "row": { "id": "M:l¬fº", "title": "Give Life Back to Music" },
     "newIndex": 0,
     "type": "add"
 }
@@ -120,7 +120,7 @@ First, the song is removed from the 'electronic' group:
         "oldIndex": 0,
         "row": {
             "genre": "pop",
-            "id": "PÀSÙ·µ8",
+            "id": "M:l¬fº",
             "title": "Give Life Back to Music"
         },
         "type": "update"
@@ -144,7 +144,7 @@ Finally, a new 'pop' group is created with the song:
     "group": "pop",
     "kind": "addGroup",
     "result": [
-        { "genre": "pop", "id": "PÀSÙ·µ8", "title": "Give Life Back to Music" }
+        { "genre": "pop", "id": "M:l¬fº", "title": "Give Life Back to Music" }
     ],
     "type": "update"
 }
@@ -225,15 +225,6 @@ const genreCounts = songsTable.count({ groupBy: 'genre' })
 
 popSongs.observe(change => console.log(change))
 genreCounts.observe(change => console.log(change))
-// stop docs CountObserve
-
-let popSongsChanges: QueryChange<typeof popSongs>[] = []
-popSongs.observe(change => popSongsChanges.push(change))
-
-let genreCountsChanges: QueryChange<typeof genreCounts>[] = []
-genreCounts.observe(change => genreCountsChanges.push(change))
-
-// start docs CountObserve
 
 // Remove 'Around the World'
 songsTable.delete(titles.result[0].id)
@@ -242,7 +233,7 @@ songsTable.delete(titles.result[0].id)
 `titlesObserver` logs:
 {
     "kind": "remove",
-    "row": { "id": "PÀSÙ·µ8", "title": "Around the World" },
+    "row": { "id": "M:l¬fº", "title": "Around the World" },
     "oldIndex": 0,
     "type": "delete"
 }
@@ -252,7 +243,7 @@ byGenre observer logs:
     "change": {
         "kind": "remove",
         "row": {
-            "id": "PÀSÙ·µ8",
+            "id": "M:l¬fº",
             "title": "Around the World",
             "genre": "pop"
         },
@@ -280,10 +271,6 @@ You must pass the same function that was passed to `observe`.
 
 ```typescript
 titles.unobserve(titlesObserver)
-// stop docs Unobserve
-
-const xtalId =
-// start docs Unobserve
 songsTable.insert({ title: 'Xtal', genre: 'electronic' })
 
 /*
@@ -292,9 +279,7 @@ songsTable.insert({ title: 'Xtal', genre: 'electronic' })
 byGenre observer logs:
 {
     "kind": "addGroup",
-    "result": [
-        { "genre": "electronic", "id": "=»\u0015ÈLîqÝ", "title": "Xtal" }
-    ],
+    "result": [ { "genre": "electronic", "id": "qÒÓn4³", "title": "Xtal" } ],
     "type": "add",
     "group": "electronic"
 }

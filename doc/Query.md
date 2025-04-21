@@ -255,7 +255,11 @@ byGenre observer logs:
 
 popSongs observer logs: { "delta": -1, "type": "delete" }
 
-genreCounts observer logs: { "group": "pop", "change": { "delta": -1, "type": "delete" } }
+genreCounts observer logs: {
+    "kind": "subquery",
+    "group": "pop",
+    "change": { "delta": -1, "type": "delete" }
+}
 */
 ```
 

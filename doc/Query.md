@@ -153,9 +153,9 @@ Finally, a new 'pop' group is created with the song:
 */
 ```
 
-<!---QueryObserveGroupBy2-->
-
 ### Example
+
+<!---QueryObserveGroupBy2-->
 
 ```typescript
 songsTable.insert({ title: 'Beat It', genre: 'pop' })
@@ -212,7 +212,29 @@ For `count` queries without a group, the `Change` is simply either `1` or `-1`.
 <!---GroupedCountChange-->
 
 ```typescript
-
+{
+    kind: 'addGroup', 
+    group: Group,
+    result: number,
+    type: 'add' | 'update' 
+} |
+{
+    kind: 'removeGroup', 
+    group: Group,
+    result: number,
+    type: 'delete' | 'update' 
+} |
+{ 
+    kind: 'subquery',
+    group: Group, 
+    change: { 
+        delta: 1,
+        type: 'add' | 'update'
+    } | {
+        delta: -1,
+        type: 'delete' | 'update'
+    }
+}
 ```
 
 ### Example

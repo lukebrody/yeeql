@@ -20,7 +20,7 @@ import {
 } from 'yeeql/query/interface/LinearQuery'
 import { QueryRegistryEntry } from 'yeeql/table/QueryRegistry'
 import { UUID } from 'common/UUID'
-import { Query } from 'yeeql/query/Query'
+import { Query, QueryResult } from 'yeeql/query/Query'
 import { insertOrdered, removeOrdered } from 'common/array'
 import { MapValue } from 'common/DefaultMap'
 
@@ -214,6 +214,11 @@ export class LinearQueryWithSubqueriesImpl<
 				}
 			}
 
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any -- TypeScript falls down here
+			const augmentedOldValues: any = {
+				...oldValues,
+			}
+
 			updateQuery: for (const key of subqueriesToUpdate) {
 				const makeQuery = this.subQueries[key]
 				debug.makingSubquery = true
@@ -229,6 +234,7 @@ export class LinearQueryWithSubqueriesImpl<
 					continue updateQuery
 				}
 				oldQuery.internalUnobserve(oldCallback)
+				augmentedOldValues[key] = oldQuery.result
 
 				const callback = this.makeInternalCallback(key, augmentedRow)
 				query.internalObserve(callback)
@@ -245,7 +251,7 @@ export class LinearQueryWithSubqueriesImpl<
 				row: augmentedRow,
 				oldIndex: removedIndex,
 				newIndex: addedIndex,
-				oldValues: oldValues as Readonly<Partial<ResultRow<S, Select, Q>>>,
+				oldValues: augmentedOldValues,
 				type: 'update',
 			}
 		})

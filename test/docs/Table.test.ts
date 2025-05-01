@@ -99,6 +99,76 @@ test('Table.md', () => {
 
 	docs.replaceToken('Table Query 2', '{{expected2}}', expected2)
 
+	// start docs Table Query 3
+	// If you send a friend request to someone, they should be able to see your score
+	const friendsTable = new Table(doc.getMap('friends'), {
+		id: new Field<UUID>(),
+		sender: new Field<string>(),
+		reciever: new Field<string>(),
+	})
+
+	// Tomi should be able to see Andreas's score
+	friendsTable.insert({ sender: 'Andreas', reciever: 'Tomi' })
+
+	const competitors = scoresTable.query({
+		select: ['playerName', 'score'],
+		subqueries: {
+			totalGamePlays: (score) =>
+				scoresTable.count({
+					filter: { playerName: score.playerName, game: score.game },
+				}),
+			friendScores: (score) =>
+				friendsTable.query({
+					filter: { reciever: score.playerName },
+					select: ['sender'],
+					subqueries: {
+						scores: ({ sender }) =>
+							scoresTable.query({
+								select: ['score'],
+								filter: { playerName: sender, game: score.game },
+							}),
+					},
+				}),
+		},
+		filter: { playerName: 'Tomi', game: 'skeeball' },
+	})
+
+	// end docs Table Query 3
+
+	const actualTq3 =
+		// start docs Table Query 3
+		competitors.result /* {{expected3}} */
+	// end docs Table Query 3
+
+	const expectedTq3 = [
+		{
+			playerName: 'Tomi',
+			score: 700,
+			totalGamePlays: 1,
+			friendScores: [
+				{
+					sender: 'Andreas',
+					scores: [{ score: 800 }],
+				},
+			],
+		},
+	]
+
+	assert.partialDeepStrictEqual(
+		actualTq3.map(({ playerName, score, totalGamePlays, friendScores }) => ({
+			playerName,
+			score,
+			totalGamePlays,
+			friendScores: friendScores.map(({ sender, scores }) => ({
+				sender,
+				scores: scores.map(({ score }) => ({ score })),
+			})),
+		})),
+		expectedTq3,
+	)
+
+	docs.replaceToken('Table Query 3', '{{expected3}}', expectedTq3)
+
 	const actual3 =
 		// start docs Table Count 1
 		scoresTable.count({ filter: { game: 'pinball' } }).result // {{actual3}}

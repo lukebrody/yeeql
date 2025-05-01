@@ -138,6 +138,62 @@ bestPlayersByGame.result.get('skeeball') // [ { "playerName": "Andreas" }, { "pl
 
 If you `get` a group with no elements, the empty array `[]` is returned.
 
+## `table.query({ subqueries, select?, filter?, sort?, groupBy? }): Query`
+
+Gets or creates a query on the table that uses `subqueries`, which embed another query result in each row.
+
+### Example Usage
+
+<!---Table Query 3-->
+
+```typescript
+// If you send a friend request to someone, they should be able to see your score
+const friendsTable = new Table(doc.getMap('friends'), {
+    id: new Field<UUID>(),
+    sender: new Field<string>(),
+    reciever: new Field<string>(),
+})
+
+// Tomi should be able to see Andreas's score
+friendsTable.insert({ sender: 'Andreas', reciever: 'Tomi' })
+
+const competitors = scoresTable.query({
+    select: ['playerName', 'score'],
+    subqueries: {
+        totalGamePlays: (score) =>
+            scoresTable.count({
+                filter: { playerName: score.playerName, game: score.game },
+            }),
+        friendScores: (score) =>
+            friendsTable.query({
+                filter: { reciever: score.playerName },
+                select: ['sender'],
+                subqueries: {
+                    scores: ({ sender }) =>
+                        scoresTable.query({
+                            select: ['score'],
+                            filter: { playerName: sender, game: score.game },
+                        }),
+                },
+            }),
+    },
+    filter: { playerName: 'Tomi', game: 'skeeball' },
+})
+
+competitors.result /* [
+    {
+        "playerName": "Tomi",
+        "score": 700,
+        "totalGamePlays": 1,
+        "friendScores": [
+            { "sender": "Andreas", "scores": [ { "score": 800 } ] }
+        ]
+    }
+] */
+```
+
+For more examples of how to use subqueries, see the [Subqueries Example File](/test/docs/Subqueries.test.ts)
+
 ## `table.count({ filter? }): Query`
 
 Given a `filter`, returns a query whose result is number of rows matching that `filter`.

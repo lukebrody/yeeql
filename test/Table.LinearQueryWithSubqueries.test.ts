@@ -269,29 +269,40 @@ test('subquery changes', () => {
 })
 
 test('subquery sort update', () => {
+	function mySort(
+		a: {
+			order: number
+			children: readonly { order: number }[]
+		},
+		b: Readonly<{
+			order: number
+			children: readonly { order: number }[]
+		}>,
+	): number {
+		if (a.children.length === 0 && b.children.length === 0) {
+			return a.order - b.order
+		} else if (a.children.length === 0) {
+			return -1
+		} else if (b.children.length === 0) {
+			return 1
+		} else {
+			return (
+				a.children[a.children.length - 1].order -
+				b.children[b.children.length - 1].order
+			)
+		}
+	}
+
 	const query = parents.query({
 		subqueries: {
-			children: (parent) =>
+			children: (parent: { id: UUID }) =>
 				children.query({
 					filter: { parentId: parent.id },
 					sort: (a, b) => a.order - b.order,
 				}),
 		},
 		// Sort by child with the greatest order
-		sort: (a, b) => {
-			if (a.children.length === 0 && b.children.length === 0) {
-				return a.order - b.order
-			} else if (a.children.length === 0) {
-				return -1
-			} else if (b.children.length === 0) {
-				return 1
-			} else {
-				return (
-					a.children[a.children.length - 1].order -
-					b.children[b.children.length - 1].order
-				)
-			}
-		},
+		sort: mySort,
 	})
 
 	const parentA = parents.insert({ order: 0 })

@@ -192,7 +192,7 @@ competitors.result /* [
 ] */
 ```
 
-For more examples of how to use subqueries, see the [Subqueries Example File](/test/docs/Subqueries.test.ts)
+For more examples of how to use subqueries and more information about subqueries, see the [Subqueries Example File](/test/docs/Subqueries.test.ts)
 
 ## `table.count({ filter? }): Query`
 

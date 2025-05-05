@@ -52,7 +52,7 @@ const rowId = songsTable.insert({ title: 'Give Life Back to Music', genre: 'pop'
 `titlesObserver` prints:
 {
     "kind": "add",
-    "row": { "id": "PÀSÙ·µ8", "title": "Give Life Back to Music" },
+    "row": { "id": "\u0006=÷FzÖÁ`", "title": "Give Life Back to Music" },
     "newIndex": 0,
     "type": "add"
 }
@@ -120,7 +120,7 @@ First, the song is removed from the 'electronic' group:
         "oldIndex": 0,
         "row": {
             "genre": "pop",
-            "id": "PÀSÙ·µ8",
+            "id": "\u0006=÷FzÖÁ`",
             "title": "Give Life Back to Music"
         },
         "type": "update"
@@ -144,7 +144,11 @@ Finally, a new 'pop' group is created with the song:
     "group": "pop",
     "kind": "addGroup",
     "result": [
-        { "genre": "pop", "id": "PÀSÙ·µ8", "title": "Give Life Back to Music" }
+        {
+            "genre": "pop",
+            "id": "\u0006=÷FzÖÁ`",
+            "title": "Give Life Back to Music"
+        }
     ],
     "type": "update"
 }
@@ -153,9 +157,9 @@ Finally, a new 'pop' group is created with the song:
 */
 ```
 
-<!---QueryObserveGroupBy2-->
-
 ### Example
+
+<!---QueryObserveGroupBy2-->
 
 ```typescript
 songsTable.insert({ title: 'Beat It', genre: 'pop' })
@@ -163,44 +167,56 @@ songsTable.insert({ title: 'Beat It', genre: 'pop' })
 /*
 `titlesObserver` prints:
 {
-    kind: 'add',
-    row: { id: '³:Ø"ÑÝFc', title: 'Beat It' },
-    newIndex: 0, // Inserted alphabetically before 'Give Life Back to Music'
-    type: 'add'
+    "kind": "add",
+    "row": { "id": "®\u0003\u0004GÁ", "title": "Beat It" },
+    "newIndex": 0,
+    "type": "add"
 }
+
 byGenre observer logs:
 {
-    kind: 'add',
-    row: {id: '³:Ø"ÑÝFc', title: 'Beat It', genre: 'pop' },
-    newIndex: 1, // Inserted reverse-alphabetically after 'Give Life Back to Music'
-    type: 'add',
-    group: 'pop'
+    "change": {
+        "kind": "add",
+        "row": {
+            "id": "®\u0003\u0004GÁ",
+            "title": "Beat It",
+            "genre": "pop"
+        },
+        "newIndex": 1,
+        "type": "add"
+    },
+    "group": "pop"
 }
 */
-
 // Change title of 'Give Life Back to Music'
 songsTable.update(titles.result[1].id, 'title', 'Around the World')
 
 /*
 `titlesObserver` logs:
 {
-    kind: 'update',
-    row: { id: 'éÊ×DQ', title: 'Around the World' },
-    oldIndex: 1,
-    newIndex: 0, // Has moved before 'Beat It' alphabetically
-    oldValues: { title: 'Give Life Back to Music' },
-    type: 'update'
+    "kind": "update",
+    "row": { "id": "\u0006=÷FzÖÁ`", "title": "Around the World" },
+    "oldIndex": 1,
+    "newIndex": 0,
+    "oldValues": { "title": "Give Life Back to Music" },
+    "type": "update"
 }
 
 byGenre observer logs:
 {
-    kind: 'update',
-    row: { id: 'éÊ×DQ', title: 'Around the World', genre: 'pop' },
-    oldIndex: 0,
-    newIndex: 1, // Has moved reverse-alphabetically after 'Beat It'
-    oldValues: { title: 'Give Life Back to Music' },
-    type: 'update',
-    group: 'pop'
+    "change": {
+        "kind": "update",
+        "row": {
+            "id": "\u0006=÷FzÖÁ`",
+            "title": "Around the World",
+            "genre": "pop"
+        },
+        "oldIndex": 0,
+        "newIndex": 1,
+        "oldValues": { "title": "Give Life Back to Music" }
+    },
+    "type": "update",
+    "group": "pop"
 }
 */
 ```
@@ -212,7 +228,29 @@ For `count` queries without a group, the `Change` is simply either `1` or `-1`.
 <!---GroupedCountChange-->
 
 ```typescript
-
+{
+    kind: 'addGroup', 
+    group: Group,
+    result: number,
+    type: 'add' | 'update' 
+} |
+{
+    kind: 'removeGroup', 
+    group: Group,
+    result: number,
+    type: 'delete' | 'update' 
+} |
+{ 
+    kind: 'subquery',
+    group: Group, 
+    change: { 
+        delta: 1,
+        type: 'add' | 'update'
+    } | {
+        delta: -1,
+        type: 'delete' | 'update'
+    }
+}
 ```
 
 ### Example
@@ -225,15 +263,6 @@ const genreCounts = songsTable.count({ groupBy: 'genre' })
 
 popSongs.observe(change => console.log(change))
 genreCounts.observe(change => console.log(change))
-// stop docs CountObserve
-
-let popSongsChanges: QueryChange<typeof popSongs>[] = []
-popSongs.observe(change => popSongsChanges.push(change))
-
-let genreCountsChanges: QueryChange<typeof genreCounts>[] = []
-genreCounts.observe(change => genreCountsChanges.push(change))
-
-// start docs CountObserve
 
 // Remove 'Around the World'
 songsTable.delete(titles.result[0].id)
@@ -242,7 +271,7 @@ songsTable.delete(titles.result[0].id)
 `titlesObserver` logs:
 {
     "kind": "remove",
-    "row": { "id": "PÀSÙ·µ8", "title": "Around the World" },
+    "row": { "id": "\u0006=÷FzÖÁ`", "title": "Around the World" },
     "oldIndex": 0,
     "type": "delete"
 }
@@ -252,7 +281,7 @@ byGenre observer logs:
     "change": {
         "kind": "remove",
         "row": {
-            "id": "PÀSÙ·µ8",
+            "id": "\u0006=÷FzÖÁ`",
             "title": "Around the World",
             "genre": "pop"
         },
@@ -264,7 +293,11 @@ byGenre observer logs:
 
 popSongs observer logs: { "delta": -1, "type": "delete" }
 
-genreCounts observer logs: { "group": "pop", "change": { "delta": -1, "type": "delete" } }
+genreCounts observer logs: {
+    "kind": "subquery",
+    "group": "pop",
+    "change": { "delta": -1, "type": "delete" }
+}
 */
 ```
 
@@ -280,10 +313,6 @@ You must pass the same function that was passed to `observe`.
 
 ```typescript
 titles.unobserve(titlesObserver)
-// stop docs Unobserve
-
-const xtalId =
-// start docs Unobserve
 songsTable.insert({ title: 'Xtal', genre: 'electronic' })
 
 /*
@@ -293,7 +322,11 @@ byGenre observer logs:
 {
     "kind": "addGroup",
     "result": [
-        { "genre": "electronic", "id": "=»\u0015ÈLîqÝ", "title": "Xtal" }
+        {
+            "genre": "electronic",
+            "id": "\u001aA9\u0006)Ö\u0015",
+            "title": "Xtal"
+        }
     ],
     "type": "add",
     "group": "electronic"

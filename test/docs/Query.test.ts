@@ -161,7 +161,7 @@ test('Query.md', () => {
 	byGenre observer logs:
 	{{byGenre4}}
 	*/
-	// stop docs QueryObserveGroupBy2
+	// end docs QueryObserveGroupBy2
 
 	const titlesObserver2 = {
 		kind: 'add',
@@ -201,7 +201,7 @@ test('Query.md', () => {
 	byGenre observer logs:
 	{{byGenre5}}
 	*/
-	// stop docs QueryObserveGroupBy2
+	// end docs QueryObserveGroupBy2
 	const titlesObserver3 = {
 		kind: 'update',
 		row: { id: rowId, title: 'Around the World' },
@@ -239,13 +239,17 @@ test('Query.md', () => {
 
 	popSongs.observe(change => console.log(change))
 	genreCounts.observe(change => console.log(change))
-	// stop docs CountObserve
+	// end docs CountObserve
 	
 	let popSongsChanges: QueryChange<typeof popSongs>[] = []
 	popSongs.observe(change => popSongsChanges.push(change))
 
 	let genreCountsChanges: QueryChange<typeof genreCounts>[] = []
 	genreCounts.observe(change => genreCountsChanges.push(change))
+
+	// Should be assignable
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
+	const expected2: GroupedCountChange<string> = genreCountsChanges[0]
 
 	// start docs CountObserve
 	
@@ -284,7 +288,7 @@ test('Query.md', () => {
 
 	const expectedPopSongsChange = { delta: -1, type: 'delete' }
 
-	const expectedGenreCountsChange = { group: 'pop', change: { delta: -1, type: 'delete' } }
+	const expectedGenreCountsChange = { kind: 'subquery', group: 'pop', change: { delta: -1, type: 'delete' } }
 
 	assert.partialDeepStrictEqual(titlesChanges[0], expectedTitlesChange)
 	titlesChanges = []
@@ -302,7 +306,7 @@ test('Query.md', () => {
 
 	// start docs Unobserve
 	titles.unobserve(titlesObserver)
-	// stop docs Unobserve
+	// end docs Unobserve
 
 	const xtalId =
 	// start docs Unobserve
@@ -372,7 +376,6 @@ test('Query.md', () => {
 	There are 0 pop songs and 2 electronic songs
 	*/
 	// end docs Observer Ordering
-
 })
 
 type ExpectedChange<Result> =
@@ -398,3 +401,30 @@ type ExpectedChange<Result> =
     type: 'update'
 }
 // end docs QueryChange
+
+type GroupedCountChange<Group> = 
+// start docs GroupedCountChange
+{
+	kind: 'addGroup', 
+	group: Group,
+	result: number,
+	type: 'add' | 'update' 
+} |
+{
+	kind: 'removeGroup', 
+	group: Group,
+	result: number,
+	type: 'delete' | 'update' 
+} |
+{ 
+	kind: 'subquery',
+	group: Group, 
+	change: { 
+		delta: 1,
+		type: 'add' | 'update'
+	} | {
+		delta: -1,
+		type: 'delete' | 'update'
+	}
+}
+// end docs GroupedCountChange

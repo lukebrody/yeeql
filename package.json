@@ -1,6 +1,6 @@
 {
 	"name": "yeeql",
-	"version": "2.0.1",
+	"version": "2.0.2",
 	"description": "A SQL-like interface around Y.js",
 	"main": "dist/index.js",
 	"types": "dist/index.d.ts",
@@ -41,7 +41,7 @@
 		"tsc-alias": "^1.8.8",
 		"tsx": "^4.19.3",
 		"typescript": "^5.3.3",
-		"update-docs": "^1.0.0",
+		"update-docs": "^1.0.1",
 		"yjs": "^13.6.7"
 	},
 	"peerDependencies": {

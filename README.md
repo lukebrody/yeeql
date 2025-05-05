@@ -241,7 +241,7 @@ dinoTable.update(allosaurusId, 'genus', 'Allosaurus ❤️')
 
 # Correctness
 
-- [100% test coverage](coverage/index.html)
+- 100% test coverage
 - Predictable handling of Y.js transactions. (At the end of the transaction, all observers are called with a consistent view of all tables.)
 
 # Performance

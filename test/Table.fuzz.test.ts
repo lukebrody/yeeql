@@ -200,6 +200,25 @@ for (const seed of seeds) {
 			limit: 2,
 		})
 
+		const labelCounts = (row: { group: number }) =>
+			table.count({ groupBy: 'label', filter: { group: row.group } })
+		const byXCount = (
+			a: { labelCounts: { get(label: string): number }; order: number },
+			b: { labelCounts: { get(label: string): number }; order: number },
+		) => a.labelCounts.get('x') - b.labelCounts.get('x') || byOrder(a, b)
+		const sortedByGroupedSubquery = table.query({
+			select: ['id', 'order', 'group'],
+			subqueries: { labelCounts },
+			sort: byXCount,
+		})
+		const sortedByGroupedSubqueryWindow = table.query({
+			select: ['id', 'order', 'group'],
+			subqueries: { labelCounts },
+			sort: byXCount,
+			limit: 2,
+			offset: 1,
+		})
+
 		const replayed = [
 			linear,
 			ranged,
@@ -207,6 +226,8 @@ for (const seed of seeds) {
 			sortedBySubquery,
 			subqueryWindow,
 			sortedBySubqueryWindow,
+			sortedByGroupedSubquery,
+			sortedByGroupedSubqueryWindow,
 		].map((query) => ({ query, replayed: replay(query) }))
 		const checkReplayedGroups = [groupedWindows, groupedBySubquery].map(
 			replayGroups,
@@ -238,6 +259,11 @@ for (const seed of seeds) {
 					{ groupSize: sizeOf(b), order: b.order },
 				)
 			const all = () => true
+			const xCountOf = (row: FuzzRow) =>
+				rows.filter(({ group, label }) => group === row.group && label === 'x')
+					.length
+			const byExpectedXCount = (a: FuzzRow, b: FuzzRow) =>
+				xCountOf(a) - xCountOf(b) || byOrder(a, b)
 
 			assert.deepEqual(
 				ids(linear.result),
@@ -309,6 +335,15 @@ for (const seed of seeds) {
 					assert.equal(row.groupSize, sizeOf(row as FuzzRow))
 				}
 			}
+
+			assert.deepEqual(
+				ids(sortedByGroupedSubquery.result),
+				expected(rows, all, byExpectedXCount),
+			)
+			assert.deepEqual(
+				ids(sortedByGroupedSubqueryWindow.result),
+				expected(rows, all, byExpectedXCount).slice(1, 3),
+			)
 
 			const expectedGroupedBySubquery = new Map<string, UUID[]>()
 			for (const label of new Set(rows.map((row) => row.label))) {

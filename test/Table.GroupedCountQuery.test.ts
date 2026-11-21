@@ -249,3 +249,18 @@ test('grouped count delete change', () => {
 		},
 	])
 })
+
+test('a group excluded by a range filter on the groupBy column is empty', () => {
+	table.insert({ number: 0, string: 'a' })
+	const counts = table.count({
+		groupBy: 'string',
+		filter: { string: { gt: 'm' } },
+	})
+	const rows = table.query({
+		groupBy: 'string',
+		filter: { string: { gt: 'm' } },
+	})
+	assert.equal(counts.result.has('a'), false)
+	assert.equal(counts.result.get('a'), 0)
+	assert.equal(rows.result.get('a').length, 0)
+})

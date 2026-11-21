@@ -23,7 +23,6 @@ module.exports = {
 	plugins: ['react', '@typescript-eslint'],
 	ignorePatterns: ['dist/**/*'],
 	rules: {
-		indent: ['error', 'tab'],
 		'linebreak-style': ['error', 'unix'],
 		quotes: ['error', 'single'],
 		semi: ['error', 'never'],

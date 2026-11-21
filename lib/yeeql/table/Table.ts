@@ -39,6 +39,7 @@ import { LinearQueryWithSubqueriesImpl } from 'yeeql/query/implementation/Linear
 import { GroupedQueryImpl } from 'yeeql/query/implementation/GroupedQueryImpl'
 import { CountQueryImpl } from 'yeeql/query/implementation/CountQueryImpl'
 import { WindowedQueryImpl } from 'yeeql/query/implementation/WindowedQueryImpl'
+import { WindowWithSubqueriesImpl } from 'yeeql/query/implementation/WindowWithSubqueriesImpl'
 import { MinimalQueryChange, QueryInternal } from 'yeeql/query/QueryBase'
 
 /*
@@ -63,14 +64,16 @@ function getSortColumns<S extends TableSchema, Q extends SubqueryGenerators<S>>(
 	schema: S,
 	sort: Sort<S, Q>,
 	subqueries?: Q,
-): Set<keyof S> {
+): { columns: Set<keyof S>; readsSubqueries: boolean } {
 	const accessedKeys = new Set<keyof S>()
+	let readsSubqueries = false
 	const proxy = new Proxy({} as Row<S> & SubqueriesPrimitiveResults<S, Q>, {
 		get(_, p) {
 			if (Object.hasOwn(schema, p)) {
 				accessedKeys.add(p as keyof S)
 				return '0'
 			} else if (subqueries !== undefined && Object.hasOwn(subqueries, p)) {
+				readsSubqueries = true
 				return stubProxy
 			} else {
 				throw new Error(
@@ -82,7 +85,7 @@ function getSortColumns<S extends TableSchema, Q extends SubqueryGenerators<S>>(
 
 	sort(proxy, proxy)
 
-	return accessedKeys
+	return { columns: accessedKeys, readsSubqueries }
 }
 
 function makeSubqueriesProxy<S extends TableSchema>(
@@ -317,7 +320,10 @@ export class Table<S extends TableSchema> {
 		} else {
 			const result = makeQuery()
 			this.queryCache.get(key).get(sort).set(subqueries, new WeakRef(result))
-			if (!(result instanceof WindowedQueryImpl)) {
+			if (
+				!(result instanceof WindowedQueryImpl) &&
+				!(result instanceof WindowWithSubqueriesImpl)
+			) {
 				this.queryRegistry.register(result as QueryRegistryEntry<S>)
 			}
 			this.queryFinalizer.register(result, { key, sort, subqueries })
@@ -437,16 +443,24 @@ export class Table<S extends TableSchema> {
 			...Object.keys(filter),
 		])
 		this.validateRanges(filter)
+		for (const subqueryKey of Object.keys(subqueries ?? {})) {
+			if (Object.hasOwn(this.schema, subqueryKey)) {
+				throw new Error(
+					`key '${subqueryKey}' may not be reused for a subquery, since it's already in the schema`,
+				)
+			}
+		}
 		for (const [name, value] of Object.entries({ limit, offset })) {
 			if (value !== undefined && !(Number.isInteger(value) && value >= 0)) {
 				throw new Error(`'${name}' must be a non-negative integer`)
 			}
 		}
 
+		const sortReads = getSortColumns(this.schema, sort, subqueries)
 		const resolvedSelect = Array.from(
 			new Set([
 				...(select ?? Object.keys(this.schema)),
-				...getSortColumns(this.schema, sort, subqueries),
+				...sortReads.columns,
 				...getSubqueriesColumns(this.schema, subqueries),
 			]),
 		).sort() as unknown as ReadonlyArray<Select>
@@ -472,6 +486,40 @@ export class Table<S extends TableSchema> {
 			| GroupedQueryImpl<S, GroupBy, LinearQuery<S, Select, {}>>
 			| GroupedQueryImpl<S, GroupBy, LinearQuery<S, Select, Q>>
 		if (
+			groupBy === undefined &&
+			subqueries !== undefined &&
+			!sortReads.readsSubqueries &&
+			(limit !== undefined || offset !== undefined)
+		) {
+			return this.getCachedQuery(
+				{
+					key: stringifyKey({
+						filter,
+						resolvedSelect,
+						limit,
+						offset,
+						kind: 'window',
+					}),
+					sort,
+					subqueries,
+				},
+				() =>
+					new WindowWithSubqueriesImpl(
+						// An explicit `select` makes the sort throw if it reads a subquery the probe missed
+						this.query({
+							select: resolvedSelect,
+							filter,
+							sort: sort as Sort<S, {}>,
+							limit,
+							offset,
+						}) as LinearQuery<S, keyof S, {}> &
+							QueryInternal<QueryChange<LinearQuery<S, keyof S, {}>>>,
+						subqueries,
+						getSubqueriesDependencies(this.schema, subqueries),
+						filter,
+					),
+			)
+		} else if (
 			groupBy === undefined &&
 			(limit !== undefined || offset !== undefined)
 		) {
@@ -516,14 +564,6 @@ export class Table<S extends TableSchema> {
 						),
 				)
 			} else {
-				for (const subqueryKey of Object.keys(subqueries)) {
-					if (Object.hasOwn(this.schema, subqueryKey)) {
-						throw new Error(
-							`key '${subqueryKey}' may not be reused for a subquery, since it's already in the schema`,
-						)
-					}
-				}
-
 				result = this.getCachedQuery(
 					{
 						key: stringifyKey({

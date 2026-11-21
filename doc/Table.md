@@ -155,6 +155,8 @@ secondPage.result /* [
 
 With `groupBy`, `offset` and `limit` apply within each group.
 
+With `subqueries`, if `sort` doesn't read a subquery, yeeql only creates subqueries for the rows inside the window.
+
 ## `table.query({ select?, filter?, sort?, offset?, limit?, groupBy }): Query`
 
 Gets or creates a grouped query on the `table`.
@@ -271,7 +273,7 @@ Only the columns extending the Javascript primitive types can be used for `filte
 - yeeql does not monitor Y data types or other objects for deep changes.
 - Objects and Y data types are not generally equatable, especially different instances created over the network.
 
-yeeql finds the columns a `sort` comparator or subquery generator reads by calling it once with placeholder values. Read every column you need before branching on any value, so that the placeholder call sees it. A subquery generator, or a `sort` comparator on a query with a `select`, that later reads a column the placeholder call didn't is an error, unless the query filters that column to a single value. When the read happens while yeeql applies a change, the change and the rest of its transaction still apply, and the error is thrown afterward from the `insert`, `update`, `delete` or `transact` call that made it, or from `Y.applyUpdate` for a remote change. Until the code is fixed, the query may not update correctly when that column changes.
+yeeql finds the columns a `sort` comparator or subquery generator reads by calling it once with placeholder values. Read every column you need before branching on any value, so that the placeholder call sees it. A subquery generator, or a `sort` comparator on a query with a `select`, that later reads a column the placeholder call didn't is an error, as is a `sort` comparator on a query with `subqueries` and `limit` or `offset` that later reads a subquery the placeholder call didn't, unless the query filters that column to a single value. When the read happens while yeeql applies a change, the change and the rest of its transaction still apply, and the error is thrown afterward from the `insert`, `update`, `delete` or `transact` call that made it, or from `Y.applyUpdate` for a remote change. Until the code is fixed, the query may not update correctly when that column changes.
 
 ## Query Caching
 

@@ -203,6 +203,106 @@ test('window over subqueries', () => {
 	assert.deepEqual(replayed, query.result)
 })
 
+test('subqueries only for rows in the window', () => {
+	const tags = new Table(doc.getMap('tags') as Y.Map<Y.Map<unknown>>, {
+		id: new Field<UUID>(),
+		string: new Field<string>(),
+	})
+	const subqueryRows: number[] = []
+	const query = table.query({
+		select: ['number', 'string'],
+		subqueries: {
+			tagCount: (row) => {
+				const { string } = row
+				if (typeof row.number === 'number') {
+					subqueryRows.push(row.number)
+				}
+				return tags.count({ filter: { string } })
+			},
+		},
+		sort: byNumber,
+		limit: 2,
+	})
+	const { replayed, changes } = replay(query)
+
+	const ids = [0, 1, 2, 3].map((number) =>
+		table.insert({ number, string: `${number}` }),
+	)
+	assert.deepEqual(subqueryRows, [0, 1])
+	assert.deepEqual(
+		query.result.map(({ number, tagCount }) => ({ number, tagCount })),
+		[
+			{ number: 0, tagCount: 0 },
+			{ number: 1, tagCount: 0 },
+		],
+	)
+
+	changes.length = 0
+	tags.insert({ string: '1' })
+	tags.insert({ string: '3' })
+	assert.deepEqual(changes, [
+		{
+			kind: 'subquery',
+			row: query.result[1],
+			oldIndex: 1,
+			newIndex: 1,
+			key: 'tagCount',
+			change: { delta: 1, type: 'add' },
+			type: 'update',
+		},
+	])
+
+	changes.length = 0
+	table.update(ids[1], 'string', '3')
+	assert.deepEqual(changes, [
+		{
+			kind: 'update',
+			row: query.result[1],
+			oldIndex: 1,
+			newIndex: 1,
+			oldValues: { string: '1', tagCount: 1 },
+			type: 'update',
+		},
+	])
+
+	changes.length = 0
+	table.delete(ids[0])
+	assert.deepEqual(
+		changes.map(({ kind, type, row }) => ({ kind, type, number: row.number })),
+		[
+			{ kind: 'remove', type: 'delete', number: 0 },
+			{ kind: 'add', type: 'update', number: 2 },
+		],
+	)
+
+	table.update(ids[3], 'number', -1)
+	assert.deepEqual(
+		query.result.map(({ number, tagCount }) => ({ number, tagCount })),
+		[
+			{ number: -1, tagCount: 1 },
+			{ number: 1, tagCount: 1 },
+		],
+	)
+	assert.deepEqual(replayed, query.result)
+})
+
+test('a sort that skips reading a subquery during the probe throws', () => {
+	table.insert({ number: 0, string: '' })
+	table.insert({ number: 1, string: '' })
+	assert.throws(
+		() =>
+			table.query({
+				subqueries: {
+					sameString: ({ string }) => table.count({ filter: { string } }),
+				},
+				sort: (a, b) =>
+					a.number === b.number ? 0 : a.sameString - b.sameString,
+				limit: 1,
+			}),
+		/sort comparator read column 'sameString'/,
+	)
+})
+
 test('a dropped window stops observing', async () => {
 	const full = table.query({ sort: byNumber })
 	let window: typeof full | undefined = table.query({
@@ -211,12 +311,22 @@ test('a dropped window stops observing', async () => {
 	})
 	const weakWindow = new WeakRef(window)
 	window = undefined
+	let subqueryWindow: object | undefined = table.query({
+		subqueries: {
+			sameString: ({ string }) => table.count({ filter: { string } }),
+		},
+		sort: byNumber,
+		limit: 1,
+	})
+	const weakSubqueryWindow = new WeakRef(subqueryWindow)
+	subqueryWindow = undefined
 
 	await new Promise((resolve) => setTimeout(resolve, 10))
 	global.gc!()
 	await new Promise((resolve) => setTimeout(resolve, 10))
 
 	assert.equal(weakWindow.deref(), undefined)
+	assert.equal(weakSubqueryWindow.deref(), undefined)
 	table.insert({ number: 0, string: '' })
 	table.insert({ number: 1, string: '' })
 	assert.equal(full.result.length, 2)
@@ -225,8 +335,8 @@ test('a dropped window stops observing', async () => {
 test('random windows', () => {
 	const ids: UUID[] = []
 	const windows: {
-		query: LinearQuery<typeof schema, keyof typeof schema, {}>
-		full: LinearQuery<typeof schema, keyof typeof schema, {}>
+		query: { result: readonly unknown[] }
+		full: { result: readonly unknown[] }
 		offset: number
 		limit: number
 		replayed: unknown[]
@@ -245,6 +355,18 @@ test('random windows', () => {
 					offset,
 					limit,
 					replayed: replay(query).replayed,
+				})
+				const subqueries = {
+					sameNumber: ({ number }: { number: number }) =>
+						table.count({ filter: { number } }),
+				}
+				const subqueryWindow = table.query({ subqueries, sort, offset, limit })
+				windows.push({
+					query: subqueryWindow,
+					full: table.query({ subqueries, sort }),
+					offset,
+					limit,
+					replayed: replay(subqueryWindow).replayed,
 				})
 			}
 		}

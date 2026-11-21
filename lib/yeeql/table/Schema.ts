@@ -124,7 +124,7 @@ export function guardColumnReads<R extends object>(
 			if (
 				typeof key === 'string' &&
 				key !== 'id' &&
-				Object.hasOwn(target, key) &&
+				(Object.hasOwn(target, key) || !(key in target)) &&
 				// Rows only stay in the result while equality-filtered columns are unchanged
 				!(Object.hasOwn(filter, key) && !isRange(filter[key])) &&
 				!isAllowed(key)

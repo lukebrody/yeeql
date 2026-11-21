@@ -6,6 +6,7 @@ import assert from 'assert/strict'
 import { Change, LinearQuery } from 'yeeql/query/interface/LinearQuery'
 import { TableSchema } from 'yeeql/table/Schema'
 import { SubqueryGenerators } from 'yeeql/query/subquery'
+import { seededRandom } from 'test/random'
 
 const schema = {
 	id: new Field<UUID>(),
@@ -512,7 +513,7 @@ test('random windows', () => {
 		}
 	}
 
-	const randomInt = (max: number) => Math.floor(Math.random() * max)
+	const randomInt = seededRandom(1).int
 	const randomId = () => ids[randomInt(ids.length)]
 
 	for (let i = 0; i < 500; i++) {
@@ -545,4 +546,23 @@ test('random windows', () => {
 			assert.deepEqual(replayed, query.result)
 		}
 	}
+})
+
+test('a throwing observer does not stop later changes to the window', (t) => {
+	const reported = t.mock.method(globalThis, 'queueMicrotask', () => undefined)
+	table.insert({ number: 2, string: '' })
+	const query = table.query({ select: ['number'], sort: byNumber, limit: 1 })
+	query.observe((change) => {
+		if (change.kind === 'remove') {
+			throw new Error('remove')
+		}
+	})
+	const { replayed } = replay(query)
+
+	table.insert({ number: 1, string: '' })
+	assert.deepEqual(
+		replayed.map(({ number }) => number),
+		[1],
+	)
+	assert.equal(reported.mock.callCount(), 1)
 })

@@ -190,24 +190,26 @@ export class Table<S extends TableSchema> {
 
 		yTable.observeDeep((events: YEvent[]) => {
 			const runAfterTransaction: (() => void)[] = []
+			// Registered first, so changes made before a throw still notify
+			yTable.doc!.once('afterTransaction', () => {
+				runAfterTransaction.forEach((callback) => callback())
+			})
 
 			const update = (
 				query: QueryRegistryEntry<S>,
 				change: () => () => void,
 			) => {
 				// A query it depends on may have invalidated it earlier in this transaction
-				if (query.error === undefined) {
-					try {
-						runAfterTransaction.push(change())
-					} catch (error) {
-						queueMicrotask(() => {
-							throw error
-						})
-						runAfterTransaction.push(query.invalidate(error))
-					}
-				}
 				if (query.error !== undefined) {
-					this.queryRegistry.unregister(query)
+					return
+				}
+				try {
+					runAfterTransaction.push(change())
+				} catch (error) {
+					queueMicrotask(() => {
+						throw error
+					})
+					runAfterTransaction.push(query.invalidate(error))
 				}
 			}
 
@@ -287,10 +289,6 @@ export class Table<S extends TableSchema> {
 					}
 				}
 			}
-
-			yTable.doc!.once('afterTransaction', () => {
-				runAfterTransaction.forEach((callback) => callback())
-			})
 		})
 	}
 
@@ -322,6 +320,8 @@ export class Table<S extends TableSchema> {
 		({ key, sort, subqueries }) => {
 			const layerOne = this.queryCache.get(key)
 			const layerTwo = layerOne.get(sort)
+			// The entry may already hold a replacement query
+			if (layerTwo.get(subqueries)?.deref() !== undefined) return
 			layerTwo.delete(subqueries)
 			if (layerTwo.size === 0) {
 				layerOne.delete(sort)

@@ -345,9 +345,8 @@ test('Query.md', (t) => {
 		type: 'add',
 		group: 'electronic'
 	}
-	assert.equal(byGenreChanges.length, 2)
+	assert.equal(byGenreChanges.length, 1)
 	assert.partialDeepStrictEqual(byGenreChanges[0], byGenre6)
-	// 2nd change is a subquery thing, we can leave it out of the docs for brevity
 	byGenreChanges = []
 	docs.replaceToken('Unobserve', '{{byGenre6}}', byGenre6)
 
@@ -406,7 +405,7 @@ type ExpectedChange<Result> =
     row: Readonly<Result>, // The row after the update
     oldIndex: number,
     newIndex: number,
-    oldValues: Readonly<Partial<Result>> // Of the columns that changed, these are the old values
+    oldValues: Readonly<Partial<Result>> // Of the columns that changed, these are the old values. Empty when only a subquery change already reported moved the row
     type: 'update'
 } |
 {

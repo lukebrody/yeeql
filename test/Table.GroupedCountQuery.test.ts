@@ -207,18 +207,24 @@ test('grouped count query result', () => {
 		{
 			group: 1,
 			kind: 'addGroup',
-			result: 0,
-			type: 'update',
-		},
-		{
-			change: {
-				delta: 1,
-				type: 'update',
-			},
-			group: 1,
-			kind: 'subquery',
 			result: 1,
 			type: 'update',
+		},
+	])
+})
+
+test('grouped count added in a transaction counts its later rows in addGroup', () => {
+	doc.transact(() => {
+		table.insert({ number: 1, string: 'a' })
+		table.insert({ number: 1, string: 'a' })
+	})
+
+	assert.deepEqual(popChanges(), [
+		{
+			group: 1,
+			kind: 'addGroup',
+			result: 2,
+			type: 'add',
 		},
 	])
 })

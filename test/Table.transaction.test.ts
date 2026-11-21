@@ -142,3 +142,22 @@ test('transaction many updates', () => {
 		{ id: itemB, string: 'a', number: 4 },
 	])
 })
+
+test('a throwing observer does not stop observers of other tables', (t) => {
+	const reported = t.mock.method(globalThis, 'queueMicrotask', () => undefined)
+	table1.query({}).observe(() => {
+		throw new Error('table1')
+	})
+	let table2Notifications = 0
+	table2.query({}).observe(() => table2Notifications++)
+
+	doc.transact(() => {
+		table1.insert({ number: 1, string: 'a' })
+		table2.insert({ number: 2, string: 'b' })
+	})
+	assert.equal(table2Notifications, 1)
+	assert.equal(reported.mock.callCount(), 1)
+
+	doc.getMap('other').set('x', 1)
+	assert.equal(table2Notifications, 1)
+})

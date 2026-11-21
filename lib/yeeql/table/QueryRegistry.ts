@@ -212,10 +212,8 @@ export class QueryRegistry<S extends TableSchema> {
 	register(query: QueryRegistryEntry<S>): void {
 		insertIntoQueryTree(this.qt, this.fields, query)
 		this.finalizer.register(query, query.filter)
-	}
-
-	unregister(query: QueryRegistryEntry<S>): void {
-		deleteFromQueryTree(this.qt, this.fields, query.filter, query)
+		query.unregister = () =>
+			deleteFromQueryTree(this.qt, this.fields, query.filter, query)
 	}
 
 	queries(
@@ -233,6 +231,7 @@ export interface QueryRegistryEntry<S extends TableSchema> {
 	readonly filter: Readonly<Filter<S>> // Values that old or new need to match
 	readonly select: ReadonlySet<keyof S> // Other fields that we care about changing
 	readonly error: unknown
+	unregister: () => void
 
 	invalidate(error: unknown): () => void
 

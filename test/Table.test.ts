@@ -102,6 +102,16 @@ test('memory management', async () => {
 	assert.equal(weakQuery.deref(), undefined)
 })
 
+test('a collected query is not uncached after its replacement is cached', async () => {
+	const tick = () => new Promise((resolve) => setTimeout(resolve, 10))
+	;(() => table.count({ filter: { number: 1 } }))()
+	await tick()
+	global.gc!()
+	const q2 = table.count({ filter: { number: 1 } })
+	await tick()
+	assert.equal(table.count({ filter: { number: 1 } }), q2)
+})
+
 test('an undefined filter value is not the same as no filter', () => {
 	const optionalTable = new Table(
 		doc.getMap('optional') as Y.Map<Y.Map<unknown>>,
@@ -122,6 +132,44 @@ test('a NaN filter value matches NaN rows', () => {
 	assert.equal(count.result, 1)
 	table.insert({ number: NaN, string: 'c' })
 	assert.equal(count.result, 2)
+})
+
+test('a throwing observer does not stop observers of other queries', (t) => {
+	const reported = t.mock.method(globalThis, 'queueMicrotask', () => undefined)
+	const query = table.query({ filter: { number: 1 } })
+	const count = table.count({ filter: { number: 1 } })
+	query.observe(() => {
+		throw new Error('query observer')
+	})
+	let countNotifications = 0
+	count.observe(() => countNotifications++)
+
+	table.insert({ number: 1, string: 'a' })
+	assert.equal(count.result, 1)
+	assert.equal(countNotifications, 1)
+	assert.equal(reported.mock.callCount(), 1)
+	assert.throws(reported.mock.calls[0].arguments[0]!, /query observer/)
+})
+
+test('a throwing observer does not stop sibling observers', (t) => {
+	const reported = t.mock.method(globalThis, 'queueMicrotask', () => undefined)
+	const query = table.query({ filter: { number: 1 } })
+	const notified: string[] = []
+	query.observe(() => {
+		notified.push('first')
+		throw new Error('first')
+	})
+	query.observe(() => {
+		notified.push('second')
+		throw new Error('second')
+	})
+	query.observe(() => notified.push('third'))
+
+	table.insert({ number: 1, string: 'a' })
+	assert.deepEqual(notified, ['first', 'second', 'third'])
+	assert.equal(reported.mock.callCount(), 2)
+	assert.throws(reported.mock.calls[0].arguments[0]!, /first/)
+	assert.throws(reported.mock.calls[1].arguments[0]!, /second/)
 })
 
 test('inherited object properties are not columns', () => {

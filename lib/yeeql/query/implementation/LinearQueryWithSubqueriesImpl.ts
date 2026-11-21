@@ -1,5 +1,9 @@
 /* c8 ignore next */
-import { InternalChangeCallback, QueryBase } from 'yeeql/query/QueryBase'
+import {
+	InternalChangeCallback,
+	QueryBase,
+	QueryInternal,
+} from 'yeeql/query/QueryBase'
 import {
 	SubqueriesDependencies,
 	SubqueriesResults,
@@ -42,7 +46,8 @@ export class LinearQueryWithSubqueriesImpl<
 			subQueries,
 			subqueryDependencies,
 			filter,
-			(key, augmentedRow) => this.makeInternalCallback(key, augmentedRow),
+			(key, augmentedRow, subquery) =>
+				this.makeInternalCallback(key, augmentedRow, subquery),
 			(error) => this.invalidate(error),
 		)
 		for (const [, row] of items) {
@@ -84,6 +89,7 @@ export class LinearQueryWithSubqueriesImpl<
 	private makeInternalCallback<Key extends keyof Q>(
 		key: Key,
 		augmentedRow: (typeof this.result)[0],
+		subquery: QueryInternal<SubqueryChange<S, Q[Key]>>,
 	): InternalChangeCallback<SubqueryChange<S, Q[Key]>> {
 		return (ready) => {
 			this.staleRows.add(augmentedRow)
@@ -112,6 +118,23 @@ export class LinearQueryWithSubqueriesImpl<
 								? this.result.length
 								: this.result.indexOf(fresh[freshIndex + 1])
 						this.result.splice(insertedIndex, 0, augmentedRow)
+					}
+					// A nested sibling's change may have left this false
+					this.changeReported = true
+					if (!subquery.changeReported) {
+						if (insertedIndex === removedIndex) {
+							this.changeReported = false
+						} else {
+							// The subquery's change is already in an earlier one, so report only the move
+							return {
+								kind: 'update',
+								row: augmentedRow,
+								oldIndex: removedIndex,
+								newIndex: insertedIndex,
+								oldValues: {},
+								type: 'update',
+							}
+						}
 					}
 					return {
 						kind: 'subquery',

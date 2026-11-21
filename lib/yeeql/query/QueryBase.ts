@@ -28,6 +28,8 @@ export interface QueryInternal<Change> {
 		invalidated: InvalidatedCallback,
 	): void
 	internalUnobserve(callback: InternalChangeCallback<Change>): void
+	// After `ready()`: false if that change was folded into an earlier one, so observers weren't told
+	readonly changeReported: boolean
 }
 
 const dependencyInvalidated = Symbol()
@@ -35,8 +37,13 @@ const dependencyInvalidated = Symbol()
 export abstract class QueryBase<Change> implements QueryInternal<Change> {
 	version = 0
 
+	changeReported = true
+
 	// Set once this query is invalid
 	error: unknown = undefined
+
+	// The Table sets this when it registers the query
+	unregister = () => undefined
 
 	private readonly observers = new Set<
 		(change: Change | InvalidChange) => void
@@ -92,12 +99,14 @@ export abstract class QueryBase<Change> implements QueryInternal<Change> {
 		const internalObserverNotifications: (() => void)[] = []
 
 		let change: Change
+		let reported: boolean
 		let invalidation: (() => void) | undefined
 		const callObserver = () => {
 			const next = internalObservers.next()
 			if (next.done === undefined || next.done === false) {
 				internalObserverNotifications.push(next.value(callObserver))
 			} else {
+				this.changeReported = true
 				try {
 					change = doChange()
 				} catch (error) {
@@ -113,6 +122,7 @@ export abstract class QueryBase<Change> implements QueryInternal<Change> {
 					// Unwinds the internal observers waiting on `ready`, which are invalid now too
 					throw dependencyInvalidated
 				}
+				reported = this.changeReported
 				this.version++
 			}
 			return change
@@ -128,9 +138,24 @@ export abstract class QueryBase<Change> implements QueryInternal<Change> {
 		}
 
 		return () => {
-			this.observers.forEach((callback) => callback(change))
+			if (reported) {
+				this.notifyObservers(change)
+			}
 			internalObserverNotifications.forEach((notify) => notify())
 		}
+	}
+
+	private notifyObservers(change: Change | InvalidChange) {
+		this.observers.forEach((callback) => {
+			try {
+				callback(change)
+			} catch (error) {
+				// Throwing inside Yjs's afterTransaction would skip the remaining notifications
+				queueMicrotask(() => {
+					throw error
+				})
+			}
+		})
 	}
 
 	protected unobserveDependencies(): void {
@@ -149,13 +174,13 @@ export abstract class QueryBase<Change> implements QueryInternal<Change> {
 		Object.defineProperty(this, 'version', { get: throwError })
 		this.observe = throwError
 		this.unobserveDependencies()
+		this.unregister()
 		const notifications = Array.from(
 			this.internalObservers.values(),
 			(invalidated) => invalidated(error),
 		)
-		const change: InvalidChange = { kind: 'invalid', error, type: 'update' }
 		return () => {
-			this.observers.forEach((observer) => observer(change))
+			this.notifyObservers({ kind: 'invalid', error, type: 'update' })
 			notifications.forEach((notify) => notify())
 		}
 	}

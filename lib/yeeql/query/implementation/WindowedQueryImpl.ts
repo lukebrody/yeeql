@@ -114,6 +114,7 @@ export class WindowedQueryImpl<
 						.slice(0, next.indexOf(change.row))
 						.filter((row) => prevRows.has(row)).length
 					this.result.splice(newIndex, 0, change.row)
+					this.changeReported = this.query.changeReported
 					return { ...change, oldIndex, newIndex }
 				}),
 			)

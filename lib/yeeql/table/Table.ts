@@ -22,6 +22,7 @@ import {
 	Primitives,
 	Row,
 	TableSchema,
+	isRange,
 	schemaToDebugString,
 	stringifyKey,
 } from 'yeeql/table/Schema'
@@ -318,6 +319,20 @@ export class Table<S extends TableSchema> {
 		}
 	}
 
+	private validateRanges(filter: Filter<S>) {
+		for (const [column, range] of Object.entries(filter)) {
+			if (!isRange(range)) {
+				continue
+			}
+			if (range.gt !== undefined && range.gte !== undefined) {
+				throw new Error(`range on '${column}' can't have both 'gt' and 'gte'`)
+			}
+			if (range.lt !== undefined && range.lte !== undefined) {
+				throw new Error(`range on '${column}' can't have both 'lt' and 'lte'`)
+			}
+		}
+	}
+
 	query<Select extends keyof S>(_: {
 		select?: ReadonlyArray<Select>
 		filter?: Filter<S>
@@ -393,6 +408,7 @@ export class Table<S extends TableSchema> {
 			...(groupBy !== undefined ? [groupBy] : []),
 			...Object.keys(filter),
 		])
+		this.validateRanges(filter)
 
 		const resolvedSelect = Array.from(
 			new Set([
@@ -532,6 +548,7 @@ export class Table<S extends TableSchema> {
 			...(groupBy !== undefined ? [groupBy] : []),
 			...Object.keys(filter),
 		])
+		this.validateRanges(filter)
 
 		let result: CountQueryImpl<S> | GroupedQueryImpl<S, GroupBy, CountQuery>
 		if (groupBy === undefined) {
@@ -572,6 +589,8 @@ export class Table<S extends TableSchema> {
 		filter?: Filter<S>
 		subquery: (group: Row<Primitives<S>>[GroupBy]) => Q
 	}): GroupedQuery<S, GroupBy, Q> {
+		this.validateRanges(filter)
+
 		return this.getCachedQuery(
 			{
 				key: stringifyKey({ groupBy, filter, kind: 'groupBy' }),

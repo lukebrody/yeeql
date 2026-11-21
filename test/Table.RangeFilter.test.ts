@@ -173,10 +173,26 @@ test('bigint range filters', () => {
 test('invalid ranges are type errors', () => {
 	// @ts-expect-error no bounds
 	table.query({ filter: { number: {} } })
-	// @ts-expect-error redundant lower bounds
-	table.count({ filter: { number: { gt: 1, gte: 1 } } })
-	// @ts-expect-error redundant upper bounds
-	table.count({ filter: { number: { lt: 1, lte: 1 } } })
+	assert.throws(
+		// @ts-expect-error redundant lower bounds
+		() => table.count({ filter: { number: { gt: 1, gte: 1 } } }),
+		/can't have both 'gt' and 'gte'/,
+	)
+	assert.throws(
+		// @ts-expect-error redundant upper bounds
+		() => table.query({ filter: { number: { lt: 1, lte: 1 } } }),
+		/can't have both 'lt' and 'lte'/,
+	)
+	assert.throws(
+		() =>
+			table.groupBy({
+				groupBy: 'string',
+				// @ts-expect-error redundant upper bounds
+				filter: { number: { lt: 1, lte: 1 } },
+				subquery: () => table.count({}),
+			}),
+		/can't have both 'lt' and 'lte'/,
+	)
 	// @ts-expect-error mixed bound types
 	table.query({ filter: { mixed: { gt: 1, lt: 'a' } } })
 	// @ts-expect-error booleans can't be ranged

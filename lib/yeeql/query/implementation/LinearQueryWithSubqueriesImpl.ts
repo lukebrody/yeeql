@@ -55,8 +55,9 @@ export class LinearQueryWithSubqueriesImpl<
 			if (!matchesFilter(filter, row)) {
 				continue
 			}
-			this.addRow(row, 'add')
+			this.result.push(this.augmentRow(row))
 		}
+		this.result.sort(this.sort)
 		this.select = new Set(select)
 	}
 
@@ -82,7 +83,7 @@ export class LinearQueryWithSubqueriesImpl<
 
 	readonly result: (Row<S> & SubqueriesResults<S, Q>)[]
 
-	addRow(row: Row<S>, type: 'add' | 'update'): () => void {
+	private augmentRow(row: Row<S>): (typeof this.result)[0] {
 		const subQueries = {} as MapValue<typeof this.rowMap>['subQueries']
 		const augmentedRow = new Proxy(row, {
 			get(row, p) {
@@ -116,12 +117,16 @@ export class LinearQueryWithSubqueriesImpl<
 			query.internalObserve(callback)
 			subQueries[key] = { query, callback }
 		}
+		return augmentedRow
+	}
 
+	addRow(row: Row<S>, type: 'add' | 'update'): () => void {
+		const augmentedRow = this.augmentRow(row)
 		return this.notifyingObservers(() => {
 			const addedIndex = insertOrdered(this.result, augmentedRow, this.sort)
 			return {
 				kind: 'add',
-				row: this.rowMap.get(row)!.augmentedRow,
+				row: augmentedRow,
 				newIndex: addedIndex,
 				type,
 			}

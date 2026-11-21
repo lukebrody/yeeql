@@ -34,6 +34,7 @@ export class RowSubqueries<
 		private readonly makeCallback: <K extends keyof Q>(
 			key: K,
 			augmentedRow: AugmentedRow<S, Q>,
+			query: Subquery<S, Q, K>,
 		) => InternalChangeCallback<SubqueryChange<S, Q[K]>>,
 	) {}
 
@@ -86,7 +87,7 @@ export class RowSubqueries<
 
 		for (const key of Object.keys(this.generators) as (keyof Q)[]) {
 			const query = this.makeSubquery(key, row)
-			const callback = this.makeCallback(key, augmentedRow)
+			const callback = this.makeCallback(key, augmentedRow, query)
 			query.internalObserve(callback)
 			subqueries[key] = { query, callback }
 		}
@@ -131,7 +132,7 @@ export class RowSubqueries<
 			oldQuery.internalUnobserve(oldCallback)
 			augmentedOldValues[key] = oldQuery.result
 
-			const callback = this.makeCallback(key, augmentedRow)
+			const callback = this.makeCallback(key, augmentedRow, query)
 			query.internalObserve(callback)
 			subqueries[key] = { query, callback }
 		}

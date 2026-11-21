@@ -67,6 +67,34 @@ function replay(query: {
 	return replayed
 }
 
+// Returns a check that the replayed groups match the query's result
+function replayGroups(query: {
+	result: ReadonlyMap<unknown, readonly unknown[]>
+	observe(
+		observer: (change: {
+			kind: string
+			group: unknown
+			result: readonly unknown[]
+			change?: LinearChange
+		}) => void,
+	): void
+}) {
+	const copy = (groups: ReadonlyMap<unknown, readonly unknown[]>) =>
+		new Map(Array.from(groups, ([group, rows]) => [group, [...rows]]))
+	const replayed = copy(query.result)
+	query.observe((change) => {
+		if (change.kind === 'addGroup') {
+			assert(!replayed.has(change.group))
+			replayed.set(change.group, [...change.result])
+		} else if (change.kind === 'removeGroup') {
+			assert(replayed.delete(change.group))
+		} else {
+			applyChange(replayed.get(change.group)!, change.change!)
+		}
+	})
+	return () => assert.deepEqual(replayed, copy(query.result))
+}
+
 const ids = (rows: readonly { id: UUID }[]) => rows.map(({ id }) => id)
 
 for (const seed of seeds) {
@@ -180,6 +208,9 @@ for (const seed of seeds) {
 			subqueryWindow,
 			sortedBySubqueryWindow,
 		].map((query) => ({ query, replayed: replay(query) }))
+		const checkReplayedGroups = [groupedWindows, groupedBySubquery].map(
+			replayGroups,
+		)
 		let replayedNanCount = nanCount.result
 		nanCount.observe(({ delta }) => (replayedNanCount += delta))
 		const replayedGroupedCounts = new Map(groupedCounts.result)
@@ -303,6 +334,7 @@ for (const seed of seeds) {
 			for (const { query, replayed: rows } of replayed) {
 				assert.deepEqual(ids(rows as FuzzRow[]), ids(query.result))
 			}
+			checkReplayedGroups.forEach((checkReplayed) => checkReplayed())
 			assert.equal(replayedNanCount, nanCount.result)
 			assert.deepEqual(replayedGroupedCounts, new Map(groupedCounts.result))
 

@@ -1,9 +1,15 @@
 /* c8 ignore next */
 import { UUID } from 'common/UUID'
-import { insertOrdered, removeOrdered } from 'common/array'
+import { findOrdered, insertOrdered } from 'common/array'
 import { QueryBase } from 'yeeql/query/QueryBase'
 import { QueryRegistryEntry } from 'yeeql/table/QueryRegistry'
-import { TableSchema, Row, Filter, matchesFilter } from 'yeeql/table/Schema'
+import {
+	TableSchema,
+	Row,
+	Filter,
+	matchesFilter,
+	reportUserError,
+} from 'yeeql/table/Schema'
 import { LinearQuery, ResultRow } from 'yeeql/query/interface/LinearQuery'
 import { QueryChange } from 'yeeql/query/Query'
 
@@ -36,9 +42,18 @@ export class LinearQueryWithoutSubqueriesImpl<
 
 	readonly result: Row<S>[]
 
+	// Rows the sort threw on, which aren't in the result
+	private readonly missingRows = new Set<Row<S>>()
+
 	addRow(row: Row<S>, type: 'add' | 'update'): () => void {
 		return this.notifyingObservers(() => {
-			const addedIndex = insertOrdered(this.result, row, this.sort)
+			let addedIndex: number
+			try {
+				addedIndex = insertOrdered(this.result, row, this.sort)
+			} catch (error) {
+				this.missingRows.add(row)
+				throw error
+			}
 			return {
 				kind: 'add',
 				row,
@@ -49,8 +64,12 @@ export class LinearQueryWithoutSubqueriesImpl<
 	}
 
 	removeRow(row: Row<S>, type: 'delete' | 'update'): () => void {
+		if (this.missingRows.delete(row)) {
+			return () => undefined
+		}
+		const removedIndex = findOrdered(this.result, row, this.sort)
 		return this.notifyingObservers(() => {
-			const removedIndex = removeOrdered(this.result, row, this.sort)!.index
+			this.result.splice(removedIndex, 1)
 			return {
 				kind: 'remove',
 				row,
@@ -66,10 +85,22 @@ export class LinearQueryWithoutSubqueriesImpl<
 		newValues: Readonly<Partial<Row<S>>>,
 		patch: (row: Row<S>) => void,
 	): () => void {
-		return this.notifyingObservers(() => {
-			const removedIndex = removeOrdered(this.result, row, this.sort)!.index
+		if (this.missingRows.delete(row)) {
 			patch(row)
-			const addedIndex = insertOrdered(this.result, row, this.sort)
+			return this.addRow(row, 'update')
+		}
+		const removedIndex = findOrdered(this.result, row, this.sort)
+		return this.notifyingObservers(() => {
+			this.result.splice(removedIndex, 1)
+			patch(row)
+			let addedIndex: number
+			try {
+				addedIndex = insertOrdered(this.result, row, this.sort)
+			} catch (error) {
+				reportUserError(error)
+				this.missingRows.add(row)
+				return { kind: 'remove', row, oldIndex: removedIndex, type: 'update' }
+			}
 			return {
 				kind: 'update',
 				row: row,

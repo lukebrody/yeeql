@@ -6,7 +6,13 @@ import {
 	SubqueryChange,
 	SubqueryGenerators,
 } from 'yeeql/query/subquery'
-import { Filter, matchesFilter, Row, TableSchema } from 'yeeql/table/Schema'
+import {
+	Filter,
+	matchesFilter,
+	reportUserError,
+	Row,
+	TableSchema,
+} from 'yeeql/table/Schema'
 import {
 	LinearQuery,
 	Change,
@@ -14,7 +20,7 @@ import {
 } from 'yeeql/query/interface/LinearQuery'
 import { QueryRegistryEntry } from 'yeeql/table/QueryRegistry'
 import { UUID } from 'common/UUID'
-import { insertOrdered, removeOrdered } from 'common/array'
+import { findOrdered, insertOrdered } from 'common/array'
 import { RowSubqueries } from 'yeeql/query/implementation/RowSubqueries'
 
 export class LinearQueryWithSubqueriesImpl<
@@ -42,7 +48,8 @@ export class LinearQueryWithSubqueriesImpl<
 			subQueries,
 			subqueryDependencies,
 			filter,
-			(key, augmentedRow) => this.makeInternalCallback(key, augmentedRow),
+			(key, augmentedRow, row) =>
+				this.makeInternalCallback(key, augmentedRow, row),
 		)
 		for (const [, row] of items) {
 			if (!matchesFilter(filter, row)) {
@@ -63,7 +70,13 @@ export class LinearQueryWithSubqueriesImpl<
 	addRow(row: Row<S>, type: 'add' | 'update'): () => void {
 		const augmentedRow = this.rowSubqueries.add(row)
 		return this.notifyingObservers(() => {
-			const addedIndex = insertOrdered(this.result, augmentedRow, this.sort)
+			let addedIndex: number
+			try {
+				addedIndex = insertOrdered(this.result, augmentedRow, this.sort)
+			} catch (error) {
+				this.rowSubqueries.remove(row)
+				throw error
+			}
 			return {
 				kind: 'add',
 				row: augmentedRow,
@@ -79,6 +92,7 @@ export class LinearQueryWithSubqueriesImpl<
 	private makeInternalCallback<Key extends keyof Q>(
 		key: Key,
 		augmentedRow: (typeof this.result)[0],
+		row: Row<S>,
 	): InternalChangeCallback<SubqueryChange<S, Q[Key]>> {
 		return (ready) => {
 			this.staleRows.add(augmentedRow)
@@ -96,17 +110,34 @@ export class LinearQueryWithSubqueriesImpl<
 					/* c8 ignore stop */
 					this.result.splice(removedIndex, 1)
 					let insertedIndex: number
-					if (this.staleRows.size === 0) {
-						insertedIndex = insertOrdered(this.result, augmentedRow, this.sort)
-					} else {
-						// Binary search needs a sorted array, so search only the rows already in place
-						const fresh = this.result.filter((row) => !this.staleRows.has(row))
-						const freshIndex = insertOrdered(fresh, augmentedRow, this.sort)
-						insertedIndex =
-							freshIndex === fresh.length - 1
-								? this.result.length
-								: this.result.indexOf(fresh[freshIndex + 1])
-						this.result.splice(insertedIndex, 0, augmentedRow)
+					try {
+						if (this.staleRows.size === 0) {
+							insertedIndex = insertOrdered(
+								this.result,
+								augmentedRow,
+								this.sort,
+							)
+						} else {
+							// Binary search needs a sorted array, so search only the rows already in place
+							const fresh = this.result.filter(
+								(resultRow) => !this.staleRows.has(resultRow),
+							)
+							const freshIndex = insertOrdered(fresh, augmentedRow, this.sort)
+							insertedIndex =
+								freshIndex === fresh.length - 1
+									? this.result.length
+									: this.result.indexOf(fresh[freshIndex + 1])
+							this.result.splice(insertedIndex, 0, augmentedRow)
+						}
+					} catch (error) {
+						reportUserError(error)
+						this.rowSubqueries.remove(row)
+						return {
+							kind: 'remove',
+							row: augmentedRow,
+							oldIndex: removedIndex,
+							type: 'update',
+						}
 					}
 					return {
 						kind: 'subquery',
@@ -125,15 +156,18 @@ export class LinearQueryWithSubqueriesImpl<
 	}
 
 	removeRow(row: Row<S>, type: 'delete' | 'update'): () => void {
+		// Missing if user code threw while adding it
+		if (!this.rowSubqueries.has(row)) {
+			return () => undefined
+		}
+		const removedIndex = findOrdered(
+			this.result,
+			this.rowSubqueries.get(row),
+			this.sort,
+		)
 		return this.notifyingObservers(() => {
 			const augmentedRow = this.rowSubqueries.remove(row)
-
-			const removedIndex = removeOrdered(
-				this.result,
-				augmentedRow,
-				this.sort,
-			)!.index
-
+			this.result.splice(removedIndex, 1)
 			return {
 				kind: 'remove',
 				row: augmentedRow,
@@ -149,20 +183,32 @@ export class LinearQueryWithSubqueriesImpl<
 		newValues: Readonly<Partial<Row<S>>>,
 		patch: (row: Row<S>) => void,
 	): () => void {
+		if (!this.rowSubqueries.has(row)) {
+			patch(row)
+			return this.addRow(row, 'update')
+		}
+		const augmentedRow = this.rowSubqueries.get(row)
+		const removedIndex = findOrdered(this.result, augmentedRow, this.sort)
 		return this.notifyingObservers(() => {
-			const augmentedRow = this.rowSubqueries.get(row)
-
-			const removedIndex = removeOrdered(
-				this.result,
-				augmentedRow,
-				this.sort,
-			)!.index
+			this.result.splice(removedIndex, 1)
 
 			patch(row)
 
-			const augmentedOldValues = this.rowSubqueries.update(row, oldValues)
-
-			const addedIndex = insertOrdered(this.result, augmentedRow, this.sort)
+			let augmentedOldValues: Partial<Row<S> & SubqueriesResults<S, Q>>
+			let addedIndex: number
+			try {
+				augmentedOldValues = this.rowSubqueries.update(row, oldValues)
+				addedIndex = insertOrdered(this.result, augmentedRow, this.sort)
+			} catch (error) {
+				reportUserError(error)
+				this.rowSubqueries.remove(row)
+				return {
+					kind: 'remove',
+					row: augmentedRow,
+					oldIndex: removedIndex,
+					type: 'update',
+				}
+			}
 
 			return {
 				kind: 'update',

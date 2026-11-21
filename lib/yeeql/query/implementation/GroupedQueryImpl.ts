@@ -3,6 +3,7 @@ import {
 	Filter,
 	matchesFilter,
 	Primitives,
+	reportUserError,
 	Row,
 	TableSchema,
 } from 'yeeql/table/Schema'
@@ -144,8 +145,9 @@ export class GroupedQueryImpl<
 		} else {
 			this.rowCounts.set(group, rowCount)
 		}
-		if (rowCount + 1 === this.minRows) {
-			const query = this.queries.get(group)!
+		const query = this.queries.get(group)
+		// Missing if its subquery threw while adding it
+		if (rowCount + 1 === this.minRows && query !== undefined) {
 			return this.notifyingObservers(() => {
 				query.query.internalUnobserve(query.observer)
 				this.queries.delete(group)
@@ -174,7 +176,12 @@ export class GroupedQueryImpl<
 
 		const removeResult = this.removeRow(row, 'update')
 		patch(row)
-		const addResult = this.addRow(row, 'update')
+		let addResult: () => void = () => undefined
+		try {
+			addResult = this.addRow(row, 'update')
+		} catch (error) {
+			reportUserError(error)
+		}
 		return () => {
 			removeResult()
 			addResult()

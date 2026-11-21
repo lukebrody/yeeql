@@ -1,4 +1,6 @@
 /* c8 ignore next */
+import { reportUserError } from 'yeeql/table/Schema'
+
 function findIndex<T, I>(
 	sortedArray: readonly T[],
 	item: I,
@@ -41,17 +43,17 @@ export function insertOrdered<T>(
 	return index
 }
 
+// A sort is user code, so if it throws, report that and search linearly
 /* c8 ignore next */
-export function removeOrdered<T, I>(
-	sortedArray: T[],
-	item: I,
-	comparator: (a: I, b: T) => number,
-): { index: number; item: T } | undefined {
-	const index = getOrderedIndex(sortedArray, item, comparator)
-	if (index !== undefined && comparator(item, sortedArray[index]) === 0) {
-		return {
-			index,
-			item: sortedArray.splice(index, 1)[0],
-		}
+export function findOrdered<T>(
+	sortedArray: readonly T[],
+	item: T,
+	comparator: (a: T, b: T) => number,
+): number {
+	try {
+		return getOrderedIndex(sortedArray, item, comparator)!
+	} catch (error) {
+		reportUserError(error)
+		return sortedArray.indexOf(item)
 	}
 }

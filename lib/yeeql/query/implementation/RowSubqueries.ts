@@ -34,6 +34,7 @@ export class RowSubqueries<
 		private readonly makeCallback: <K extends keyof Q>(
 			key: K,
 			augmentedRow: AugmentedRow<S, Q>,
+			row: Row<S>,
 		) => InternalChangeCallback<SubqueryChange<S, Q[K]>>,
 	) {}
 
@@ -50,11 +51,19 @@ export class RowSubqueries<
 		}
 	>()
 
+	has(row: Row<S>): boolean {
+		return this.rows.has(row)
+	}
+
 	get(row: Row<S>): AugmentedRow<S, Q> {
 		return this.rows.get(row)!.augmentedRow
 	}
 
 	add(row: Row<S>): AugmentedRow<S, Q> {
+		// Generators are user code, so call them all before changing any state
+		const queries = (Object.keys(this.generators) as (keyof Q)[]).map(
+			(key) => [key, this.makeSubquery(key, row)] as const,
+		)
 		const subqueries = {} as {
 			[K in keyof Q]: {
 				query: Subquery<S, Q, K>
@@ -82,14 +91,12 @@ export class RowSubqueries<
 				return Reflect.getOwnPropertyDescriptor(row, p)
 			},
 		}) as AugmentedRow<S, Q>
-		this.rows.set(row, { augmentedRow, subqueries })
-
-		for (const key of Object.keys(this.generators) as (keyof Q)[]) {
-			const query = this.makeSubquery(key, row)
-			const callback = this.makeCallback(key, augmentedRow)
+		for (const [key, query] of queries) {
+			const callback = this.makeCallback(key, augmentedRow, row)
 			query.internalObserve(callback)
 			subqueries[key] = { query, callback }
 		}
+		this.rows.set(row, { augmentedRow, subqueries })
 		return augmentedRow
 	}
 
@@ -122,8 +129,11 @@ export class RowSubqueries<
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any -- TypeScript falls down here
 		const augmentedOldValues: any = { ...oldValues }
 
-		for (const key of subqueriesToUpdate) {
-			const query = this.makeSubquery(key, row)
+		const queries = Array.from(
+			subqueriesToUpdate,
+			(key) => [key, this.makeSubquery(key, row)] as const,
+		)
+		for (const [key, query] of queries) {
 			const { query: oldQuery, callback: oldCallback } = subqueries[key]
 			if (query === oldQuery) {
 				continue
@@ -131,7 +141,7 @@ export class RowSubqueries<
 			oldQuery.internalUnobserve(oldCallback)
 			augmentedOldValues[key] = oldQuery.result
 
-			const callback = this.makeCallback(key, augmentedRow)
+			const callback = this.makeCallback(key, augmentedRow, row)
 			query.internalObserve(callback)
 			subqueries[key] = { query, callback }
 		}

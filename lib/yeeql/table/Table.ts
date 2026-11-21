@@ -18,7 +18,7 @@ import {
 	addedOrRemoved,
 } from 'yeeql/table/QueryRegistry'
 import {
-	catchMissedReads,
+	catchUserErrors,
 	Filter,
 	makeReusedColumnGuard,
 	Primitives,
@@ -28,6 +28,7 @@ import {
 	rangeBounds,
 	schemaToDebugString,
 	stringifyKey,
+	reportUserError,
 } from 'yeeql/table/Schema'
 import {
 	SubqueriesDependencies,
@@ -185,16 +186,15 @@ export class Table<S extends TableSchema> {
 
 		yTable.observeDeep((events: YEvent[]) => {
 			const runAfterTransaction: (() => void)[] = []
-			const errors: unknown[] = []
-			const update = (change: () => () => void) => {
+			const applyQueryChange = (change: () => () => void) => {
 				try {
 					runAfterTransaction.push(change())
 				} catch (error) {
-					errors.push(error)
+					reportUserError(error)
 				}
 			}
 
-			const missedReadError = catchMissedReads(() => {
+			const userError = catchUserErrors(() => {
 				for (const event of events) {
 					if (event.target === yTable) {
 						for (const [key, { action }] of event.keys) {
@@ -203,7 +203,7 @@ export class Table<S extends TableSchema> {
 								this.items.delete(key as UUID)
 								const queries = this.queryRegistry.queries(row, addedOrRemoved)
 								queries.forEach((query) => {
-									update(() => query.removeRow(row, action))
+									applyQueryChange(() => query.removeRow(row, action))
 								})
 							}
 							if (action === 'add' || action === 'update') {
@@ -211,7 +211,7 @@ export class Table<S extends TableSchema> {
 								this.items.set(key as UUID, row)
 								const queries = this.queryRegistry.queries(row, addedOrRemoved)
 								queries.forEach((query) => {
-									update(() => query.addRow(row, action))
+									applyQueryChange(() => query.addRow(row, action))
 								})
 							}
 						}
@@ -250,21 +250,19 @@ export class Table<S extends TableSchema> {
 						unpatch(row)
 						for (const beforeQuery of beforeQueries) {
 							if (!afterQueries.has(beforeQuery)) {
-								update(() => beforeQuery.removeRow(row, 'update'))
+								applyQueryChange(() => beforeQuery.removeRow(row, 'update'))
 							}
 						}
 
 						patch(row)
 						for (const afterQuery of afterQueries) {
 							if (!beforeQueries.has(afterQuery)) {
-								update(() => afterQuery.addRow(row, 'update'))
+								applyQueryChange(() => afterQuery.addRow(row, 'update'))
 							} else {
 								unpatch(row)
-								update(() =>
+								applyQueryChange(() =>
 									afterQuery.changeRow(row, oldValues, newValues, patch),
 								)
-								// In case changeRow threw before patching
-								patch(row)
 							}
 						}
 					}
@@ -276,11 +274,8 @@ export class Table<S extends TableSchema> {
 			})
 
 			// Yjs still runs the other observers and finishes the transaction, then rethrows
-			if (errors.length > 0) {
-				throw errors[0]
-			}
-			if (missedReadError !== undefined) {
-				throw missedReadError
+			if (userError !== undefined) {
+				throw userError.thrown
 			}
 		})
 	}

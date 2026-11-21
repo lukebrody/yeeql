@@ -1,4 +1,4 @@
-import { UUID, Field, Table } from 'index'
+import { UUID, Field, Table, QueryChange } from 'index'
 import * as Y from 'yjs'
 
 import { beforeEach, test } from 'node:test'
@@ -201,7 +201,7 @@ test('a missed read reports after the rest of the transaction applies', () => {
 	assert.equal(table.count({ filter: { string: 'z' } }).result, 1)
 })
 
-test('a throwing sort reports after the rest of the transaction applies', () => {
+test('a sort that throws on a row leaves it out until the row changes', () => {
 	const count = table.count({})
 	let countChanges = 0
 	count.observe(() => countChanges++)
@@ -217,10 +217,11 @@ test('a throwing sort reports after the rest of the transaction applies', () => 
 	query.observe(() => queryChanges++)
 	table.insert({ number: 1, string: 'a' })
 
+	let boomId!: UUID
 	assert.throws(
 		() =>
 			doc.transact(() => {
-				table.insert({ number: 2, string: 'boom' })
+				boomId = table.insert({ number: 2, string: 'boom' })
 				table.insert({ number: 3, string: 'b' })
 			}),
 		/boom/,
@@ -232,12 +233,60 @@ test('a throwing sort reports after the rest of the transaction applies', () => 
 		[1, 3],
 	)
 	assert.equal(queryChanges, 2)
+
+	table.update(boomId, 'string', 'c')
+	assert.deepEqual(
+		query.result.map((row) => row.number),
+		[1, 2, 3],
+	)
+	table.delete(boomId)
+	table.insert({ number: 4, string: 'd' })
+	assert.deepEqual(
+		query.result.map((row) => row.number),
+		[1, 3, 4],
+	)
+	assert.equal(queryChanges, 5)
+	assert.equal(countChanges, 5)
 })
 
-test('a throwing subquery generator reports after the rest of the transaction applies', () => {
+test('a sort that throws while moving a row drops it from the result', () => {
+	let throwing = false
+	const query = table.query({
+		sort: (a, b) => {
+			if (throwing) {
+				throw new Error('boom')
+			}
+			return a.number - b.number
+		},
+	})
+	const changes: QueryChange<typeof query>[] = []
+	query.observe((change) => changes.push(change))
 	const count = table.count({})
 	let countChanges = 0
 	count.observe(() => countChanges++)
+	const aId = table.insert({ number: 1, string: 'a' })
+	table.insert({ number: 2, string: 'b' })
+
+	throwing = true
+	assert.throws(() => table.update(aId, 'number', 3), /boom/)
+	throwing = false
+	assert.deepEqual(
+		query.result.map((row) => row.string),
+		['b'],
+	)
+	assert.equal(changes.length, 3)
+	assert.equal(changes[2].kind, 'remove')
+
+	table.delete(aId)
+	table.insert({ number: 0, string: 'c' })
+	assert.deepEqual(
+		query.result.map((row) => row.string),
+		['c', 'b'],
+	)
+	assert.equal(countChanges, 4)
+})
+
+test('a subquery generator that throws on an update leaves its old subquery working', () => {
 	const query = table.query({
 		subqueries: {
 			same: (row) => {
@@ -249,41 +298,167 @@ test('a throwing subquery generator reports after the rest of the transaction ap
 		},
 		sort: (a, b) => a.number - b.number,
 	})
-	table.insert({ number: 1, string: 'a' })
+	const countA = table.count({ filter: { string: 'a' } })
+	let countAChanges = 0
+	countA.observe(() => countAChanges++)
+	const id = table.insert({ number: 1, string: 'a' })
 
+	assert.throws(() => table.update(id, 'string', 'boom'), /boom/)
+	table.insert({ number: 2, string: 'a' })
+	table.insert({ number: 3, string: 'a' })
+	assert.equal(countAChanges, 4)
+	assert.deepEqual(
+		query.result.map((row) => [row.number, row.same]),
+		[
+			[2, 2],
+			[3, 2],
+		],
+	)
+
+	table.update(id, 'string', 'a')
+	assert.deepEqual(
+		query.result.map((row) => [row.number, row.same]),
+		[
+			[1, 3],
+			[2, 3],
+			[3, 3],
+		],
+	)
+	table.delete(id)
+	assert.equal(countAChanges, 6)
+	assert.equal(query.result.length, 2)
+})
+
+test('a subquery generator that throws on an add leaves its other subqueries unobserved', () => {
+	const query = table.query({
+		subqueries: {
+			all: () => table.count({}),
+			same: (row) => {
+				if (row.string === 'boom') {
+					throw new Error('boom')
+				}
+				return table.count({ filter: { string: row.string } })
+			},
+		},
+	})
+	const all = table.count({})
+	let allChanges = 0
+	all.observe(() => allChanges++)
+
+	let boomId!: UUID
 	assert.throws(
 		() =>
 			doc.transact(() => {
-				table.insert({ number: 2, string: 'boom' })
-				table.insert({ number: 3, string: 'b' })
+				boomId = table.insert({ number: 1, string: 'boom' })
 			}),
 		/boom/,
 	)
-	assert.equal(count.result, 3)
-	assert.equal(countChanges, 3)
+	table.insert({ number: 2, string: 'a' })
+	table.insert({ number: 3, string: 'a' })
+	table.delete(boomId)
+	assert.equal(allChanges, 4)
 	assert.deepEqual(
-		query.result.map((row) => row.number),
-		[1, 3],
+		query.result.map((row) => row.all),
+		[2, 2],
 	)
 })
 
-test('a sort that throws on old values still leaves the row updated', () => {
-	let boom = false
-	table.query({
+test('a sort that throws on an add leaves the row unobserving its subqueries', () => {
+	const query = table.query({
+		subqueries: { all: () => table.count({}) },
 		sort: (a, b) => {
-			if (boom) {
+			if (a.string === 'boom' || b.string === 'boom') {
 				throw new Error('boom')
 			}
 			return a.number - b.number
 		},
 	})
-	const queryB = table.query({ filter: { string: 'b' } })
-	const id = table.insert({ number: 1, string: 'a' })
+	const all = table.count({})
+	let allChanges = 0
+	all.observe(() => allChanges++)
+	table.insert({ number: 1, string: 'a' })
 
-	boom = true
-	assert.throws(() => table.update(id, 'string', 'b'), /boom/)
-	assert.equal(queryB.result[0].string, 'b')
-	assert.equal(table.query({ filter: { id } }).result[0].string, 'b')
+	assert.throws(() => table.insert({ number: 2, string: 'boom' }), /boom/)
+	table.insert({ number: 3, string: 'b' })
+	assert.equal(allChanges, 3)
+	assert.deepEqual(
+		query.result.map((row) => [row.number, row.all]),
+		[
+			[1, 3],
+			[3, 3],
+		],
+	)
+})
+
+test('a sort that throws while a subquery changes drops the row', () => {
+	let throwing = false
+	const query = table.query({
+		filter: { number: 1 },
+		subqueries: {
+			same: (row) => table.count({ filter: { string: row.string } }),
+		},
+		sort: (a, b) => {
+			if (throwing) {
+				throw new Error('boom')
+			}
+			return a.same - b.same
+		},
+	})
+	const changes: QueryChange<typeof query>[] = []
+	query.observe((change) => changes.push(change))
+	const all = table.count({})
+	let allChanges = 0
+	all.observe(() => allChanges++)
+	const aId = table.insert({ number: 1, string: 'a' })
+	table.insert({ number: 1, string: 'b' })
+
+	throwing = true
+	assert.throws(() => table.insert({ number: 2, string: 'a' }), /boom/)
+	throwing = false
+	assert.deepEqual(
+		query.result.map((row) => row.string),
+		['b'],
+	)
+	assert.equal(changes.length, 3)
+	assert.equal(changes[2].kind, 'remove')
+
+	table.insert({ number: 3, string: 'a' })
+	table.update(aId, 'string', 'c')
+	assert.deepEqual(query.result.map((row) => row.string).sort(), ['b', 'c'])
+	assert.equal(allChanges, 4)
+})
+
+test('a groupBy subquery that throws leaves its group out', () => {
+	const query = table.groupBy({
+		groupBy: 'string',
+		subquery: (string) => {
+			if (string === 'boom') {
+				throw new Error('boom')
+			}
+			return table.count({ filter: { string } })
+		},
+	})
+	const all = table.count({})
+	let allChanges = 0
+	all.observe(() => allChanges++)
+	const aId = table.insert({ number: 1, string: 'a' })
+
+	let boomId!: UUID
+	assert.throws(
+		() =>
+			doc.transact(() => {
+				boomId = table.insert({ number: 2, string: 'boom' })
+			}),
+		/boom/,
+	)
+	assert.deepEqual([...query.result.keys()], ['a'])
+	table.delete(boomId)
+
+	assert.throws(() => table.update(aId, 'string', 'boom'), /boom/)
+	assert.deepEqual([...query.result.keys()], [])
+	table.update(aId, 'string', 'b')
+	assert.deepEqual([...query.result.keys()], ['b'])
+	assert.equal(allChanges, 3)
 })
 
 test('a missed read while creating a query throws immediately', () => {

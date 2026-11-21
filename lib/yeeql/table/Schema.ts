@@ -98,18 +98,27 @@ export function matchesFilter<S extends TableSchema>(
 	})
 }
 
-// Set while a Table handles Yjs events, so that a missed read doesn't stop the table partway through updating
-let missedReads: { error: Error | undefined } | undefined
+// Set while a Table handles Yjs events, so that an error from user code doesn't stop the table partway through updating
+let userErrors: { first: { thrown: unknown } | undefined } | undefined
 
-export function catchMissedReads(run: () => void): Error | undefined {
-	const outer = missedReads
-	missedReads = { error: undefined }
+export function catchUserErrors(
+	run: () => void,
+): { thrown: unknown } | undefined {
+	const outer = userErrors
+	userErrors = { first: undefined }
 	try {
 		run()
-		return missedReads.error
+		return userErrors.first
 	} finally {
-		missedReads = outer
+		userErrors = outer
 	}
+}
+
+export function reportUserError(thrown: unknown) {
+	if (userErrors === undefined) {
+		throw thrown
+	}
+	userErrors.first ??= { thrown }
 }
 
 // yeeql finds the columns a sort or subquery generator depends on by calling it once with placeholder values
@@ -178,13 +187,11 @@ function isGuarded(
 }
 
 function reportMissedRead(reader: string, column: string) {
-	const error = new Error(
-		`${reader} read column '${column}', which it didn't read when yeeql called it with placeholder values. Read each column before branching on any value.`,
+	reportUserError(
+		new Error(
+			`${reader} read column '${column}', which it didn't read when yeeql called it with placeholder values. Read each column before branching on any value.`,
+		),
 	)
-	if (missedReads === undefined) {
-		throw error
-	}
-	missedReads.error ??= error
 }
 
 /* v8 ignore start */

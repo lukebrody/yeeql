@@ -486,12 +486,14 @@ export class Table<S extends TableSchema> {
 				filter,
 				isWatched,
 				'the sort comparator',
+				{},
 			)
 			const guardB = makeReusedColumnGuard<Parameters<typeof sort>[0]>(
 				columns,
 				filter,
 				isWatched,
 				'the sort comparator',
+				{},
 			)
 			checkedSort = (a, b) => sort(guardA(a), guardB(b))
 		}
@@ -537,31 +539,35 @@ export class Table<S extends TableSchema> {
 								resolvedSelect as ReadonlyArray<string>,
 							)
 							const isWatched = (column: string) => watched.has(column)
-							const guard = (row: Row<S>) =>
-								guardColumnReads(
-									new Proxy(row, {
-										get: (target, key) =>
-											Object.hasOwn(subqueries, key)
-												? stubProxy
-												: Reflect.get(target, key),
-										getOwnPropertyDescriptor: (target, key) =>
-											Object.hasOwn(subqueries, key)
-												? {
-														configurable: true,
-														enumerable: true,
-														value: stubProxy,
-												  }
-												: Reflect.getOwnPropertyDescriptor(target, key),
-									}),
-									filter,
-									isWatched,
-									'the sort comparator',
-								) as Parameters<typeof sort>[0]
+							const subqueryKeys = Object.keys(subqueries)
+							const columns = [...Object.keys(this.schema), ...subqueryKeys]
+							const stubs = Object.fromEntries(
+								subqueryKeys.map((key) => [key, stubProxy]),
+							)
+							const guardA = makeReusedColumnGuard<Row<S>>(
+								columns,
+								filter,
+								isWatched,
+								'the sort comparator',
+								stubs,
+							)
+							const guardB = makeReusedColumnGuard<Row<S>>(
+								columns,
+								filter,
+								isWatched,
+								'the sort comparator',
+								stubs,
+							)
 							return new LinearQueryWithoutSubqueriesImpl<S, keyof S>(
 								this.items,
 								resolvedSelect,
 								filter,
-								makeTiebrokenIdSort((a, b) => sort(guard(a), guard(b))),
+								makeTiebrokenIdSort((a, b) =>
+									sort(
+										guardA(a) as Parameters<typeof sort>[0],
+										guardB(b) as Parameters<typeof sort>[0],
+									),
+								),
 							)
 						},
 					)

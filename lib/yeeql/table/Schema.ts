@@ -139,20 +139,23 @@ export function makeReusedColumnGuard<R extends object>(
 	filter: Readonly<Record<string, unknown>>,
 	isAllowed: (column: string) => boolean,
 	reader: string,
+	stubs: Readonly<Record<string, unknown>>,
 ): (row: R) => R {
 	let current: Record<string, unknown> = {}
 	const view = {}
 	for (const column of columns) {
+		const stubbed = Object.hasOwn(stubs, column)
+		const read = stubbed ? () => stubs[column] : () => current[column]
 		Object.defineProperty(view, column, {
 			enumerable: true,
 			get: isGuarded(column, filter, isAllowed)
 				? () => {
-						if (Object.hasOwn(current, column)) {
+						if (stubbed || Object.hasOwn(current, column)) {
 							reportMissedRead(reader, column)
 						}
-						return current[column]
+						return read()
 				  }
-				: () => current[column],
+				: read,
 		})
 	}
 	return (row) => {

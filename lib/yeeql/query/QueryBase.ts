@@ -87,8 +87,17 @@ export abstract class QueryBase<Change> implements QueryInternal<Change> {
 		callObserver()
 
 		return () => {
-			this.observers.forEach((callback) => callback(change))
-			internalObserverNotifications.forEach((notify) => notify())
+			let error: { thrown: unknown } | undefined
+			const call = (notify: () => void) => {
+				try {
+					notify()
+				} catch (thrown) {
+					if (error === undefined) error = { thrown }
+				}
+			}
+			this.observers.forEach((callback) => call(() => callback(change)))
+			internalObserverNotifications.forEach(call)
+			if (error !== undefined) throw error.thrown
 		}
 	}
 	/* c8 ignore next */

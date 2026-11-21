@@ -124,6 +124,43 @@ test('a NaN filter value matches NaN rows', () => {
 	assert.equal(count.result, 2)
 })
 
+test('a throwing observer does not stop observers of other queries', () => {
+	const query = table.query({ filter: { number: 1 } })
+	const count = table.count({ filter: { number: 1 } })
+	query.observe(() => {
+		throw new Error('query observer')
+	})
+	count.observe(() => {
+		throw new Error('count observer')
+	})
+	let countNotifications = 0
+	count.observe(() => countNotifications++)
+
+	assert.throws(
+		() => table.insert({ number: 1, string: 'a' }),
+		/query observer/,
+	)
+	assert.equal(count.result, 1)
+	assert.equal(countNotifications, 1)
+})
+
+test('a throwing observer does not stop sibling observers', () => {
+	const query = table.query({ filter: { number: 1 } })
+	const notified: string[] = []
+	query.observe(() => {
+		notified.push('first')
+		throw new Error('first')
+	})
+	query.observe(() => {
+		notified.push('second')
+		throw new Error('second')
+	})
+	query.observe(() => notified.push('third'))
+
+	assert.throws(() => table.insert({ number: 1, string: 'a' }), /first/)
+	assert.deepEqual(notified, ['first', 'second', 'third'])
+})
+
 test('inherited object properties are not columns', () => {
 	assert.throws(
 		// @ts-expect-error not a column

@@ -4,6 +4,9 @@ import * as Y from 'yjs'
 import { beforeEach, test, mock } from 'node:test'
 import assert from 'assert/strict'
 import { LinearQuery } from 'yeeql/query/interface/LinearQuery'
+import { TableSchema } from 'yeeql/table/Schema'
+import { SubqueryGenerators } from 'yeeql/query/subquery'
+import { compareStrings } from 'common/string'
 
 const child = {
 	id: new Field<UUID>(),
@@ -818,3 +821,79 @@ test('rows kept by a subquery generator are unguarded after it returns', () => {
 	children.insert({ parentId: UUID.create(), order: 3 })
 	assert.equal(kept?.order, 3)
 })
+
+function replay<
+	S extends TableSchema,
+	Select extends keyof S,
+	Q extends SubqueryGenerators<S>,
+>(query: LinearQuery<S, Select, Q>) {
+	const replayed = [...query.result]
+	query.observe((change) => {
+		if (change.kind !== 'add') {
+			assert.equal(replayed[change.oldIndex], change.row)
+			replayed.splice(change.oldIndex, 1)
+		}
+		if (change.kind !== 'remove') {
+			replayed.splice(change.newIndex, 0, change.row)
+		}
+	})
+	return replayed
+}
+
+test('rows sharing a subquery get replayable changes', () => {
+	const query = parents.query({
+		subqueries: {
+			parentCount: () => parents.count({}),
+		},
+		sort: (a, b) => a.order - b.order,
+	})
+	const replayed = replay(query)
+	parents.insert({ order: 0 })
+	parents.insert({ order: 1 })
+	parents.insert({ order: 2 })
+	assert.deepEqual(replayed, query.result)
+})
+
+for (const sortBySubquery of [false, true]) {
+	test(`random changes replay with sortBySubquery=${sortBySubquery}`, () => {
+		const query = parents.query({
+			subqueries: {
+				childCount: ({ id }) => children.count({ filter: { parentId: id } }),
+				sameOrder: ({ order }) => parents.count({ filter: { order } }),
+			},
+			sort: sortBySubquery
+				? (a, b) => a.sameOrder - b.sameOrder
+				: (a, b) => a.order - b.order,
+		})
+		const replayed = replay(query)
+
+		const parentIds: UUID[] = []
+		const randomInt = (max: number) => Math.floor(Math.random() * max)
+		const randomParentId = () => parentIds[randomInt(parentIds.length)]
+		for (let i = 0; i < 300; i++) {
+			doc.transact(() => {
+				for (let j = 0; j < 1 + randomInt(3); j++) {
+					const action = randomInt(4)
+					if (action === 0 || parentIds.length === 0) {
+						parentIds.push(parents.insert({ order: randomInt(5) }))
+					} else if (action === 1) {
+						const id = randomParentId()
+						parents.delete(id)
+						parentIds.splice(parentIds.indexOf(id), 1)
+					} else if (action === 2) {
+						parents.update(randomParentId(), 'order', randomInt(5))
+					} else {
+						children.insert({ parentId: randomParentId(), order: 0 })
+					}
+				}
+			})
+			assert.deepEqual(replayed, query.result)
+			const sorted = [...query.result].sort(
+				(a, b) =>
+					(sortBySubquery ? a.sameOrder - b.sameOrder : a.order - b.order) ||
+					compareStrings(a.id, b.id),
+			)
+			assert.deepEqual(query.result, sorted)
+		}
+	})
+}

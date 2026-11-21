@@ -78,12 +78,12 @@ export class LinearQueryWithSubqueriesImpl<
 			}
 		})
 		return () => {
-			this.rowsReportedThisTransaction.delete(augmentedRow)
+			this.rowsReportedThisTransaction.clear()
 			notify()
 		}
 	}
 
-	// Rows whose live subquery results are in a change this transaction, so later subquery changes are already in it
+	// Rows already reported with their live subquery results
 	private readonly rowsReportedThisTransaction = new Set<
 		(typeof this.result)[0]
 	>()
@@ -156,7 +156,7 @@ export class LinearQueryWithSubqueriesImpl<
 					}
 				})
 				return () => {
-					this.rowsReportedThisTransaction.delete(augmentedRow)
+					this.rowsReportedThisTransaction.clear()
 					notify()
 				}
 			} finally {
@@ -215,7 +215,7 @@ export class LinearQueryWithSubqueriesImpl<
 			}
 		})
 		return () => {
-			this.rowsReportedThisTransaction.delete(augmentedRow)
+			this.rowsReportedThisTransaction.clear()
 			notify()
 		}
 	}

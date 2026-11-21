@@ -945,7 +945,10 @@ const siblingCount = (row: { parentId: UUID }) =>
 	children.count({ filter: { parentId: row.parentId } })
 
 test('row added in a transaction reports its later count changes in its add', () => {
-	const query = children.query({ subqueries: { siblings: siblingCount } })
+	const query = children.query({
+		subqueries: { siblings: siblingCount },
+		sort: (a, b) => a.order - b.order,
+	})
 	const changes: unknown[] = []
 	query.observe((change) => changes.push(change.kind))
 	const checkReplayed = replayWithSubqueries(query, child)
@@ -965,6 +968,7 @@ test('row added in a transaction reports its later linear subquery changes in it
 			siblings: (row) =>
 				children.query({ select: ['id'], filter: { parentId: row.parentId } }),
 		},
+		sort: (a, b) => a.order - b.order,
 	})
 	const checkReplayed = replayWithSubqueries(query, child)
 
@@ -997,7 +1001,10 @@ test('row added in a transaction and moved by its subquery reports the move', ()
 })
 
 test('row added and removed in a transaction', () => {
-	const query = children.query({ subqueries: { siblings: siblingCount } })
+	const query = children.query({
+		subqueries: { siblings: siblingCount },
+		sort: (a, b) => a.order - b.order,
+	})
 	const checkReplayed = replayWithSubqueries(query, child)
 
 	const parentId = UUID.create()
@@ -1033,7 +1040,10 @@ test('rows sharing a subquery with an existing row report only its change', () =
 })
 
 test('row updated in a transaction reports its new subquery changes in its update', () => {
-	const query = children.query({ subqueries: { siblings: siblingCount } })
+	const query = children.query({
+		subqueries: { siblings: siblingCount },
+		sort: (a, b) => a.order - b.order,
+	})
 	const id = children.insert({ parentId: UUID.create(), order: 0 })
 	const checkReplayed = replayWithSubqueries(query, child)
 

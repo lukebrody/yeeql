@@ -228,15 +228,6 @@ for (const seed of seeds) {
 			limit: 3,
 			offset: 1,
 		})
-		const checkReplayedSubqueries = [
-			sortedBySubquery,
-			subqueryWindow,
-			sortedBySubqueryWindow,
-			groupedBySubquery,
-			withGroupedSubquery,
-			windowWithGroupedSubquery,
-			sortedByCountWindow,
-		].map((query) => replayWithSubqueries(query, schema))
 
 		const labelCounts = (row: { group: number }) =>
 			table.count({ groupBy: 'label', filter: { group: row.group } })
@@ -256,6 +247,17 @@ for (const seed of seeds) {
 			limit: 2,
 			offset: 1,
 		})
+		const checkReplayedSubqueries = [
+			sortedBySubquery,
+			subqueryWindow,
+			sortedBySubqueryWindow,
+			groupedBySubquery,
+			withGroupedSubquery,
+			windowWithGroupedSubquery,
+			sortedByCountWindow,
+			sortedByGroupedSubquery,
+			sortedByGroupedSubqueryWindow,
+		].map((query) => replayWithSubqueries(query, schema))
 
 		const replayed = [
 			linear,

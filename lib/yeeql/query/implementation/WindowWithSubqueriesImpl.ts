@@ -76,7 +76,6 @@ export class WindowWithSubqueriesImpl<
 					}
 				}
 			})
-			// Notifications run after the whole transaction
 			return () => {
 				this.rowsReportedThisTransaction.clear()
 				notify()
@@ -84,7 +83,7 @@ export class WindowWithSubqueriesImpl<
 		})
 	}
 
-	// Rows whose live subquery results are in a change this transaction, so later subquery changes are already in it
+	// Rows already reported with their live subquery results
 	private readonly rowsReportedThisTransaction = new Set<
 		(typeof this.result)[0]
 	>()

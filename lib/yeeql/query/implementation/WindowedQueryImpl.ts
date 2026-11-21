@@ -141,14 +141,16 @@ export class WindowedQueryImpl<
 								: 'update',
 					}
 				}),
-				() => this.rowsAddedThisTransaction.delete(row),
 			)
 		})
 
-		return () => notifications.forEach((notify) => notify())
+		return () => {
+			this.rowsAddedThisTransaction.clear()
+			notifications.forEach((notify) => notify())
+		}
 	}
 
-	// Their live subquery results are in the `add`, so later subquery changes are already in it
+	// Their `add` has their live subquery results
 	private readonly rowsAddedThisTransaction = new Set<ResultRow<S, Select, Q>>()
 	/* c8 ignore next */
 }

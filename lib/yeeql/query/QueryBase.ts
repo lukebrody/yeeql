@@ -1,4 +1,6 @@
 /* c8 ignore next */
+import { InvalidChange } from 'yeeql/query/Query'
+
 export interface MinimalQueryChange {
 	type: 'add' | 'update' | 'delete'
 }
@@ -10,6 +12,8 @@ export interface MinimalQueryChange {
  * 4. Return a changes callback as part of the dependent's change callback.
  */
 export type InternalChangeCallback<Change> = (ready: () => Change) => () => void
+// Invalidates the observer when the query it observes becomes invalid
+export type InvalidatedCallback = (error: unknown) => () => void
 export interface QueryInternal<Change> {
 	/**
 	 * Observers here are called while the query is updating during a transaction.
@@ -19,28 +23,43 @@ export interface QueryInternal<Change> {
 	 *
 	 * Call the returned function to remove
 	 */
-	internalObserve(callback: InternalChangeCallback<Change>): void
+	internalObserve(
+		callback: InternalChangeCallback<Change>,
+		invalidated: InvalidatedCallback,
+	): void
 	internalUnobserve(callback: InternalChangeCallback<Change>): void
 }
+
+const dependencyInvalidated = Symbol()
 
 export abstract class QueryBase<Change> implements QueryInternal<Change> {
 	version = 0
 
-	private readonly observers = new Set<(change: Change) => void>()
+	// Set once this query is invalid
+	error: unknown = undefined
 
-	observe(observer: (change: Change) => void): void {
+	private readonly observers = new Set<
+		(change: Change | InvalidChange) => void
+	>()
+
+	observe(observer: (change: Change | InvalidChange) => void): void {
 		this.observers.add(observer)
 	}
 
-	unobserve(observer: (change: Change) => void): void {
+	unobserve(observer: (change: Change | InvalidChange) => void): void {
 		this.observers.delete(observer)
 	}
 
-	private readonly internalObservers: Set<InternalChangeCallback<Change>> =
-		new Set()
+	private readonly internalObservers = new Map<
+		InternalChangeCallback<Change>,
+		InvalidatedCallback
+	>()
 
-	internalObserve(callback: InternalChangeCallback<Change>): void {
-		this.internalObservers.add(callback)
+	internalObserve(
+		callback: InternalChangeCallback<Change>,
+		invalidated: InvalidatedCallback,
+	): void {
+		this.internalObservers.set(callback, invalidated)
 	}
 
 	internalUnobserve(callback: InternalChangeCallback<Change>): void {
@@ -69,26 +88,75 @@ export abstract class QueryBase<Change> implements QueryInternal<Change> {
 	 * @returns a function that sends notifications to observers
 	 */
 	protected notifyingObservers(doChange: () => Change): () => void {
-		const internalObservers = this.internalObservers.values()
+		const internalObservers = this.internalObservers.keys()
 		const internalObserverNotifications: (() => void)[] = []
 
 		let change: Change
+		let invalidation: (() => void) | undefined
 		const callObserver = () => {
 			const next = internalObservers.next()
 			if (next.done === undefined || next.done === false) {
 				internalObserverNotifications.push(next.value(callObserver))
 			} else {
-				change = doChange()
+				try {
+					change = doChange()
+				} catch (error) {
+					if (error === dependencyInvalidated) {
+						throw error
+					}
+					if (this.error === undefined) {
+						queueMicrotask(() => {
+							throw error
+						})
+					}
+					invalidation = this.invalidate(error)
+					// Unwinds the internal observers waiting on `ready`, which are invalid now too
+					throw dependencyInvalidated
+				}
 				this.version++
 			}
 			return change
 		}
 
-		callObserver()
+		try {
+			callObserver()
+		} catch (error) {
+			if (invalidation === undefined) {
+				throw error
+			}
+			return invalidation
+		}
 
 		return () => {
 			this.observers.forEach((callback) => callback(change))
 			internalObserverNotifications.forEach((notify) => notify())
+		}
+	}
+
+	protected unobserveDependencies(): void {
+		// Overridden by queries that observe other queries
+	}
+
+	invalidate(error: unknown): () => void {
+		if (this.error !== undefined) {
+			return () => undefined
+		}
+		this.error = error
+		const throwError = () => {
+			throw error
+		}
+		Object.defineProperty(this, 'result', { get: throwError })
+		Object.defineProperty(this, 'version', { get: throwError })
+		this.observe = throwError
+		this.unobserveDependencies()
+		const notifications = Array.from(
+			this.internalObservers.values(),
+			(invalidated) => invalidated(error),
+		)
+		const change: InvalidChange = { kind: 'invalid', error, type: 'update' }
+		return () => {
+			this.observers.forEach((observer) => observer(change))
+			notifications.forEach((notify) => notify())
 		}
 	}
 	/* c8 ignore next */

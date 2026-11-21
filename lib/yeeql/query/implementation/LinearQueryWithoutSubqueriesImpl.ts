@@ -4,14 +4,17 @@ import { insertOrdered, removeOrdered } from 'common/array'
 import { QueryBase } from 'yeeql/query/QueryBase'
 import { QueryRegistryEntry } from 'yeeql/table/QueryRegistry'
 import { TableSchema, Row, Filter, matchesFilter } from 'yeeql/table/Schema'
-import { LinearQuery, ResultRow } from 'yeeql/query/interface/LinearQuery'
-import { QueryChange } from 'yeeql/query/Query'
+import {
+	Change,
+	LinearQuery,
+	ResultRow,
+} from 'yeeql/query/interface/LinearQuery'
 
 export class LinearQueryWithoutSubqueriesImpl<
 		S extends TableSchema,
 		Select extends keyof S,
 	>
-	extends QueryBase<QueryChange<LinearQuery<S, Select, {}>>>
+	extends QueryBase<Change<S, Select, {}>>
 	implements QueryRegistryEntry<S>, LinearQuery<S, Select, {}>
 {
 	constructor(

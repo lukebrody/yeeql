@@ -98,20 +98,6 @@ export function matchesFilter<S extends TableSchema>(
 	})
 }
 
-// Set while a Table handles Yjs events, so that a missed read doesn't stop the table partway through updating
-let missedReads: { error: Error | undefined } | undefined
-
-export function catchMissedReads(run: () => void): Error | undefined {
-	const outer = missedReads
-	missedReads = { error: undefined }
-	try {
-		run()
-		return missedReads.error
-	} finally {
-		missedReads = outer
-	}
-}
-
 // yeeql finds the columns a sort or subquery generator depends on by calling it once with placeholder values
 export function guardColumnReads<R extends object>(
 	row: R,
@@ -139,23 +125,15 @@ export function makeReusedColumnGuard<R extends object, Guarded = R>(
 	filter: Readonly<Record<string, unknown>>,
 	isAllowed: (column: string) => boolean,
 	reader: string,
-	stubs: Readonly<Record<string, unknown>>,
 ): (row: R) => Guarded {
 	let current: Record<string, unknown> = {}
 	const view = {}
 	for (const column of columns) {
-		const stubbed = Object.hasOwn(stubs, column)
-		const read = stubbed ? () => stubs[column] : () => current[column]
 		Object.defineProperty(view, column, {
 			enumerable: true,
 			get: isGuarded(column, filter, isAllowed)
-				? () => {
-						if (stubbed || Object.hasOwn(current, column)) {
-							reportMissedRead(reader, column)
-						}
-						return read()
-				  }
-				: read,
+				? () => reportMissedRead(reader, column)
+				: () => current[column],
 		})
 	}
 	return (row) => {
@@ -177,14 +155,10 @@ function isGuarded(
 	)
 }
 
-function reportMissedRead(reader: string, column: string) {
-	const error = new Error(
+function reportMissedRead(reader: string, column: string): never {
+	throw new Error(
 		`${reader} read column '${column}', which it didn't read when yeeql called it with placeholder values. Read each column before branching on any value.`,
 	)
-	if (missedReads === undefined) {
-		throw error
-	}
-	missedReads.error ??= error
 }
 
 /* v8 ignore start */

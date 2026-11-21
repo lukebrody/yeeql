@@ -171,3 +171,72 @@ test('changes before the subscription effect still render', () => {
 	render(<Count />)
 	assert.equal(screen.getByTestId('count').textContent, '1')
 })
+
+test('an invalid query reaches an error boundary', (t) => {
+	const originalQueueMicrotask = queueMicrotask
+	const reports: unknown[] = []
+	t.mock.method(globalThis, 'queueMicrotask', (callback: () => void) =>
+		originalQueueMicrotask(() => {
+			try {
+				callback()
+			} catch (error) {
+				reports.push(error)
+			}
+		}),
+	)
+	// React logs the error it passes to the boundary
+	t.mock.method(console, 'error', () => undefined)
+
+	class Boundary extends React.Component<
+		{ children: React.ReactNode },
+		{ error: Error | null }
+	> {
+		state: { error: Error | null } = { error: null }
+		static getDerivedStateFromError(error: Error) {
+			return { error }
+		}
+		render() {
+			const { error } = this.state
+			return error ? (
+				<div>
+					{error.message}: {String(error.cause)}
+				</div>
+			) : (
+				this.props.children
+			)
+		}
+	}
+
+	function Parents(): React.ReactNode {
+		const result = useQuery(
+			() =>
+				parents.query({
+					sort: (a, b) => {
+						if (a.order < 0 || b.order < 0) {
+							throw new Error('negative order')
+						}
+						return a.order - b.order
+					},
+				}),
+			[],
+		)
+		return <div>{result.length}</div>
+	}
+
+	const { container } = render(
+		<Boundary>
+			<Parents />
+		</Boundary>,
+	)
+	act(() => {
+		parents.insert({ order: 0 })
+	})
+	assert.equal(container.textContent, '1')
+	act(() => {
+		parents.insert({ order: -1 })
+	})
+	assert.equal(
+		container.textContent,
+		'the sort comparator threw: Error: negative order',
+	)
+})

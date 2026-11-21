@@ -3,7 +3,7 @@ import * as Y from 'yjs'
 
 import { beforeEach, test } from 'node:test'
 import assert from 'assert/strict'
-import { LinearQuery } from 'yeeql/query/interface/LinearQuery'
+import { Change, LinearQuery } from 'yeeql/query/interface/LinearQuery'
 import { TableSchema } from 'yeeql/table/Schema'
 import { SubqueryGenerators } from 'yeeql/query/subquery'
 
@@ -30,8 +30,9 @@ function replay<
 	Q extends SubqueryGenerators<S>,
 >(query: LinearQuery<S, Select, Q>) {
 	const replayed = [...query.result]
-	const changes: QueryChange<typeof query>[] = []
+	const changes: Change<S, Select, Q>[] = []
 	query.observe((change) => {
+		assert(change.kind !== 'invalid')
 		changes.push(change)
 		if (change.kind !== 'add') {
 			assert.equal(replayed[change.oldIndex], change.row)
@@ -329,6 +330,19 @@ test('subqueries only for rows in the window', () => {
 	assert.deepEqual(replayed, query.result)
 })
 
+function assertMissedSubquery(query: { readonly result: unknown }) {
+	assert.throws(
+		() => query.result,
+		(error: Error) => {
+			assert.match(
+				String(error.cause),
+				/sort comparator read column 'sameString'/,
+			)
+			return true
+		},
+	)
+}
+
 test('a sort that skips reading a subquery during the probe throws', () => {
 	table.insert({ number: 0, string: '' })
 	table.insert({ number: 1, string: '' })
@@ -342,11 +356,18 @@ test('a sort that skips reading a subquery during the probe throws', () => {
 					a.number === b.number ? 0 : a.sameString - b.sameString,
 				limit: 1,
 			}),
-		/sort comparator read column 'sameString'/,
+		(error: Error) => {
+			assert.match(
+				String(error.cause),
+				/sort comparator read column 'sameString'/,
+			)
+			return true
+		},
 	)
 })
 
-test('a subquery the sort missed is caught even when an unwatched full query is cached', () => {
+test('a subquery the sort missed is caught even when an unwatched full query is cached', (t) => {
+	t.mock.method(globalThis, 'queueMicrotask', () => undefined)
 	table.insert({ number: 0, string: '' })
 	table.insert({ number: 1, string: '' })
 	const subqueries = {
@@ -371,17 +392,13 @@ test('a subquery the sort missed is caught even when an unwatched full query is 
 		limit: 3,
 	})
 	table.insert({ number: 101, string: '' })
-	assert.throws(
-		() => table.insert({ number: 102, string: '' }),
-		/sort comparator read column 'sameString'/,
-	)
-	// The placeholder keeps the comparator from crashing, so the change still applies
-	assert.deepEqual(query.result.map(({ number }) => number).slice(0, 2), [0, 1])
-	assert.equal(query.result.length, 3)
+	table.insert({ number: 102, string: '' })
+	assertMissedSubquery(query)
 	assert.equal(unwatched.result.length, 4)
 })
 
-test('a sort that reads a missed subquery gets a placeholder instead of crashing', () => {
+test('a sort that reads a missed subquery invalidates the window', (t) => {
+	t.mock.method(globalThis, 'queueMicrotask', () => undefined)
 	table.insert({ number: 101, string: '' })
 	const query = table.query({
 		subqueries: {
@@ -393,11 +410,8 @@ test('a sort that reads a missed subquery gets a placeholder instead of crashing
 				: a.number - b.number,
 		limit: 2,
 	})
-	assert.throws(
-		() => table.insert({ number: 102, string: '' }),
-		/sort comparator read column 'sameString'/,
-	)
-	assert.equal(query.result.length, 2)
+	table.insert({ number: 102, string: '' })
+	assertMissedSubquery(query)
 })
 
 test('a dropped window stops observing', async () => {
@@ -427,6 +441,34 @@ test('a dropped window stops observing', async () => {
 	table.insert({ number: 0, string: '' })
 	table.insert({ number: 1, string: '' })
 	assert.equal(full.result.length, 2)
+})
+
+test('an invalid query skips a dropped window', async (t) => {
+	t.mock.method(globalThis, 'queueMicrotask', () => undefined)
+	const subqueries = {
+		sameString: ({ string }: { string: string }) => {
+			if (string === 'boom') {
+				throw new Error('boom')
+			}
+			return table.count({ filter: { string } })
+		},
+	}
+	const sort = (a: { sameString: number }, b: { sameString: number }) =>
+		a.sameString - b.sameString
+	table.insert({ number: 0, string: '' })
+	// The sort reads a subquery, so the window is over a query with subqueries
+	const full = table.query({ subqueries, sort })
+	let window: object | undefined = table.query({ subqueries, sort, limit: 1 })
+	const weakWindow = new WeakRef(window)
+	window = undefined
+
+	await new Promise((resolve) => setTimeout(resolve, 10))
+	global.gc!()
+	await new Promise((resolve) => setTimeout(resolve, 10))
+
+	assert.equal(weakWindow.deref(), undefined)
+	table.insert({ number: 1, string: 'boom' })
+	assert.throws(() => full.result, /subquery 'sameString' threw/)
 })
 
 test('random windows', () => {

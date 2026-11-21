@@ -408,6 +408,11 @@ type ExpectedChange<Result> =
     newIndex: number,
     oldValues: Readonly<Partial<Result>> // Of the columns that changed, these are the old values
     type: 'update'
+} |
+{
+    kind: 'invalid', // The query's sort comparator or a subquery generator threw. See "Errors in Sorts and Subqueries" in Table.md
+    error: unknown,
+    type: 'update'
 }
 // end docs QueryChange
 
@@ -435,5 +440,10 @@ type GroupedCountChange<Group> =
 		delta: -1,
 		type: 'delete' | 'update'
 	}
+} |
+{
+	kind: 'invalid',
+	error: unknown,
+	type: 'update'
 }
 // end docs GroupedCountChange

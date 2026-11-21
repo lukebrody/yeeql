@@ -1,6 +1,10 @@
 /* c8 ignore next */
 import { debug } from 'common/debug'
-import { InternalChangeCallback, QueryInternal } from 'yeeql/query/QueryBase'
+import {
+	InternalChangeCallback,
+	InvalidatedCallback,
+	QueryInternal,
+} from 'yeeql/query/QueryBase'
 import {
 	SubqueriesDependencies,
 	SubqueriesResults,
@@ -35,6 +39,7 @@ export class RowSubqueries<
 			key: K,
 			augmentedRow: AugmentedRow<S, Q>,
 		) => InternalChangeCallback<SubqueryChange<S, Q[K]>>,
+		private readonly invalidated: InvalidatedCallback,
 	) {}
 
 	private readonly rows = new Map<
@@ -87,7 +92,7 @@ export class RowSubqueries<
 		for (const key of Object.keys(this.generators) as (keyof Q)[]) {
 			const query = this.makeSubquery(key, row)
 			const callback = this.makeCallback(key, augmentedRow)
-			query.internalObserve(callback)
+			query.internalObserve(callback, this.invalidated)
 			subqueries[key] = { query, callback }
 		}
 		return augmentedRow
@@ -100,6 +105,12 @@ export class RowSubqueries<
 		}
 		this.rows.delete(row)
 		return augmentedRow
+	}
+
+	removeAll() {
+		for (const row of this.rows.keys()) {
+			this.remove(row)
+		}
 	}
 
 	/**
@@ -132,7 +143,7 @@ export class RowSubqueries<
 			augmentedOldValues[key] = oldQuery.result
 
 			const callback = this.makeCallback(key, augmentedRow)
-			query.internalObserve(callback)
+			query.internalObserve(callback, this.invalidated)
 			subqueries[key] = { query, callback }
 		}
 
@@ -153,6 +164,8 @@ export class RowSubqueries<
 		debug.makingSubquery = true
 		try {
 			return this.generators[key](guardedRow) as Subquery<S, Q, K>
+		} catch (error) {
+			throw new Error(`subquery '${String(key)}' threw`, { cause: error })
 		} finally {
 			debug.makingSubquery = false
 			calling = false

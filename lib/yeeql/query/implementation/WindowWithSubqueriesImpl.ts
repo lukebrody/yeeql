@@ -40,10 +40,12 @@ export class WindowWithSubqueriesImpl<
 			dependencies,
 			filter,
 			(key, augmentedRow) => this.makeSubqueryCallback(key, augmentedRow),
+			(error) => this.invalidate(error),
 		)
+		this.rowSubqueries = rowSubqueries
 		this.result = window.result.map((row) => rowSubqueries.add(row as Row<S>))
 
-		window.internalObserve((ready) =>
+		this.windowCallback = (ready) =>
 			this.notifyingObservers(() => {
 				const change = ready()
 				const row = change.row as Row<S>
@@ -72,8 +74,20 @@ export class WindowWithSubqueriesImpl<
 						type: 'update',
 					}
 				}
-			}),
+			})
+		window.internalObserve(this.windowCallback, (error) =>
+			this.invalidate(error),
 		)
+	}
+
+	private readonly rowSubqueries: RowSubqueries<S, Q>
+	private readonly windowCallback: InternalChangeCallback<
+		Change<S, keyof S, {}>
+	>
+
+	protected override unobserveDependencies() {
+		this.window.internalUnobserve(this.windowCallback)
+		this.rowSubqueries.removeAll()
 	}
 
 	private makeSubqueryCallback<Key extends keyof Q>(
@@ -96,7 +110,8 @@ export class WindowWithSubqueriesImpl<
 	}
 
 	// Strong, so the window lives as long as this does
-	private readonly window: LinearQuery<S, keyof S, {}>
+	private readonly window: LinearQuery<S, keyof S, {}> &
+		QueryInternal<Change<S, keyof S, {}>>
 
 	readonly result: (Row<S> & SubqueriesResults<S, Q>)[]
 	/* c8 ignore next */

@@ -1,5 +1,9 @@
 /* c8 ignore next */
-import { QueryBase, QueryInternal } from 'yeeql/query/QueryBase'
+import {
+	InternalChangeCallback,
+	QueryBase,
+	QueryInternal,
+} from 'yeeql/query/QueryBase'
 import { TableSchema } from 'yeeql/table/Schema'
 import { SubqueryGenerators } from 'yeeql/query/subquery'
 import {
@@ -37,7 +41,17 @@ export class WindowedQueryImpl<
 			}
 			return window.update(ready())
 		}
-		query.internalObserve(callback)
+		query.internalObserve(
+			callback,
+			(error) => weakThis.deref()?.invalidate(error) ?? (() => undefined),
+		)
+		this.callback = callback
+	}
+
+	private readonly callback: InternalChangeCallback<Change<S, Select, Q>>
+
+	protected override unobserveDependencies() {
+		this.query.internalUnobserve(this.callback)
 	}
 
 	private readonly end: number

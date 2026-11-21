@@ -43,6 +43,7 @@ export class LinearQueryWithSubqueriesImpl<
 			subqueryDependencies,
 			filter,
 			(key, augmentedRow) => this.makeInternalCallback(key, augmentedRow),
+			(error) => this.invalidate(error),
 		)
 		for (const [, row] of items) {
 			if (!matchesFilter(filter, row)) {
@@ -59,6 +60,10 @@ export class LinearQueryWithSubqueriesImpl<
 	readonly select: ReadonlySet<keyof S>
 
 	readonly result: (Row<S> & SubqueriesResults<S, Q>)[]
+
+	protected override unobserveDependencies() {
+		this.rowSubqueries.removeAll()
+	}
 
 	addRow(row: Row<S>, type: 'add' | 'update'): () => void {
 		const augmentedRow = this.rowSubqueries.add(row)

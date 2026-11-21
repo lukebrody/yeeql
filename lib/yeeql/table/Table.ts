@@ -9,6 +9,7 @@ import { Query, QueryChange, QueryResult } from 'yeeql/query/Query'
 import { CountQuery } from 'yeeql/query/interface/CountQuery'
 import { GroupedQuery } from 'yeeql/query/interface/GroupedQuery'
 import {
+	Change,
 	LinearQuery,
 	ResultRow as LinearQueryResultRow,
 } from 'yeeql/query/interface/LinearQuery'
@@ -18,7 +19,6 @@ import {
 	addedOrRemoved,
 } from 'yeeql/table/QueryRegistry'
 import {
-	catchMissedReads,
 	Filter,
 	makeReusedColumnGuard,
 	Primitives,
@@ -150,7 +150,12 @@ function makeTiebrokenIdSort<T extends { id: UUID }>(
 	comparator: (a: T, b: T) => number,
 ): (a: T, b: T) => number {
 	return (a, b) => {
-		const result = comparator(a, b)
+		let result: number
+		try {
+			result = comparator(a, b)
+		} catch (error) {
+			throw new Error('the sort comparator threw', { cause: error })
+		}
 		if (result === 0) {
 			return compareStrings(a.id, b.id)
 		} else {
@@ -186,89 +191,106 @@ export class Table<S extends TableSchema> {
 		yTable.observeDeep((events: YEvent[]) => {
 			const runAfterTransaction: (() => void)[] = []
 
-			const missedReadError = catchMissedReads(() => {
-				for (const event of events) {
-					if (event.target === yTable) {
-						for (const [key, { action }] of event.keys) {
-							if (action === 'delete' || action === 'update') {
-								const row = this.items.get(key as UUID)!
-								this.items.delete(key as UUID)
-								const queries = this.queryRegistry.queries(row, addedOrRemoved)
-								queries.forEach((query) => {
-									runAfterTransaction.push(query.removeRow(row, action))
-								})
-							}
-							if (action === 'add' || action === 'update') {
-								const row = this.mapValueToRow(key as UUID, yTable.get(key)!)
-								this.items.set(key as UUID, row)
-								const queries = this.queryRegistry.queries(row, addedOrRemoved)
-								queries.forEach((query) => {
-									runAfterTransaction.push(query.addRow(row, action))
-								})
-							}
+			const update = (
+				query: QueryRegistryEntry<S>,
+				change: () => () => void,
+			) => {
+				// A query it depends on may have invalidated it earlier in this transaction
+				if (query.error === undefined) {
+					try {
+						runAfterTransaction.push(change())
+					} catch (error) {
+						queueMicrotask(() => {
+							throw error
+						})
+						runAfterTransaction.push(query.invalidate(error))
+					}
+				}
+				if (query.error !== undefined) {
+					this.queryRegistry.unregister(query)
+				}
+			}
+
+			for (const event of events) {
+				if (event.target === yTable) {
+					for (const [key, { action }] of event.keys) {
+						if (action === 'delete' || action === 'update') {
+							const row = this.items.get(key as UUID)!
+							this.items.delete(key as UUID)
+							const queries = this.queryRegistry.queries(row, addedOrRemoved)
+							queries.forEach((query) => {
+								update(query, () => query.removeRow(row, action))
+							})
 						}
-					} else if (event.target.parent === yTable) {
-						const id = event.path[event.path.length - 1] as UUID
-
-						const row = this.items.get(id)!
-
-						const oldValues: Partial<Row<S>> = {}
-						const newValues: Partial<Row<S>> = {}
-
-						for (const key of event.keys.keys() as IterableIterator<
-							keyof Row<S>
-						>) {
-							// eslint-disable-next-line @typescript-eslint/no-explicit-any
-							const value = event.target.get(key)! as any
-							oldValues[key] = row[key]
-							newValues[key] = value
+						if (action === 'add' || action === 'update') {
+							const row = this.mapValueToRow(key as UUID, yTable.get(key)!)
+							this.items.set(key as UUID, row)
+							const queries = this.queryRegistry.queries(row, addedOrRemoved)
+							queries.forEach((query) => {
+								update(query, () => query.addRow(row, action))
+							})
 						}
+					}
+				} else if (event.target.parent === yTable) {
+					const id = event.path[event.path.length - 1] as UUID
 
-						const patch = (row: Record<string, unknown>) =>
-							Object.entries(newValues).forEach(
-								([key, value]) => (row[key] = value),
-							)
+					const row = this.items.get(id)!
 
-						const unpatch = (row: Record<string, unknown>) =>
-							Object.entries(oldValues).forEach(
-								([key, value]) => (row[key] = value),
-							)
+					const oldValues: Partial<Row<S>> = {}
+					const newValues: Partial<Row<S>> = {}
 
-						// Query `filter` should be a subset of `select` since we're querying on changes, and filter params may have changed
-						const beforeQueries = this.queryRegistry.queries(row, newValues)
-						patch(row)
-						const afterQueries = this.queryRegistry.queries(row, newValues)
+					for (const key of event.keys.keys() as IterableIterator<
+						keyof Row<S>
+					>) {
+						// eslint-disable-next-line @typescript-eslint/no-explicit-any
+						const value = event.target.get(key)! as any
+						oldValues[key] = row[key]
+						newValues[key] = value
+					}
 
-						unpatch(row)
-						for (const beforeQuery of beforeQueries) {
-							if (!afterQueries.has(beforeQuery)) {
-								runAfterTransaction.push(beforeQuery.removeRow(row, 'update'))
-							}
+					const patch = (row: Record<string, unknown>) =>
+						Object.entries(newValues).forEach(
+							([key, value]) => (row[key] = value),
+						)
+
+					const unpatch = (row: Record<string, unknown>) =>
+						Object.entries(oldValues).forEach(
+							([key, value]) => (row[key] = value),
+						)
+
+					// Query `filter` should be a subset of `select` since we're querying on changes, and filter params may have changed
+					const beforeQueries = this.queryRegistry.queries(row, newValues)
+					patch(row)
+					const afterQueries = this.queryRegistry.queries(row, newValues)
+
+					unpatch(row)
+					for (const beforeQuery of beforeQueries) {
+						if (!afterQueries.has(beforeQuery)) {
+							update(beforeQuery, () => beforeQuery.removeRow(row, 'update'))
 						}
+					}
 
-						patch(row)
-						for (const afterQuery of afterQueries) {
-							if (!beforeQueries.has(afterQuery)) {
-								runAfterTransaction.push(afterQuery.addRow(row, 'update'))
-							} else {
+					patch(row)
+					for (const afterQuery of afterQueries) {
+						if (!beforeQueries.has(afterQuery)) {
+							update(afterQuery, () => afterQuery.addRow(row, 'update'))
+						} else {
+							update(afterQuery, () => {
 								unpatch(row)
-								runAfterTransaction.push(
-									afterQuery.changeRow(row, oldValues, newValues, patch),
-								)
+								return afterQuery.changeRow(row, oldValues, newValues, patch)
+							})
+							// It may have failed before patching
+							if (afterQuery.error !== undefined) {
+								patch(row)
 							}
 						}
 					}
 				}
-			})
+			}
 
 			yTable.doc!.once('afterTransaction', () => {
 				runAfterTransaction.forEach((callback) => callback())
 			})
-
-			// Yjs still runs the other observers and finishes the transaction, then rethrows
-			if (missedReadError !== undefined) {
-				throw missedReadError
-			}
 		})
 	}
 
@@ -292,7 +314,7 @@ export class Table<S extends TableSchema> {
 		string,
 		DefaultMap<
 			object | null,
-			Map<object | null, WeakRef<Query<unknown, MinimalQueryChange, unknown>>>
+			Map<object | null, WeakRef<{ readonly error: unknown }>>
 		>
 	>(() => new DefaultMap(() => new Map()))
 
@@ -322,12 +344,14 @@ export class Table<S extends TableSchema> {
 	}
 
 	// For queries that get their changes from another query instead of the registry
-	private getCached<Q extends Query<QueryResult<Q>, QueryChange<Q>, unknown>>(
-		{ key, sort, subqueries }: QueryCacheKey,
-		makeQuery: () => Q,
-	): Q {
+	private getCached<
+		Q extends Query<QueryResult<Q>, QueryChange<Q>, unknown> & {
+			readonly error: unknown
+		},
+	>({ key, sort, subqueries }: QueryCacheKey, makeQuery: () => Q): Q {
 		const cached = this.queryCache.get(key).get(sort).get(subqueries)?.deref()
-		if (cached) {
+		// Replaces an invalid query, so that making the same query again recovers
+		if (cached && cached.error === undefined) {
 			return cached as Q
 		} else {
 			const result = makeQuery()
@@ -486,14 +510,12 @@ export class Table<S extends TableSchema> {
 				filter,
 				isWatched,
 				'the sort comparator',
-				{},
 			)
 			const guardB = makeReusedColumnGuard<Parameters<typeof sort>[0]>(
 				columns,
 				filter,
 				isWatched,
 				'the sort comparator',
-				{},
 			)
 			checkedSort = (a, b) => sort(guardA(a), guardB(b))
 		}
@@ -534,24 +556,21 @@ export class Table<S extends TableSchema> {
 							subqueries,
 						},
 						() => {
-							// These rows have no subqueries, so the sort gets placeholders and a read of one is a missed read
+							// These rows have no subqueries, so a read of one is a missed read
 							const watched = new Set<string>(
 								resolvedSelect as ReadonlyArray<string>,
 							)
 							const isWatched = (column: string) => watched.has(column)
 							const subqueryKeys = Object.keys(subqueries)
 							const columns = [...Object.keys(this.schema), ...subqueryKeys]
-							const stubs = Object.fromEntries(
-								subqueryKeys.map((key) => [key, stubProxy]),
-							)
 							const guardA = makeReusedColumnGuard<
 								Row<S>,
 								Parameters<typeof sort>[0]
-							>(columns, filter, isWatched, 'the sort comparator', stubs)
+							>(columns, filter, isWatched, 'the sort comparator')
 							const guardB = makeReusedColumnGuard<
 								Row<S>,
 								Parameters<typeof sort>[0]
-							>(columns, filter, isWatched, 'the sort comparator', stubs)
+							>(columns, filter, isWatched, 'the sort comparator')
 							return new LinearQueryWithoutSubqueriesImpl<S, keyof S>(
 								this.items,
 								resolvedSelect,
@@ -589,7 +608,7 @@ export class Table<S extends TableSchema> {
 						// Undefined picks a linear query without subqueries
 						subqueries: subqueries as Q,
 					}) as unknown as LinearQuery<S, Select, Q> &
-						QueryInternal<QueryChange<LinearQuery<S, Select, Q>>>
+						QueryInternal<Change<S, Select, Q>>
 					return new WindowedQueryImpl(query, offset, limit ?? Infinity)
 				},
 			)
@@ -779,7 +798,14 @@ export class Table<S extends TableSchema> {
 				sort: null,
 				subqueries: subquery,
 			},
-			() => new GroupedQueryImpl(this.items, filter, groupBy, 1, subquery),
+			() =>
+				new GroupedQueryImpl(this.items, filter, groupBy, 1, (group) => {
+					try {
+						return subquery(group)
+					} catch (error) {
+						throw new Error('the groupBy subquery threw', { cause: error })
+					}
+				}),
 		)
 	}
 

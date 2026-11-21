@@ -18,6 +18,8 @@ Use this React hook to easily use Yeeql queries inside React components.
 
 You can optionally pass in an `observe` function that is automatically called by the current query. For more on `observe`, see the [`Query` documentation](Query.md).
 
+If the query becomes invalid because its `sort` comparator or a subquery generator threw, `useQuery` throws the error while rendering, so the nearest error boundary catches it. See [Errors in Sorts and Subqueries](Table.md#errors-in-sorts-and-subqueries).
+
 ### Example
 
 <!---useQuery1-->

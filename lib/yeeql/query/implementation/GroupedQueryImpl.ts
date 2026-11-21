@@ -9,7 +9,12 @@ import {
 import { QueryRegistryEntry } from 'yeeql/table/QueryRegistry'
 import { UUID } from 'common/UUID'
 import { MapValue, ReadonlyDefaultMap } from 'common/DefaultMap'
-import { Query, QueryChange, QueryResult } from 'yeeql/query/Query'
+import {
+	InvalidChange,
+	Query,
+	QueryChange,
+	QueryResult,
+} from 'yeeql/query/Query'
 import {
 	InternalChangeCallback,
 	MinimalQueryChange,
@@ -88,8 +93,8 @@ export class GroupedQueryImpl<
 		Row<S>[GroupBy],
 		{
 			query: Query<QueryResult<Q>, QueryChange<Q>, unknown> &
-				QueryInternal<QueryChange<Q>>
-			observer: InternalChangeCallback<QueryChange<Q>>
+				QueryInternal<Exclude<QueryChange<Q>, InvalidChange>>
+			observer: InternalChangeCallback<Exclude<QueryChange<Q>, InvalidChange>>
 		}
 	>
 	readonly result: ReadonlyDefaultMap<Row<S>[GroupBy], QueryResult<Q>>
@@ -100,7 +105,9 @@ export class GroupedQueryImpl<
 		const query = this.makeSubquery(group) as unknown as MapValue<
 			typeof this.queries
 		>['query']
-		const observer: InternalChangeCallback<QueryChange<Q>> = (ready) => {
+		const observer: InternalChangeCallback<
+			Exclude<QueryChange<Q>, InvalidChange>
+		> = (ready) => {
 			return this.notifyingObservers(() => {
 				const change = ready()
 				return {
@@ -112,9 +119,15 @@ export class GroupedQueryImpl<
 				}
 			})
 		}
-		query.internalObserve(observer)
+		query.internalObserve(observer, (error) => this.invalidate(error))
 		this.queries.set(group, { query, observer })
 		return query
+	}
+
+	protected override unobserveDependencies() {
+		for (const { query, observer } of this.queries.values()) {
+			query.internalUnobserve(observer)
+		}
 	}
 
 	addRow(row: Row<S>, type: 'add' | 'update'): () => void {

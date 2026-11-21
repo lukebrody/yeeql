@@ -6,7 +6,7 @@ import {
 	SubqueriesResults,
 	SubqueriesPrimitiveResults,
 } from 'yeeql/query/subquery'
-import { Query } from 'yeeql/query/Query'
+import { InvalidChange, Query } from 'yeeql/query/Query'
 
 export type ResultRow<
 	S extends TableSchema,
@@ -63,7 +63,7 @@ export type LinearQuery<
 	Q extends SubqueryGenerators<S>,
 > = Query<
 	ReadonlyArray<ResultRow<S, Select, Q>>,
-	Change<S, Select, Q>,
+	Change<S, Select, Q> | InvalidChange,
 	ReadonlyArray<PrimitiveResultRow<S, Q>>
 >
 /* v8 ignore stop */

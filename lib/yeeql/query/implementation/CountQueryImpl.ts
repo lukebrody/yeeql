@@ -42,7 +42,13 @@ export class CountQueryImpl<S extends TableSchema>
 		})
 	}
 
-	changeRow(): () => void {
+	changeRow(
+		row: Row<S>,
+		oldValues: Readonly<Partial<Row<S>>>,
+		newValues: Readonly<Partial<Row<S>>>,
+		patch: (row: Row<S>) => void,
+	): () => void {
+		patch(row)
 		return () => undefined
 	}
 	/* c8 ignore next */

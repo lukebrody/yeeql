@@ -175,6 +175,7 @@ export class GroupedQueryImpl<
 		patch: (row: Row<S>) => void,
 	): () => void {
 		if (oldValues[this.groupBy] === newValues[this.groupBy]) {
+			patch(row)
 			return () => undefined
 		}
 

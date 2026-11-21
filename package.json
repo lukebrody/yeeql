@@ -9,7 +9,7 @@
 	],
 	"license": "MIT",
 	"scripts": {
-		"test": "npx tsc --project test/tsconfig.json && c8 --reporter=text --reporter=clover tsx --expose-gc --tsconfig test/tsconfig.json --require global-jsdom/register test/run.ts",
+		"test": "npx tsc --project test/tsconfig.json && c8 --100 --reporter=text --reporter=clover tsx --expose-gc --tsconfig test/tsconfig.json --require global-jsdom/register test/run.ts",
 		"build": "rm -rf dist && tsc --project lib/tsconfig.json && tsc-alias -p lib/tsconfig.json && echo '{\"type\": \"module\"}' > dist/package.json",
 		"lint": "prettier . --write && eslint --fix --max-warnings 0 \"./**/*.{ts,tsx,js,cjs}\""
 	},

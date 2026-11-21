@@ -87,11 +87,13 @@ export class LinearQueryWithSubqueriesImpl<
 					const change = ready()
 					this.staleRows.delete(augmentedRow)
 					const removedIndex = this.result.indexOf(augmentedRow)
+					/* c8 ignore start */
 					if (removedIndex === -1) {
 						throw new Error(
 							'subquery changed for a row missing from the result',
 						)
 					}
+					/* c8 ignore stop */
 					this.result.splice(removedIndex, 1)
 					let insertedIndex: number
 					if (this.staleRows.size === 0) {

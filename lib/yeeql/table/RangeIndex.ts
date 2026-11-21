@@ -41,108 +41,151 @@ function compareUpper(a: Range<Comparable>, b: Range<Comparable>): number {
 	return Number(a.lte !== undefined) - Number(b.lte !== undefined)
 }
 
-// `entries` is sorted by lower bound, so the entries whose lower bound admits a value are a prefix.
-// `maxUpper` is a segment tree over `entries` holding the index of the highest upper bound in each node.
+type TreapNode<T> = {
+	range: Range<Comparable>
+	item: T
+	priority: number
+	left: TreapNode<T> | undefined
+	right: TreapNode<T> | undefined
+	// The highest upper bound in this subtree
+	maxUpper: Range<Comparable>
+}
+
+function update<T>(node: TreapNode<T>) {
+	node.maxUpper = node.range
+	if (node.left && compareUpper(node.left.maxUpper, node.maxUpper) > 0) {
+		node.maxUpper = node.left.maxUpper
+	}
+	if (node.right && compareUpper(node.right.maxUpper, node.maxUpper) > 0) {
+		node.maxUpper = node.right.maxUpper
+	}
+}
+
+function split<T>(
+	node: TreapNode<T> | undefined,
+	goesLeft: (range: Range<Comparable>) => boolean,
+): [TreapNode<T> | undefined, TreapNode<T> | undefined] {
+	if (!node) {
+		return [undefined, undefined]
+	}
+	if (goesLeft(node.range)) {
+		const [left, right] = split(node.right, goesLeft)
+		node.right = left
+		update(node)
+		return [node, right]
+	} else {
+		const [left, right] = split(node.left, goesLeft)
+		node.left = right
+		update(node)
+		return [left, node]
+	}
+}
+
+function merge<T>(
+	left: TreapNode<T> | undefined,
+	right: TreapNode<T> | undefined,
+): TreapNode<T> | undefined {
+	if (!left || !right) {
+		return left ?? right
+	}
+	if (left.priority > right.priority) {
+		left.right = merge(left.right, right)
+		update(left)
+		return left
+	} else {
+		right.left = merge(left, right.left)
+		update(right)
+		return right
+	}
+}
+
+function removeItem<T>(
+	node: TreapNode<T> | undefined,
+	item: T,
+): TreapNode<T> | undefined {
+	if (!node) {
+		return undefined
+	}
+	if (node.item === item) {
+		return merge(node.left, node.right)
+	}
+	node.left = removeItem(node.left, item)
+	node.right = removeItem(node.right, item)
+	update(node)
+	return node
+}
+
+function collect<T>(
+	node: TreapNode<T> | undefined,
+	value: Comparable,
+	result: Set<T>,
+) {
+	if (!node || !admitsUpper(node.maxUpper, value)) {
+		return
+	}
+	collect(node.left, value, result)
+	// The right subtree's lower bounds are no lower than this one's
+	if (!admitsLower(node.range, value)) {
+		return
+	}
+	if (admitsUpper(node.range, value)) {
+		result.add(node.item)
+	}
+	collect(node.right, value, result)
+}
+
+function compareRanges(a: Range<Comparable>, b: Range<Comparable>): number {
+	return compareLower(a, b) || compareUpper(a, b)
+}
+
+// A treap ordered by lower bound, where each node tracks its subtree's highest upper bound
 export class RangeIndex<T> {
 	add(range: Range<Comparable>, item: T) {
 		if (rangeBounds(range).some(Number.isNaN)) {
 			return
 		}
-		const index = this.firstIndex(
-			(entry) => compareLower(entry.range, range) > 0,
+		const node: TreapNode<T> = {
+			range,
+			item,
+			priority: Math.random(),
+			left: undefined,
+			right: undefined,
+			maxUpper: range,
+		}
+		const [left, right] = split(
+			this.root,
+			(other) => compareRanges(other, range) <= 0,
 		)
-		this.entries.splice(index, 0, { range, item })
-		this.maxUpperStale = true
+		this.root = merge(merge(left, node), right)
 	}
 
 	delete(range: Range<Comparable>, item: T) {
 		if (rangeBounds(range).some(Number.isNaN)) {
 			return
 		}
-		this.entries.splice(
-			this.entries.findIndex((entry) => entry.item === item),
-			1,
+		const [left, rest] = split(
+			this.root,
+			(other) => compareRanges(other, range) < 0,
 		)
-		this.maxUpperStale = true
+		const [equal, right] = split(
+			rest,
+			(other) => compareRanges(other, range) <= 0,
+		)
+		this.root = merge(merge(left, removeItem(equal, item)), right)
 	}
 
 	get(value: Comparable): ReadonlySet<T> {
 		const result = new Set<T>()
-		if (Number.isNaN(value)) {
-			return result
+		if (!Number.isNaN(value)) {
+			collect(this.root, value, result)
 		}
-		if (this.maxUpperStale) {
-			this.buildMaxUpper(1, 0, this.entries.length)
-			this.maxUpperStale = false
-		}
-		const count = this.firstIndex((entry) => !admitsLower(entry.range, value))
-		this.collect(1, 0, this.entries.length, count, value, result)
 		return result
 	}
 
 	get isEmpty(): boolean {
-		return this.entries.length === 0
+		return this.root === undefined
 	}
 
-	private readonly entries: { range: Range<Comparable>; item: T }[] = []
-	private readonly maxUpper: number[] = []
-	private maxUpperStale = false
-
-	// Index of the first entry matching `predicate`, which must be false then true across `entries`
-	private firstIndex(
-		predicate: (entry: { range: Range<Comparable>; item: T }) => boolean,
-	): number {
-		let low = 0
-		let high = this.entries.length
-		while (low < high) {
-			const mid = (low + high) >>> 1
-			if (predicate(this.entries[mid])) {
-				high = mid
-			} else {
-				low = mid + 1
-			}
-		}
-		return low
-	}
-
-	private buildMaxUpper(node: number, low: number, high: number) {
-		if (high - low <= 1) {
-			this.maxUpper[node] = low
-			return
-		}
-		const mid = (low + high) >>> 1
-		this.buildMaxUpper(2 * node, low, mid)
-		this.buildMaxUpper(2 * node + 1, mid, high)
-		const left = this.maxUpper[2 * node]
-		const right = this.maxUpper[2 * node + 1]
-		this.maxUpper[node] =
-			compareUpper(this.entries[left].range, this.entries[right].range) >= 0
-				? left
-				: right
-	}
-
-	// Adds entries in `[low, high)` before `count` whose upper bound admits `value`
-	private collect(
-		node: number,
-		low: number,
-		high: number,
-		count: number,
-		value: Comparable,
-		result: Set<T>,
-	) {
-		if (
-			low >= count ||
-			!admitsUpper(this.entries[this.maxUpper[node]].range, value)
-		) {
-			return
-		}
-		if (high - low === 1) {
-			result.add(this.entries[low].item)
-			return
-		}
-		const mid = (low + high) >>> 1
-		this.collect(2 * node, low, mid, count, value, result)
-		this.collect(2 * node + 1, mid, high, count, value, result)
-	}
+	private root: TreapNode<T> | undefined
 	/* c8 ignore next */
 }

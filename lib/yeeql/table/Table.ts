@@ -185,6 +185,14 @@ export class Table<S extends TableSchema> {
 
 		yTable.observeDeep((events: YEvent[]) => {
 			const runAfterTransaction: (() => void)[] = []
+			const errors: unknown[] = []
+			const update = (change: () => () => void) => {
+				try {
+					runAfterTransaction.push(change())
+				} catch (error) {
+					errors.push(error)
+				}
+			}
 
 			const missedReadError = catchMissedReads(() => {
 				for (const event of events) {
@@ -195,7 +203,7 @@ export class Table<S extends TableSchema> {
 								this.items.delete(key as UUID)
 								const queries = this.queryRegistry.queries(row, addedOrRemoved)
 								queries.forEach((query) => {
-									runAfterTransaction.push(query.removeRow(row, action))
+									update(() => query.removeRow(row, action))
 								})
 							}
 							if (action === 'add' || action === 'update') {
@@ -203,7 +211,7 @@ export class Table<S extends TableSchema> {
 								this.items.set(key as UUID, row)
 								const queries = this.queryRegistry.queries(row, addedOrRemoved)
 								queries.forEach((query) => {
-									runAfterTransaction.push(query.addRow(row, action))
+									update(() => query.addRow(row, action))
 								})
 							}
 						}
@@ -242,19 +250,21 @@ export class Table<S extends TableSchema> {
 						unpatch(row)
 						for (const beforeQuery of beforeQueries) {
 							if (!afterQueries.has(beforeQuery)) {
-								runAfterTransaction.push(beforeQuery.removeRow(row, 'update'))
+								update(() => beforeQuery.removeRow(row, 'update'))
 							}
 						}
 
 						patch(row)
 						for (const afterQuery of afterQueries) {
 							if (!beforeQueries.has(afterQuery)) {
-								runAfterTransaction.push(afterQuery.addRow(row, 'update'))
+								update(() => afterQuery.addRow(row, 'update'))
 							} else {
 								unpatch(row)
-								runAfterTransaction.push(
+								update(() =>
 									afterQuery.changeRow(row, oldValues, newValues, patch),
 								)
+								// In case changeRow threw before patching
+								patch(row)
 							}
 						}
 					}
@@ -266,6 +276,9 @@ export class Table<S extends TableSchema> {
 			})
 
 			// Yjs still runs the other observers and finishes the transaction, then rethrows
+			if (errors.length > 0) {
+				throw errors[0]
+			}
 			if (missedReadError !== undefined) {
 				throw missedReadError
 			}

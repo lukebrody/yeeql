@@ -201,6 +201,91 @@ test('a missed read reports after the rest of the transaction applies', () => {
 	assert.equal(table.count({ filter: { string: 'z' } }).result, 1)
 })
 
+test('a throwing sort reports after the rest of the transaction applies', () => {
+	const count = table.count({})
+	let countChanges = 0
+	count.observe(() => countChanges++)
+	const query = table.query({
+		sort: (a, b) => {
+			if (a.string === 'boom' || b.string === 'boom') {
+				throw new Error('boom')
+			}
+			return a.number - b.number
+		},
+	})
+	let queryChanges = 0
+	query.observe(() => queryChanges++)
+	table.insert({ number: 1, string: 'a' })
+
+	assert.throws(
+		() =>
+			doc.transact(() => {
+				table.insert({ number: 2, string: 'boom' })
+				table.insert({ number: 3, string: 'b' })
+			}),
+		/boom/,
+	)
+	assert.equal(count.result, 3)
+	assert.equal(countChanges, 3)
+	assert.deepEqual(
+		query.result.map((row) => row.number),
+		[1, 3],
+	)
+	assert.equal(queryChanges, 2)
+})
+
+test('a throwing subquery generator reports after the rest of the transaction applies', () => {
+	const count = table.count({})
+	let countChanges = 0
+	count.observe(() => countChanges++)
+	const query = table.query({
+		subqueries: {
+			same: (row) => {
+				if (row.string === 'boom') {
+					throw new Error('boom')
+				}
+				return table.count({ filter: { string: row.string } })
+			},
+		},
+		sort: (a, b) => a.number - b.number,
+	})
+	table.insert({ number: 1, string: 'a' })
+
+	assert.throws(
+		() =>
+			doc.transact(() => {
+				table.insert({ number: 2, string: 'boom' })
+				table.insert({ number: 3, string: 'b' })
+			}),
+		/boom/,
+	)
+	assert.equal(count.result, 3)
+	assert.equal(countChanges, 3)
+	assert.deepEqual(
+		query.result.map((row) => row.number),
+		[1, 3],
+	)
+})
+
+test('a sort that throws on old values still leaves the row updated', () => {
+	let boom = false
+	table.query({
+		sort: (a, b) => {
+			if (boom) {
+				throw new Error('boom')
+			}
+			return a.number - b.number
+		},
+	})
+	const queryB = table.query({ filter: { string: 'b' } })
+	const id = table.insert({ number: 1, string: 'a' })
+
+	boom = true
+	assert.throws(() => table.update(id, 'string', 'b'), /boom/)
+	assert.equal(queryB.result[0].string, 'b')
+	assert.equal(table.query({ filter: { id } }).result[0].string, 'b')
+})
+
 test('a missed read while creating a query throws immediately', () => {
 	table.insert({ number: 1, string: 'x' })
 	table.insert({ number: 2, string: 'x' })

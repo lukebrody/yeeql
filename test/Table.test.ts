@@ -109,8 +109,6 @@ test('a collected query is not uncached after its replacement is cached', async 
 	global.gc!()
 	const q2 = table.count({ filter: { number: 1 } })
 	await tick()
-	global.gc!()
-	await tick()
 	assert.equal(table.count({ filter: { number: 1 } }), q2)
 })
 

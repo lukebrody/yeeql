@@ -73,3 +73,11 @@ test('ranges with NaN bounds contain nothing', () => {
 	index.delete({ gt: 1, lt: NaN }, 'b')
 	assert.equal(index.isEmpty, true)
 })
+
+test('bigint ranges', () => {
+	const index = new RangeIndex<string>()
+	index.add({ gt: 1n, lte: 5n }, 'a')
+	assert.equal(index.get(1n).size, 0)
+	assert.equal(index.get(3n).size, 1)
+	assert.equal(index.get(5n).size, 1)
+})

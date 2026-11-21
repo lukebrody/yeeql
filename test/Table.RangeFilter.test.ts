@@ -10,6 +10,7 @@ const schema = {
 	string: new Field<string>(),
 	mixed: new Field<number | string>(),
 	boolean: new Field<boolean>(),
+	big: new Field<bigint | undefined>(),
 }
 
 let doc: Y.Doc
@@ -26,7 +27,7 @@ const byNumber = (a: { number: number }, b: { number: number }) =>
 	a.number - b.number
 
 function insert(number: number, string = '', mixed: number | string = 0) {
-	return table.insert({ number, string, mixed, boolean: false })
+	return table.insert({ number, string, mixed, boolean: false, big: undefined })
 }
 
 test('rows enter and leave a range', () => {
@@ -158,6 +159,15 @@ test('non-finite bounds are distinct filters', () => {
 	assert.equal(belowNegativeInfinity.result, 0)
 	assert.equal(belowNaN.result.length, 0)
 	assert.equal(belowInfinityQuery.result.length, 2)
+})
+
+// Y.js 13.6.7 can't store bigints, so rows here never match
+test('bigint range filters', () => {
+	insert(1)
+	const above = table.count({ filter: { big: { gt: 1n } } })
+	assert.equal(above.result, 0)
+	assert.equal(above, table.count({ filter: { big: { gt: 1n } } }))
+	assert.notEqual(above, table.count({ filter: { big: { gt: 2n } } }))
 })
 
 test('invalid ranges are type errors', () => {

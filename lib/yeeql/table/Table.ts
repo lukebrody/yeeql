@@ -38,7 +38,9 @@ import { LinearQueryWithoutSubqueriesImpl } from 'yeeql/query/implementation/Lin
 import { LinearQueryWithSubqueriesImpl } from 'yeeql/query/implementation/LinearQueryWithSubqueriesImpl'
 import { GroupedQueryImpl } from 'yeeql/query/implementation/GroupedQueryImpl'
 import { CountQueryImpl } from 'yeeql/query/implementation/CountQueryImpl'
-import { MinimalQueryChange } from 'yeeql/query/QueryBase'
+import { WindowedQueryImpl } from 'yeeql/query/implementation/WindowedQueryImpl'
+import { WindowWithSubqueriesImpl } from 'yeeql/query/implementation/WindowWithSubqueriesImpl'
+import { MinimalQueryChange, QueryInternal } from 'yeeql/query/QueryBase'
 
 /*
  * We only allow the user to use primitives in their sort function,
@@ -62,14 +64,16 @@ function getSortColumns<S extends TableSchema, Q extends SubqueryGenerators<S>>(
 	schema: S,
 	sort: Sort<S, Q>,
 	subqueries?: Q,
-): Set<keyof S> {
+): { columns: Set<keyof S>; readsSubqueries: boolean } {
 	const accessedKeys = new Set<keyof S>()
+	let readsSubqueries = false
 	const proxy = new Proxy({} as Row<S> & SubqueriesPrimitiveResults<S, Q>, {
 		get(_, p) {
 			if (Object.hasOwn(schema, p)) {
 				accessedKeys.add(p as keyof S)
 				return '0'
 			} else if (subqueries !== undefined && Object.hasOwn(subqueries, p)) {
+				readsSubqueries = true
 				return stubProxy
 			} else {
 				throw new Error(
@@ -81,7 +85,7 @@ function getSortColumns<S extends TableSchema, Q extends SubqueryGenerators<S>>(
 
 	sort(proxy, proxy)
 
-	return accessedKeys
+	return { columns: accessedKeys, readsSubqueries }
 }
 
 function makeSubqueriesProxy<S extends TableSchema>(
@@ -309,14 +313,25 @@ export class Table<S extends TableSchema> {
 	private getCachedQuery<
 		Q extends Query<QueryResult<Q>, QueryChange<Q>, unknown> &
 			QueryRegistryEntry<S>,
-	>({ key, sort, subqueries }: QueryCacheKey, makeQuery: () => Q): Q {
+	>(cacheKey: QueryCacheKey, makeQuery: () => Q): Q {
+		return this.getCached(cacheKey, () => {
+			const result = makeQuery()
+			this.queryRegistry.register(result)
+			return result
+		})
+	}
+
+	// For queries that get their changes from another query instead of the registry
+	private getCached<Q extends Query<QueryResult<Q>, QueryChange<Q>, unknown>>(
+		{ key, sort, subqueries }: QueryCacheKey,
+		makeQuery: () => Q,
+	): Q {
 		const cached = this.queryCache.get(key).get(sort).get(subqueries)?.deref()
 		if (cached) {
 			return cached as Q
 		} else {
 			const result = makeQuery()
 			this.queryCache.get(key).get(sort).set(subqueries, new WeakRef(result))
-			this.queryRegistry.register(result)
 			this.queryFinalizer.register(result, { key, sort, subqueries })
 			return result
 		}
@@ -351,18 +366,24 @@ export class Table<S extends TableSchema> {
 		filter?: Filter<S>
 		subqueries?: undefined // Need this so TypeScript doesn't get confused??
 		sort?: Sort<S, {}>
+		limit?: number
+		offset?: number
 	}): LinearQuery<S, Select, {}>
 	query<Select extends keyof S, Q extends SubqueryGenerators<S>>(_: {
 		select?: ReadonlyArray<Select>
 		filter?: Filter<S>
 		subqueries: Q
 		sort?: Sort<S, Q>
+		limit?: number
+		offset?: number
 	}): LinearQuery<S, keyof S, Q>
 	query<Select extends keyof S, GroupBy extends keyof Primitives<S>>(_: {
 		select?: ReadonlyArray<Select>
 		filter?: Filter<S>
 		groupBy: GroupBy
 		sort?: Sort<S, {}>
+		limit?: number
+		offset?: number
 	}): GroupedQuery<S, GroupBy, LinearQuery<S, Select, {}>>
 	query<
 		Select extends keyof S,
@@ -374,6 +395,8 @@ export class Table<S extends TableSchema> {
 		groupBy: GroupBy
 		subqueries: Q
 		sort?: Sort<S, Q>
+		limit?: number
+		offset?: number
 	}): GroupedQuery<S, GroupBy, LinearQuery<S, Select, Q>>
 	query<
 		Select extends keyof S,
@@ -385,12 +408,16 @@ export class Table<S extends TableSchema> {
 		sort = noSort,
 		groupBy,
 		subqueries,
+		limit,
+		offset = 0,
 	}: {
 		select?: ReadonlyArray<Select>
 		filter?: Filter<S>
 		sort?: Sort<S, Q>
 		groupBy?: GroupBy
 		subqueries?: Q
+		limit?: number
+		offset?: number
 	}):
 		| LinearQuery<S, Select, {}>
 		| LinearQuery<S, Select, Q>
@@ -411,7 +438,7 @@ export class Table<S extends TableSchema> {
 					filter,
 				)}, subqueries: ${subqueriesString}, sort: ${sort}, groupBy: ${JSON.stringify(
 					groupBy,
-				)}})`,
+				)}, limit: ${limit}, offset: ${offset}})`,
 			)
 		}
 		/* v8 ignore stop */
@@ -422,11 +449,24 @@ export class Table<S extends TableSchema> {
 			...Object.keys(filter),
 		])
 		this.validateRanges(filter)
+		for (const subqueryKey of Object.keys(subqueries ?? {})) {
+			if (Object.hasOwn(this.schema, subqueryKey)) {
+				throw new Error(
+					`key '${subqueryKey}' may not be reused for a subquery, since it's already in the schema`,
+				)
+			}
+		}
+		for (const [name, value] of Object.entries({ limit, offset })) {
+			if (value !== undefined && !(Number.isInteger(value) && value >= 0)) {
+				throw new Error(`'${name}' must be a non-negative integer`)
+			}
+		}
 
+		const sortReads = getSortColumns(this.schema, sort, subqueries)
 		const resolvedSelect = Array.from(
 			new Set([
 				...(select ?? Object.keys(this.schema)),
-				...getSortColumns(this.schema, sort, subqueries),
+				...sortReads.columns,
 				...getSubqueriesColumns(this.schema, subqueries),
 			]),
 		).sort() as unknown as ReadonlyArray<Select>
@@ -451,7 +491,104 @@ export class Table<S extends TableSchema> {
 			| LinearQueryWithSubqueriesImpl<S, Select, Q>
 			| GroupedQueryImpl<S, GroupBy, LinearQuery<S, Select, {}>>
 			| GroupedQueryImpl<S, GroupBy, LinearQuery<S, Select, Q>>
-		if (groupBy === undefined) {
+		const windowed = limit !== undefined || offset > 0
+		if (
+			groupBy === undefined &&
+			windowed &&
+			subqueries !== undefined &&
+			!sortReads.readsSubqueries
+		) {
+			return this.getCached(
+				{
+					key: stringifyKey({
+						filter,
+						resolvedSelect,
+						limit,
+						offset,
+						kind: 'window',
+					}),
+					sort,
+					subqueries,
+				},
+				() => {
+					const full = this.getCachedQuery(
+						{
+							key: stringifyKey({
+								filter,
+								resolvedSelect,
+								kind: 'linearUnderSubqueryWindow',
+							}),
+							sort,
+							subqueries,
+						},
+						() => {
+							// These rows have no subqueries, so the sort gets placeholders and a read of one is a missed read
+							const watched = new Set<string>(
+								resolvedSelect as ReadonlyArray<string>,
+							)
+							const isWatched = (column: string) => watched.has(column)
+							const guard = (row: Row<S>) =>
+								guardColumnReads(
+									new Proxy(row, {
+										get: (target, key) =>
+											Object.hasOwn(subqueries, key)
+												? stubProxy
+												: Reflect.get(target, key),
+										getOwnPropertyDescriptor: (target, key) =>
+											Object.hasOwn(subqueries, key)
+												? {
+														configurable: true,
+														enumerable: true,
+														value: stubProxy,
+												  }
+												: Reflect.getOwnPropertyDescriptor(target, key),
+									}),
+									filter,
+									isWatched,
+									'the sort comparator',
+								) as Parameters<typeof sort>[0]
+							return new LinearQueryWithoutSubqueriesImpl<S, keyof S>(
+								this.items,
+								resolvedSelect,
+								filter,
+								makeTiebrokenIdSort((a, b) => sort(guard(a), guard(b))),
+							)
+						},
+					)
+					return new WindowWithSubqueriesImpl<S, Select, Q>(
+						new WindowedQueryImpl(full, offset, limit ?? Infinity),
+						subqueries,
+						getSubqueriesDependencies(this.schema, subqueries),
+						filter,
+					)
+				},
+			)
+		} else if (groupBy === undefined && windowed) {
+			return this.getCached(
+				{
+					key: stringifyKey({
+						filter,
+						resolvedSelect,
+						limit,
+						offset,
+						kind: 'window',
+					}),
+					sort,
+					subqueries: subqueries ?? null,
+				},
+				() => {
+					const query = this.query({
+						select,
+						filter,
+						sort,
+						// Undefined picks a linear query without subqueries
+						subqueries: subqueries as Q,
+					}) as unknown as LinearQuery<S, Select, Q> &
+						QueryInternal<QueryChange<LinearQuery<S, Select, Q>>>
+					return new WindowedQueryImpl(query, offset, limit ?? Infinity)
+				},
+			)
+		} else if (groupBy === undefined) {
 			if (subqueries === undefined) {
 				result = this.getCachedQuery(
 					{
@@ -468,14 +605,6 @@ export class Table<S extends TableSchema> {
 						),
 				)
 			} else {
-				for (const subqueryKey of Object.keys(subqueries)) {
-					if (Object.hasOwn(this.schema, subqueryKey)) {
-						throw new Error(
-							`key '${subqueryKey}' may not be reused for a subquery, since it's already in the schema`,
-						)
-					}
-				}
-
 				result = this.getCachedQuery(
 					{
 						key: stringifyKey({
@@ -501,6 +630,8 @@ export class Table<S extends TableSchema> {
 				)
 			}
 		} else {
+			// A group only shows once its window has a row
+			const windowedGroupMinRows = limit === 0 ? Infinity : offset + 1
 			if (subqueries === undefined) {
 				result = this.getCachedQuery(
 					{
@@ -508,18 +639,27 @@ export class Table<S extends TableSchema> {
 							filter,
 							resolvedSelect,
 							groupBy,
+							limit,
+							offset,
 							kind: 'grouped',
 						}),
 						sort,
 						subqueries: null,
 					},
 					() =>
-						new GroupedQueryImpl(this.items, filter, groupBy, (group) =>
-							this.query({
-								select,
-								filter: { ...filter, [groupBy]: group },
-								sort: sort as Sort<S, {}>,
-							}),
+						new GroupedQueryImpl(
+							this.items,
+							filter,
+							groupBy,
+							windowedGroupMinRows,
+							(group) =>
+								this.query({
+									select,
+									filter: { ...filter, [groupBy]: group },
+									sort: sort as Sort<S, {}>,
+									limit,
+									offset,
+								}),
 						),
 				)
 			} else {
@@ -529,19 +669,28 @@ export class Table<S extends TableSchema> {
 							filter,
 							resolvedSelect,
 							groupBy,
+							limit,
+							offset,
 							kind: 'grouped',
 						}),
 						sort,
 						subqueries,
 					},
 					() =>
-						new GroupedQueryImpl(this.items, filter, groupBy, (group) =>
-							this.query({
-								select,
-								filter: { ...filter, [groupBy]: group },
-								subqueries,
-								sort,
-							}),
+						new GroupedQueryImpl(
+							this.items,
+							filter,
+							groupBy,
+							windowedGroupMinRows,
+							(group) =>
+								this.query({
+									select,
+									filter: { ...filter, [groupBy]: group },
+									subqueries,
+									sort,
+									limit,
+									offset,
+								}),
 						),
 				)
 			}
@@ -596,7 +745,7 @@ export class Table<S extends TableSchema> {
 					subqueries: null,
 				},
 				() =>
-					new GroupedQueryImpl(this.items, filter, groupBy, (group) =>
+					new GroupedQueryImpl(this.items, filter, groupBy, 1, (group) =>
 						this.count({ filter: { ...filter, [groupBy]: group } }),
 					),
 			)
@@ -625,7 +774,7 @@ export class Table<S extends TableSchema> {
 				sort: null,
 				subqueries: subquery,
 			},
-			() => new GroupedQueryImpl(this.items, filter, groupBy, subquery),
+			() => new GroupedQueryImpl(this.items, filter, groupBy, 1, subquery),
 		)
 	}
 

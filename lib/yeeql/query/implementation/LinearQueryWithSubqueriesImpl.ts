@@ -1,24 +1,12 @@
 /* c8 ignore next */
-import { debug } from 'common/debug'
-import {
-	InternalChangeCallback,
-	QueryBase,
-	QueryInternal,
-} from 'yeeql/query/QueryBase'
+import { InternalChangeCallback, QueryBase } from 'yeeql/query/QueryBase'
 import {
 	SubqueriesDependencies,
 	SubqueriesResults,
 	SubqueryChange,
 	SubqueryGenerators,
-	SubqueryResult,
 } from 'yeeql/query/subquery'
-import {
-	Filter,
-	guardColumnReads,
-	matchesFilter,
-	Row,
-	TableSchema,
-} from 'yeeql/table/Schema'
+import { Filter, matchesFilter, Row, TableSchema } from 'yeeql/table/Schema'
 import {
 	LinearQuery,
 	Change,
@@ -26,9 +14,8 @@ import {
 } from 'yeeql/query/interface/LinearQuery'
 import { QueryRegistryEntry } from 'yeeql/table/QueryRegistry'
 import { UUID } from 'common/UUID'
-import { Query } from 'yeeql/query/Query'
 import { insertOrdered, removeOrdered } from 'common/array'
-import { MapValue } from 'common/DefaultMap'
+import { RowSubqueries } from 'yeeql/query/implementation/RowSubqueries'
 
 export class LinearQueryWithSubqueriesImpl<
 		S extends TableSchema,
@@ -46,82 +33,35 @@ export class LinearQueryWithSubqueriesImpl<
 			a: ResultRow<S, keyof S, Q>,
 			b: ResultRow<S, keyof S, Q>,
 		) => number,
-		readonly subQueries: Q,
-		readonly subqueryDependencies: SubqueriesDependencies<S, Q>,
+		subQueries: Q,
+		subqueryDependencies: SubqueriesDependencies<S, Q>,
 	) {
 		super()
 		this.result = []
+		this.rowSubqueries = new RowSubqueries(
+			subQueries,
+			subqueryDependencies,
+			filter,
+			(key, augmentedRow) => this.makeInternalCallback(key, augmentedRow),
+		)
 		for (const [, row] of items) {
 			if (!matchesFilter(filter, row)) {
 				continue
 			}
-			this.result.push(this.augmentRow(row))
+			this.result.push(this.rowSubqueries.add(row))
 		}
 		this.result.sort(this.sort)
 		this.select = new Set(select)
 	}
 
-	private readonly rowMap = new Map<
-		Row<S>,
-		{
-			augmentedRow: Row<S> & SubqueriesResults<S, Q>
-			subQueries: {
-				[K in keyof Q]: {
-					query: Query<
-						SubqueryResult<S, Q[K]>,
-						SubqueryChange<S, Q[K]>,
-						unknown
-					> &
-						QueryInternal<SubqueryChange<S, Q[K]>>
-					callback: InternalChangeCallback<SubqueryChange<S, Q[K]>>
-				}
-			}
-		}
-	>()
+	private readonly rowSubqueries: RowSubqueries<S, Q>
 
 	readonly select: ReadonlySet<keyof S>
 
 	readonly result: (Row<S> & SubqueriesResults<S, Q>)[]
 
-	private augmentRow(row: Row<S>): (typeof this.result)[0] {
-		const subQueries = {} as MapValue<typeof this.rowMap>['subQueries']
-		const augmentedRow = new Proxy(row, {
-			get(row, p) {
-				if (Object.hasOwn(subQueries, p)) {
-					return subQueries[p as string].query.result
-				}
-				return row[p as string]
-			},
-			ownKeys(row) {
-				return Reflect.ownKeys(row).concat(Reflect.ownKeys(subQueries))
-			},
-			getOwnPropertyDescriptor(row, p) {
-				if (Object.hasOwn(subQueries, p)) {
-					return {
-						configurable: true,
-						enumerable: true,
-						value: subQueries[p as string].query.result,
-					}
-				}
-				return Reflect.getOwnPropertyDescriptor(row, p)
-			},
-		}) as (typeof this.result)[0]
-		this.rowMap.set(row, {
-			augmentedRow,
-			subQueries,
-		})
-
-		for (const key of Object.keys(this.subQueries) as (keyof Q)[]) {
-			const query = this.makeSubquery(key, row)
-			const callback = this.makeInternalCallback(key, augmentedRow)
-			query.internalObserve(callback)
-			subQueries[key] = { query, callback }
-		}
-		return augmentedRow
-	}
-
 	addRow(row: Row<S>, type: 'add' | 'update'): () => void {
-		const augmentedRow = this.augmentRow(row)
+		const augmentedRow = this.rowSubqueries.add(row)
 		return this.notifyingObservers(() => {
 			const addedIndex = insertOrdered(this.result, augmentedRow, this.sort)
 			return {
@@ -133,65 +73,58 @@ export class LinearQueryWithSubqueriesImpl<
 		})
 	}
 
-	private makeSubquery(key: keyof Q, row: Row<S>) {
-		let calling = true
-		const guardedRow = guardColumnReads(
-			row,
-			this.filter,
-			(column) => !calling || this.subqueryDependencies.get(column).has(key),
-			`subquery '${String(key)}'`,
-		)
-		debug.makingSubquery = true
-		try {
-			return this.subQueries[key](guardedRow) as Query<
-				SubqueryResult<S, Q[keyof Q]>,
-				SubqueryChange<S, Q[keyof Q]>,
-				unknown
-			> &
-				QueryInternal<SubqueryChange<S, Q[keyof Q]>>
-		} finally {
-			debug.makingSubquery = false
-			calling = false
-		}
-	}
+	// Rows on a changing subquery that are still at their old positions
+	private readonly staleRows = new Set<(typeof this.result)[0]>()
 
 	private makeInternalCallback<Key extends keyof Q>(
 		key: Key,
 		augmentedRow: (typeof this.result)[0],
 	): InternalChangeCallback<SubqueryChange<S, Q[Key]>> {
 		return (ready) => {
-			return this.notifyingObservers(() => {
-				const removedIndex = removeOrdered(
-					this.result,
-					augmentedRow,
-					this.sort,
-				)!.index
-				const change = ready()
-				const insertedIndex = insertOrdered(
-					this.result,
-					augmentedRow,
-					this.sort,
-				)
-				return {
-					kind: 'subquery',
-					row: augmentedRow,
-					oldIndex: removedIndex,
-					newIndex: insertedIndex,
-					key,
-					change,
-					type: 'update',
-				}
-			})
+			this.staleRows.add(augmentedRow)
+			try {
+				return this.notifyingObservers(() => {
+					const change = ready()
+					this.staleRows.delete(augmentedRow)
+					const removedIndex = this.result.indexOf(augmentedRow)
+					if (removedIndex === -1) {
+						throw new Error(
+							'subquery changed for a row missing from the result',
+						)
+					}
+					this.result.splice(removedIndex, 1)
+					let insertedIndex: number
+					if (this.staleRows.size === 0) {
+						insertedIndex = insertOrdered(this.result, augmentedRow, this.sort)
+					} else {
+						// Binary search needs a sorted array, so search only the rows already in place
+						const fresh = this.result.filter((row) => !this.staleRows.has(row))
+						const freshIndex = insertOrdered(fresh, augmentedRow, this.sort)
+						insertedIndex =
+							freshIndex === fresh.length - 1
+								? this.result.length
+								: this.result.indexOf(fresh[freshIndex + 1])
+						this.result.splice(insertedIndex, 0, augmentedRow)
+					}
+					return {
+						kind: 'subquery',
+						row: augmentedRow,
+						oldIndex: removedIndex,
+						newIndex: insertedIndex,
+						key,
+						change,
+						type: 'update',
+					}
+				})
+			} finally {
+				this.staleRows.delete(augmentedRow)
+			}
 		}
 	}
 
 	removeRow(row: Row<S>, type: 'delete' | 'update'): () => void {
 		return this.notifyingObservers(() => {
-			const { augmentedRow, subQueries } = this.rowMap.get(row)!
-			for (const [, { query, callback }] of Object.entries(subQueries)) {
-				query.internalUnobserve(callback)
-			}
-			this.rowMap.delete(row)
+			const augmentedRow = this.rowSubqueries.remove(row)
 
 			const removedIndex = removeOrdered(
 				this.result,
@@ -215,7 +148,7 @@ export class LinearQueryWithSubqueriesImpl<
 		patch: (row: Row<S>) => void,
 	): () => void {
 		return this.notifyingObservers(() => {
-			const { augmentedRow, subQueries } = this.rowMap.get(row)!
+			const augmentedRow = this.rowSubqueries.get(row)
 
 			const removedIndex = removeOrdered(
 				this.result,
@@ -225,36 +158,7 @@ export class LinearQueryWithSubqueriesImpl<
 
 			patch(row)
 
-			const subqueriesToUpdate = new Set<keyof Q>()
-			for (const updatedColumn of Object.keys(newValues)) {
-				for (const subqueryKey of this.subqueryDependencies.get(
-					updatedColumn,
-				)) {
-					subqueriesToUpdate.add(subqueryKey)
-				}
-			}
-
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any -- TypeScript falls down here
-			const augmentedOldValues: any = {
-				...oldValues,
-			}
-
-			updateQuery: for (const key of subqueriesToUpdate) {
-				const query = this.makeSubquery(key, row)
-				const { query: oldQuery, callback: oldCallback } = subQueries[key]
-				if (query === oldQuery) {
-					continue updateQuery
-				}
-				oldQuery.internalUnobserve(oldCallback)
-				augmentedOldValues[key] = oldQuery.result
-
-				const callback = this.makeInternalCallback(key, augmentedRow)
-				query.internalObserve(callback)
-				subQueries[key] = {
-					query,
-					callback,
-				}
-			}
+			const augmentedOldValues = this.rowSubqueries.update(row, oldValues)
 
 			const addedIndex = insertOrdered(this.result, augmentedRow, this.sort)
 
@@ -263,7 +167,7 @@ export class LinearQueryWithSubqueriesImpl<
 				row: augmentedRow,
 				oldIndex: removedIndex,
 				newIndex: addedIndex,
-				oldValues: augmentedOldValues,
+				oldValues: augmentedOldValues as Partial<ResultRow<S, Select, Q>>,
 				type: 'update',
 			}
 		})

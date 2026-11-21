@@ -101,6 +101,32 @@ test('Table.md', () => {
 
 	docs.replaceToken('Table Query Range', '{{expectedRange}}', expectedRange)
 
+	// start docs Table Query Limit
+	const secondPage = scoresTable.query({
+		select: ['playerName', 'score'],
+		sort: (a, b) => b.score - a.score,
+		offset: 2,
+		limit: 2,
+	})
+
+	// end docs Table Query Limit
+	const actualLimit =
+		// start docs Table Query Limit
+		secondPage.result /* {{expectedLimit}} */
+	// end docs Table Query Limit
+
+	const expectedLimit = [
+		{ playerName: 'Andreas', score: 800 },
+		{ playerName: 'Tomi', score: 700 },
+	]
+
+	assert.partialDeepStrictEqual(
+		actualLimit.map(({ playerName, score }) => ({ playerName, score })),
+		expectedLimit,
+	)
+
+	docs.replaceToken('Table Query Limit', '{{expectedLimit}}', expectedLimit)
+
 	// start docs Table Query 2
 	const bestPlayersByGame = scoresTable.query({
 		select: ['playerName'],

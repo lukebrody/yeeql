@@ -30,6 +30,7 @@ export class GroupedQueryImpl<
 		items: ReadonlyMap<UUID, Row<S>>,
 		readonly filter: Filter<S>,
 		readonly groupBy: GroupBy,
+		private readonly minRows: number,
 		readonly makeSubquery: (group: Row<Primitives<S>>[GroupBy]) => Q,
 	) {
 		super()
@@ -70,14 +71,16 @@ export class GroupedQueryImpl<
 				continue
 			}
 			const group = row[groupBy]
-			const query = this.queries.get(group)
-			if (!query) {
+			this.rowCounts.set(group, (this.rowCounts.get(group) ?? 0) + 1)
+		}
+		for (const [group, rowCount] of this.rowCounts) {
+			if (rowCount >= minRows) {
 				this.addQuery(group)
-			} else {
-				query.refCount++
 			}
 		}
 	}
+
+	private readonly rowCounts = new Map<Row<S>[GroupBy], number>()
 
 	readonly select: ReadonlySet<keyof S>
 
@@ -86,7 +89,6 @@ export class GroupedQueryImpl<
 		{
 			query: Query<QueryResult<Q>, QueryChange<Q>, unknown> &
 				QueryInternal<QueryChange<Q>>
-			refCount: number
 			observer: InternalChangeCallback<QueryChange<Q>>
 		}
 	>
@@ -111,15 +113,15 @@ export class GroupedQueryImpl<
 			})
 		}
 		query.internalObserve(observer)
-		this.queries.set(group, { query, refCount: 1, observer })
+		this.queries.set(group, { query, observer })
 		return query
 	}
 
 	addRow(row: Row<S>, type: 'add' | 'update'): () => void {
 		const group = row[this.groupBy]
-		const query = this.queries.get(group)
-		if (query) {
-			query.refCount++
+		const rowCount = (this.rowCounts.get(group) ?? 0) + 1
+		this.rowCounts.set(group, rowCount)
+		if (rowCount !== this.minRows) {
 			return () => undefined
 		} else {
 			return this.notifyingObservers(() => {
@@ -136,8 +138,14 @@ export class GroupedQueryImpl<
 
 	removeRow(row: Row<S>, type: 'delete' | 'update'): () => void {
 		const group = row[this.groupBy]
-		const query = this.queries.get(group)!
-		if (query.refCount === 1) {
+		const rowCount = this.rowCounts.get(group)! - 1
+		if (rowCount === 0) {
+			this.rowCounts.delete(group)
+		} else {
+			this.rowCounts.set(group, rowCount)
+		}
+		if (rowCount + 1 === this.minRows) {
+			const query = this.queries.get(group)!
 			return this.notifyingObservers(() => {
 				query.query.internalUnobserve(query.observer)
 				this.queries.delete(group)
@@ -149,7 +157,6 @@ export class GroupedQueryImpl<
 				}
 			})
 		} else {
-			query.refCount--
 			return () => undefined
 		}
 	}

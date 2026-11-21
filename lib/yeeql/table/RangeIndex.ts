@@ -4,6 +4,36 @@ import { Comparable, Range, rangeBounds } from 'yeeql/table/Schema'
 // Bound values split the domain into alternating open intervals and points.
 // `segments[2 * i]` is the interval below `points[i]` and `segments[2 * i + 1]` is `points[i]` itself.
 export class RangeIndex<T> {
+	add(range: Range<Comparable>, item: T) {
+		rangeBounds(range).forEach((bound) => this.addPoint(bound))
+		const [start, end] = this.segmentSpan(range)
+		for (let i = start; i <= end; i++) {
+			this.segments[i].add(item)
+		}
+	}
+
+	delete(range: Range<Comparable>, item: T) {
+		const [start, end] = this.segmentSpan(range)
+		for (let i = start; i <= end; i++) {
+			this.segments[i].delete(item)
+		}
+		rangeBounds(range).forEach((bound) => this.removePoint(bound))
+	}
+
+	get(value: Comparable): ReadonlySet<T> {
+		if (Number.isNaN(value)) {
+			return new Set()
+		}
+		const index = this.search(value)
+		return this.segments[
+			this.points[index] === value ? 2 * index + 1 : 2 * index
+		]
+	}
+
+	get isEmpty(): boolean {
+		return this.points.length === 0
+	}
+
 	private readonly points: Comparable[] = []
 	private readonly pointRefCounts: number[] = []
 	private readonly segments: Set<T>[] = [new Set()]
@@ -58,36 +88,6 @@ export class RangeIndex<T> {
 			end = 2 * this.search(range.lt)
 		}
 		return [start, end]
-	}
-
-	add(range: Range<Comparable>, item: T) {
-		rangeBounds(range).forEach((bound) => this.addPoint(bound))
-		const [start, end] = this.segmentSpan(range)
-		for (let i = start; i <= end; i++) {
-			this.segments[i].add(item)
-		}
-	}
-
-	delete(range: Range<Comparable>, item: T) {
-		const [start, end] = this.segmentSpan(range)
-		for (let i = start; i <= end; i++) {
-			this.segments[i].delete(item)
-		}
-		rangeBounds(range).forEach((bound) => this.removePoint(bound))
-	}
-
-	get(value: Comparable): ReadonlySet<T> {
-		if (Number.isNaN(value)) {
-			return new Set()
-		}
-		const index = this.search(value)
-		return this.segments[
-			this.points[index] === value ? 2 * index + 1 : 2 * index
-		]
-	}
-
-	get isEmpty(): boolean {
-		return this.points.length === 0
 	}
 	/* c8 ignore next */
 }

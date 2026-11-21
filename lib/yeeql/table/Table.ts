@@ -185,6 +185,10 @@ export class Table<S extends TableSchema> {
 
 		yTable.observeDeep((events: YEvent[]) => {
 			const runAfterTransaction: (() => void)[] = []
+			// Registered first, so changes made before a throw still notify
+			yTable.doc!.once('afterTransaction', () => {
+				runAfterTransaction.forEach((callback) => callback())
+			})
 
 			const missedReadError = catchMissedReads(() => {
 				for (const event of events) {
@@ -259,10 +263,6 @@ export class Table<S extends TableSchema> {
 						}
 					}
 				}
-			})
-
-			yTable.doc!.once('afterTransaction', () => {
-				runAfterTransaction.forEach((callback) => callback())
 			})
 
 			// Yjs still runs the other observers and finishes the transaction, then rethrows

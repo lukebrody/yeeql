@@ -21,10 +21,14 @@ export interface QueryInternal<Change> {
 	 */
 	internalObserve(callback: InternalChangeCallback<Change>): void
 	internalUnobserve(callback: InternalChangeCallback<Change>): void
+	// After `ready()`: false if that change was folded into an earlier one, so observers weren't told
+	readonly changeReported: boolean
 }
 
 export abstract class QueryBase<Change> implements QueryInternal<Change> {
 	version = 0
+
+	changeReported = true
 
 	private readonly observers = new Set<(change: Change) => void>()
 
@@ -73,12 +77,15 @@ export abstract class QueryBase<Change> implements QueryInternal<Change> {
 		const internalObserverNotifications: (() => void)[] = []
 
 		let change: Change
+		let reported: boolean
 		const callObserver = () => {
 			const next = internalObservers.next()
 			if (next.done === undefined || next.done === false) {
 				internalObserverNotifications.push(next.value(callObserver))
 			} else {
+				this.changeReported = true
 				change = doChange()
+				reported = this.changeReported
 				this.version++
 			}
 			return change
@@ -87,16 +94,18 @@ export abstract class QueryBase<Change> implements QueryInternal<Change> {
 		callObserver()
 
 		return () => {
-			this.observers.forEach((callback) => {
-				try {
-					callback(change)
-				} catch (error) {
-					// Throwing inside Yjs's afterTransaction would skip the remaining notifications
-					queueMicrotask(() => {
-						throw error
-					})
-				}
-			})
+			if (reported) {
+				this.observers.forEach((callback) => {
+					try {
+						callback(change)
+					} catch (error) {
+						// Throwing inside Yjs's afterTransaction would skip the remaining notifications
+						queueMicrotask(() => {
+							throw error
+						})
+					}
+				})
+			}
 			internalObserverNotifications.forEach((notify) => notify())
 		}
 	}

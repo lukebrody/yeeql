@@ -1,5 +1,4 @@
 /* c8 ignore next */
-import stringify from 'json-stable-stringify'
 import * as Y from 'yjs'
 import { DefaultMap } from 'common/DefaultMap'
 import { UUID } from 'common/UUID'
@@ -23,7 +22,10 @@ import {
 	Primitives,
 	Row,
 	TableSchema,
+	isRange,
+	rangeBounds,
 	schemaToDebugString,
+	stringifyKey,
 } from 'yeeql/table/Schema'
 import {
 	SubqueriesDependencies,
@@ -318,6 +320,23 @@ export class Table<S extends TableSchema> {
 		}
 	}
 
+	private validateRanges(filter: Filter<S>) {
+		for (const [column, range] of Object.entries(filter)) {
+			if (!isRange(range)) {
+				continue
+			}
+			if (rangeBounds(range).length === 0) {
+				throw new Error(`range on '${column}' needs a bound`)
+			}
+			if (range.gt !== undefined && range.gte !== undefined) {
+				throw new Error(`range on '${column}' can't have both 'gt' and 'gte'`)
+			}
+			if (range.lt !== undefined && range.lte !== undefined) {
+				throw new Error(`range on '${column}' can't have both 'lt' and 'lte'`)
+			}
+		}
+	}
+
 	query<Select extends keyof S>(_: {
 		select?: ReadonlyArray<Select>
 		filter?: Filter<S>
@@ -393,6 +412,7 @@ export class Table<S extends TableSchema> {
 			...(groupBy !== undefined ? [groupBy] : []),
 			...Object.keys(filter),
 		])
+		this.validateRanges(filter)
 
 		const resolvedSelect = Array.from(
 			new Set([
@@ -411,7 +431,7 @@ export class Table<S extends TableSchema> {
 			if (subqueries === undefined) {
 				result = this.getCachedQuery(
 					{
-						key: stringify({ filter, resolvedSelect, kind: 'linear' }),
+						key: stringifyKey({ filter, resolvedSelect, kind: 'linear' }),
 						sort,
 						subqueries: null,
 					},
@@ -434,7 +454,7 @@ export class Table<S extends TableSchema> {
 
 				result = this.getCachedQuery(
 					{
-						key: stringify({
+						key: stringifyKey({
 							filter,
 							resolvedSelect,
 							kind: 'linearSubqueries',
@@ -460,7 +480,7 @@ export class Table<S extends TableSchema> {
 			if (subqueries === undefined) {
 				result = this.getCachedQuery(
 					{
-						key: stringify({
+						key: stringifyKey({
 							filter,
 							resolvedSelect,
 							groupBy,
@@ -481,7 +501,7 @@ export class Table<S extends TableSchema> {
 			} else {
 				result = this.getCachedQuery(
 					{
-						key: stringify({
+						key: stringifyKey({
 							filter,
 							resolvedSelect,
 							groupBy,
@@ -532,12 +552,13 @@ export class Table<S extends TableSchema> {
 			...(groupBy !== undefined ? [groupBy] : []),
 			...Object.keys(filter),
 		])
+		this.validateRanges(filter)
 
 		let result: CountQueryImpl<S> | GroupedQueryImpl<S, GroupBy, CountQuery>
 		if (groupBy === undefined) {
 			result = this.getCachedQuery(
 				{
-					key: stringify({ filter, kind: 'count' }),
+					key: stringifyKey({ filter, kind: 'count' }),
 					sort: null,
 					subqueries: null,
 				},
@@ -546,7 +567,7 @@ export class Table<S extends TableSchema> {
 		} else {
 			result = this.getCachedQuery(
 				{
-					key: stringify({ filter, groupBy, kind: 'groupCount' }),
+					key: stringifyKey({ filter, groupBy, kind: 'groupCount' }),
 					sort: null,
 					subqueries: null,
 				},
@@ -572,9 +593,11 @@ export class Table<S extends TableSchema> {
 		filter?: Filter<S>
 		subquery: (group: Row<Primitives<S>>[GroupBy]) => Q
 	}): GroupedQuery<S, GroupBy, Q> {
+		this.validateRanges(filter)
+
 		return this.getCachedQuery(
 			{
-				key: stringify({ groupBy, filter, kind: 'groupBy' }),
+				key: stringifyKey({ groupBy, filter, kind: 'groupBy' }),
 				sort: null,
 				subqueries: subquery,
 			},

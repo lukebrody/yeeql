@@ -11,6 +11,7 @@ It allows for creating schematized SQL-like queries on top of `Y.Map`s.
 ## Features
 
 - `select`, `filter`, `sort`, `groupBy`, `count`
+- Range filters (`gt`, `gte`, `lt`, `lte`)
 - subscribe to query changes
 - React support with `useQuery`
 - Nested queries (subqueries)
@@ -292,6 +293,5 @@ Once a row is constructed from the `Y.Table`, it is reused across all queries. E
 
 # Future Work
 
-- Non-literal (Less Than, Greater Than) filter parameters. (Should be possible using a datastructure that maps segments of a domain to different values.)
 - `LIMIT` and `OFFSET` equivalents.
 - Option to validate rows and only include rows from peers with a correct schema.

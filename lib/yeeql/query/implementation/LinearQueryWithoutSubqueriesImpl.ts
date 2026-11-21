@@ -3,7 +3,7 @@ import { UUID } from 'common/UUID'
 import { insertOrdered, removeOrdered } from 'common/array'
 import { QueryBase } from 'yeeql/query/QueryBase'
 import { QueryRegistryEntry } from 'yeeql/table/QueryRegistry'
-import { TableSchema, Row, Filter } from 'yeeql/table/Schema'
+import { TableSchema, Row, Filter, matchesFilter } from 'yeeql/table/Schema'
 import { LinearQuery, ResultRow } from 'yeeql/query/interface/LinearQuery'
 import { QueryChange } from 'yeeql/query/Query'
 
@@ -22,11 +22,9 @@ export class LinearQueryWithoutSubqueriesImpl<
 	) {
 		super()
 		this.result = []
-		addItem: for (const [, row] of items) {
-			for (const [key, value] of Object.entries(filter)) {
-				if (row[key] !== value) {
-					continue addItem
-				}
+		for (const [, row] of items) {
+			if (!matchesFilter(filter, row)) {
+				continue
 			}
 			insertOrdered(this.result, row, sort)
 		}

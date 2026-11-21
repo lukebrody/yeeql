@@ -72,10 +72,14 @@ test('sort type checking', () => {
 })
 
 test('filter primitive type checking', () => {
-	table.query({
-		// @ts-expect-error Should not allow non-primitive object as a filter
-		filter: { object: {} },
-	})
+	assert.throws(
+		() =>
+			table.query({
+				// @ts-expect-error Should not allow non-primitive object as a filter
+				filter: { object: {} },
+			}),
+		/range on 'object' needs a bound/,
+	)
 })
 
 test('groupBy primitive type checking', () => {

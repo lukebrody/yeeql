@@ -1,5 +1,5 @@
 /* c8 ignore next */
-import { Filter, Row, TableSchema } from 'yeeql/table/Schema'
+import { Filter, matchesFilter, Row, TableSchema } from 'yeeql/table/Schema'
 import { QueryRegistryEntry } from 'yeeql/table/QueryRegistry'
 import { UUID } from 'common/UUID'
 import { QueryBase } from 'yeeql/query/QueryBase'
@@ -16,11 +16,9 @@ export class CountQueryImpl<S extends TableSchema>
 	) {
 		super()
 		this.result = 0
-		addItem: for (const [, row] of items) {
-			for (const [key, value] of Object.entries(filter)) {
-				if (row[key] !== value) {
-					continue addItem
-				}
+		for (const [, row] of items) {
+			if (!matchesFilter(filter, row)) {
+				continue
 			}
 			this.result++
 		}

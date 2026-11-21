@@ -1,6 +1,15 @@
 /* c8 ignore next */
 import { DefaultMap } from 'common/DefaultMap'
-import { Filter, Row, TableSchema } from 'yeeql/table/Schema'
+import {
+	Comparable,
+	Filter,
+	Row,
+	TableSchema,
+	isRange,
+	rangeType,
+	stringifyKey,
+} from 'yeeql/table/Schema'
+import { RangeIndex } from 'yeeql/table/RangeIndex'
 
 const notSpecified = Symbol()
 type NotSpecified = typeof notSpecified
@@ -8,10 +17,24 @@ type NotSpecified = typeof notSpecified
 export const addedOrRemoved = Symbol()
 type AddedOrRemoved = typeof addedOrRemoved
 
-type QueryTreeNode<S extends TableSchema> = DefaultMap<
-	unknown | NotSpecified,
-	QueryTree<S>
->
+class QueryTreeNode<S extends TableSchema> {
+	constructor(makeChild: () => QueryTree<S>) {
+		this.values = new DefaultMap(makeChild)
+		this.ranges = new DefaultMap(makeChild)
+	}
+
+	readonly values: DefaultMap<unknown | NotSpecified, QueryTree<S>>
+	// Keyed by stringified range
+	readonly ranges: DefaultMap<string, QueryTree<S>>
+	// Keyed by `rangeType`
+	readonly rangeIndexes = new DefaultMap<string, RangeIndex<QueryTree<S>>>(
+		() => new RangeIndex(),
+	)
+
+	get size(): number {
+		return this.values.size + this.ranges.size
+	}
+}
 type QueryTreeLeaf<S extends TableSchema> = DefaultMap<
 	keyof S | AddedOrRemoved,
 	Array<WeakRef<QueryRegistryEntry<S>>>
@@ -25,10 +48,7 @@ function buildQueryTree<S extends TableSchema>(
 		const result: QueryTreeLeaf<S> = new DefaultMap(() => [])
 		return result
 	} else {
-		const result: QueryTreeNode<S> = new DefaultMap(() =>
-			buildQueryTree(fields.slice(1)),
-		)
-		return result
+		return new QueryTreeNode(() => buildQueryTree(fields.slice(1)))
 	}
 }
 
@@ -55,7 +75,19 @@ function insertIntoQueryTree<S extends TableSchema>(
 			fields[0] in query.filter
 				? query.filter[fields[0] as keyof typeof query.filter]
 				: notSpecified
-		insertIntoQueryTree(node.get(key), fields.slice(1), query)
+		let child: QueryTree<S>
+		if (isRange(key)) {
+			const rangeKey = stringifyKey(key)
+			if (!node.ranges.has(rangeKey)) {
+				node.rangeIndexes
+					.get(rangeType(key))
+					.add(key, node.ranges.get(rangeKey))
+			}
+			child = node.ranges.get(rangeKey)
+		} else {
+			child = node.values.get(key)
+		}
+		insertIntoQueryTree(child, fields.slice(1), query)
 	}
 }
 
@@ -84,10 +116,28 @@ function deleteFromQueryTree<S extends TableSchema>(
 			fields[0] in filter
 				? filter[fields[0] as keyof typeof filter]
 				: notSpecified
-		const child = node.get(key)
-		deleteFromQueryTree(child, fields.slice(1), filter)
-		if (child.size == 0) {
-			node.delete(key)
+		if (isRange(key)) {
+			const rangeKey = stringifyKey(key)
+			// Already removed when finalizing another query with the same filter
+			if (!node.ranges.has(rangeKey)) {
+				return
+			}
+			const child = node.ranges.get(rangeKey)
+			deleteFromQueryTree(child, fields.slice(1), filter)
+			if (child.size == 0) {
+				node.ranges.delete(rangeKey)
+				const rangeIndex = node.rangeIndexes.get(rangeType(key))
+				rangeIndex.delete(key, child)
+				if (rangeIndex.isEmpty) {
+					node.rangeIndexes.delete(rangeType(key))
+				}
+			}
+		} else {
+			const child = node.values.get(key)
+			deleteFromQueryTree(child, fields.slice(1), filter)
+			if (child.size == 0) {
+				node.values.delete(key)
+			}
 		}
 	}
 }
@@ -116,21 +166,29 @@ function collectFromQueryTree<S extends TableSchema>(
 		}
 	} else {
 		const node = qt as QueryTreeNode<S>
+		const value = row[fields[0]]
 		collectFromQueryTree(
-			node.get(notSpecified),
+			node.values.get(notSpecified),
 			fields.slice(1),
 			row,
 			changed,
 			result,
 		)
-		if (node.has(row[fields[0]])) {
-			return collectFromQueryTree(
-				node.get(row[fields[0]]),
+		if (node.values.has(value)) {
+			collectFromQueryTree(
+				node.values.get(value),
 				fields.slice(1),
 				row,
 				changed,
 				result,
 			)
+		}
+		if (node.rangeIndexes.has(typeof value)) {
+			for (const child of node.rangeIndexes
+				.get(typeof value)
+				.get(value as Comparable)) {
+				collectFromQueryTree(child, fields.slice(1), row, changed, result)
+			}
 		}
 	}
 }

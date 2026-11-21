@@ -20,3 +20,11 @@ jobs:
       - run: npm test
       - name: Check generated docs are up to date
         run: git diff --exit-code
+
+  ci-passed:
+    if: always()
+    needs: [test]
+    runs-on: ubuntu-latest
+    steps:
+      - run: exit 1
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped')

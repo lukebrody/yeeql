@@ -9,14 +9,14 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version-file: .node-version
           cache: npm
       - run: npm ci
       - run: npx prettier . --check
-      - run: npx eslint "./**/*.{ts,tsx,js,cjs}"
+      - run: npx eslint --max-warnings 0 "./**/*.{ts,tsx,js,cjs}"
       - run: npm test
       - name: Check generated docs are up to date
         run: git diff --exit-code

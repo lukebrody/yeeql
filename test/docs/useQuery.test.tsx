@@ -9,8 +9,10 @@ import React from 'react'
 import { useQuery, Table } from 'yeeql'
 // end docs useQuery1
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyQuery = Query<any, any, any>
 
+/* eslint-disable @typescript-eslint/no-unused-vars */
 // start docs useQuery Signature
 function useQuery2<Q extends AnyQuery>(
 	makeQuery: () => Q,
@@ -20,12 +22,10 @@ function useQuery2<Q extends AnyQuery>(
 	// end docs useQuery Signature
 	throw new Error('not implemented')
 }
+/* eslint-enable @typescript-eslint/no-unused-vars */
 
-function typeCheck(f: typeof useQuery & typeof useQuery2) {
-	//
-}
-typeCheck(useQuery2)
-typeCheck(useQuery)
+useQuery satisfies typeof useQuery2
+useQuery2 satisfies typeof useQuery
 
 test('useQuery.md', () => {
 	docs.replaceToken('useQuery Signature', 'useQuery2', 'useQuery')

@@ -4,6 +4,7 @@ import { DefaultMap } from 'common/DefaultMap'
 import { UUID } from 'common/UUID'
 import { debug } from 'common/debug'
 import { compareStrings } from 'common/string'
+import { hasOwn } from 'common/object'
 import { YEvent, YMap } from 'yeeql/YInterfaces'
 import { Query, QueryChange, QueryResult } from 'yeeql/query/Query'
 import { CountQuery } from 'yeeql/query/interface/CountQuery'
@@ -64,10 +65,10 @@ function getSortColumns<S extends TableSchema, Q extends SubqueryGenerators<S>>(
 	const accessedKeys = new Set<keyof S>()
 	const proxy = new Proxy({} as Row<S> & SubqueriesPrimitiveResults<S, Q>, {
 		get(_, p) {
-			if (p in schema) {
+			if (hasOwn(schema, p)) {
 				accessedKeys.add(p as keyof S)
 				return '0'
-			} else if (subqueries !== undefined && p in subqueries) {
+			} else if (subqueries !== undefined && hasOwn(subqueries, p)) {
 				return stubProxy
 			} else {
 				throw new Error(
@@ -88,7 +89,7 @@ function makeSubqueriesProxy<S extends TableSchema>(
 	const accessedKeys = new Set<keyof S>()
 	const proxy = new Proxy({} as Row<S>, {
 		get(_, p) {
-			if (p in schema) {
+			if (hasOwn(schema, p)) {
 				accessedKeys.add(p as keyof S)
 				return '0'
 			} else {
@@ -314,7 +315,7 @@ export class Table<S extends TableSchema> {
 	}
 
 	private validateColumns(cols: Array<keyof S>) {
-		const uknownCol = cols.find((col) => this.schema[col] === undefined)
+		const uknownCol = cols.find((col) => !hasOwn(this.schema, col))
 		if (uknownCol !== undefined) {
 			throw new Error(`unknown column '${uknownCol.toString()}'`)
 		}
@@ -445,7 +446,7 @@ export class Table<S extends TableSchema> {
 				)
 			} else {
 				for (const subqueryKey of Object.keys(subqueries)) {
-					if (subqueryKey in this.schema) {
+					if (hasOwn(this.schema, subqueryKey)) {
 						throw new Error(
 							`key '${subqueryKey}' may not be reused for a subquery, since it's already in the schema`,
 						)

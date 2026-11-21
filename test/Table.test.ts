@@ -124,6 +124,19 @@ test('a NaN filter value matches NaN rows', () => {
 	assert.equal(count.result, 2)
 })
 
+test('inherited object properties are not columns', () => {
+	assert.throws(
+		// @ts-expect-error not a column
+		() => table.query({ filter: { toString: 1 } }),
+		/unknown column 'toString'/,
+	)
+	assert.throws(
+		// @ts-expect-error not a column
+		() => table.query({ sort: (a, b) => a.toString - b.toString }),
+		/unknown column 'toString'/,
+	)
+})
+
 test('cached count queries are registered once', () => {
 	const count = table.count({ filter: { string: 'a' } })
 	table.count({ filter: { string: 'a' } })

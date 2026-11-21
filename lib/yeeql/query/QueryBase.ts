@@ -104,7 +104,27 @@ export abstract class QueryBase<Change> implements QueryInternal<Change> {
 		const callObserver = () => {
 			const next = internalObservers.next()
 			if (next.done === undefined || next.done === false) {
-				internalObserverNotifications.push(next.value(callObserver))
+				const callback = next.value
+				try {
+					internalObserverNotifications.push(
+						callback(() => {
+							const change = callObserver()
+							// Another change may have invalidated the observer while it waited
+							if (!this.internalObservers.has(callback)) {
+								throw dependencyInvalidated
+							}
+							return change
+						}),
+					)
+				} catch (error) {
+					if (
+						error !== dependencyInvalidated ||
+						this.error !== undefined ||
+						this.internalObservers.has(callback)
+					) {
+						throw error
+					}
+				}
 			} else {
 				this.changeReported = true
 				try {
@@ -113,11 +133,9 @@ export abstract class QueryBase<Change> implements QueryInternal<Change> {
 					if (error === dependencyInvalidated) {
 						throw error
 					}
-					if (this.error === undefined) {
-						queueMicrotask(() => {
-							throw error
-						})
-					}
+					queueMicrotask(() => {
+						throw error
+					})
 					invalidation = this.invalidate(error)
 					// Unwinds the internal observers waiting on `ready`, which are invalid now too
 					throw dependencyInvalidated
@@ -138,7 +156,8 @@ export abstract class QueryBase<Change> implements QueryInternal<Change> {
 		}
 
 		return () => {
-			if (reported) {
+			// Observers of a query invalidated later in the transaction only see 'invalid'
+			if (reported && this.error === undefined) {
 				this.notifyObservers(change)
 			}
 			internalObserverNotifications.forEach((notify) => notify())
@@ -163,9 +182,6 @@ export abstract class QueryBase<Change> implements QueryInternal<Change> {
 	}
 
 	invalidate(error: unknown): () => void {
-		if (this.error !== undefined) {
-			return () => undefined
-		}
 		this.error = error
 		const throwError = () => {
 			throw error

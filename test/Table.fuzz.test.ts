@@ -150,6 +150,42 @@ for (const seed of seeds) {
 					.sort((a, b) => sort(a, b) || compareStrings(a.id, b.id)),
 			)
 
+		const reports: unknown[] = []
+		context.mock.method(
+			globalThis,
+			'queueMicrotask',
+			(callback: () => void) => {
+				try {
+					callback()
+				} catch (error) {
+					reports.push(error)
+				}
+			},
+		)
+		// Throws on a subquery value, so it can fail partway through a subquery's changes
+		const throwing = table.query({
+			select: ['id', 'label', 'order'],
+			subqueries: {
+				groupSize: (row) => table.count({ filter: { group: row.group } }),
+			},
+			sort: (a, b) => {
+				if ([a, b].some((row) => row.label === 'z' && row.groupSize >= 7)) {
+					throw new Error('fuzz')
+				}
+				return byOrder(a, b)
+			},
+		})
+		const replayedThrowing = [...throwing.result]
+		let throwingInvalid = false
+		throwing.observe((change) => {
+			assert(!throwingInvalid)
+			if (change.kind === 'invalid') {
+				throwingInvalid = true
+			} else {
+				applyChange(replayedThrowing, change)
+			}
+		})
+
 		for (let i = 0; i < 5; i++) {
 			table.insert(randomValues())
 		}
@@ -347,6 +383,14 @@ for (const seed of seeds) {
 				assert.deepEqual(ids(rows as FuzzRow[]), ids(query.result))
 			}
 			checkReplayedGroups.forEach((checkReplayed) => checkReplayed())
+			if (throwingInvalid) {
+				assert.throws(() => throwing.result, /the sort comparator threw/)
+				assert.equal(reports.length, 1)
+			} else {
+				assert.deepEqual(ids(throwing.result), expected(rows, all, byOrder))
+				assert.deepEqual(ids(replayedThrowing), ids(throwing.result))
+				assert.equal(reports.length, 0)
+			}
 			assert.equal(replayedNanCount, nanCount.result)
 			assert.deepEqual(replayedGroupedCounts, new Map(groupedCounts.result))
 

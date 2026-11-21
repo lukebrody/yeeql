@@ -432,7 +432,7 @@ test('a subquery generator that throws on an update leaves the subquery working'
 	assert.equal(countA.result, 2)
 	assert.deepEqual(
 		changes.map(({ kind }) => kind),
-		['add', 'subquery', 'subquery', 'invalid'],
+		['add', 'subquery', 'invalid'],
 	)
 })
 
@@ -492,7 +492,7 @@ test('a sort that throws on an add unobserves the row subqueries', (t) => {
 	assertInvalid(query, 'the sort comparator threw', /boom/)
 	assert.deepEqual(
 		changes.map(({ kind }) => kind),
-		['add', 'subquery', 'invalid'],
+		['add', 'invalid'],
 	)
 })
 
@@ -570,15 +570,14 @@ test('a sort that throws while rows share a subquery invalidates the query once'
 	table.insert({ number: 4, string: 'y' })
 	throwing = false
 	assertInvalid(query, 'the sort comparator threw', /boom/)
-	// The innermost row doesn't sort, so its update finishes first
 	assert.deepEqual(
 		changes.map(({ kind }) => kind),
-		['subquery', 'invalid'],
+		['invalid'],
 	)
 	assert.equal(reports.length, 1)
 	table.insert({ number: 5, string: 'y' })
 	assert.equal(allChanges, 2)
-	assert.equal(changes.length, 2)
+	assert.equal(changes.length, 1)
 })
 
 test('queries made from an invalid query are invalid', (t) => {
@@ -679,6 +678,54 @@ test('a groupBy subquery that throws invalidates the grouped query', (t) => {
 	assertInvalid(query, 'the groupBy subquery threw', /boom/)
 	assert.equal(allChanges, 2)
 	assert.equal(table.count({ filter: { string: 'b' } }).result, 1)
+})
+
+test('a group added in the transaction that invalidates its query', (t) => {
+	catchReports(t)
+	const query = table.query({
+		groupBy: 'string',
+		sort: (a, b) => {
+			if (a.number === 99 || b.number === 99) {
+				throw boom
+			}
+			return a.number - b.number
+		},
+	})
+	const changes: string[] = []
+	query.observe(({ kind }) => changes.push(kind))
+	doc.transact(() => {
+		table.insert({ number: 1, string: 'a' })
+		table.insert({ number: 99, string: 'a' })
+	})
+	assertInvalid(query, 'the sort comparator threw', /boom/)
+	assert.deepEqual(changes, ['invalid'])
+	assert.equal(table.query({ groupBy: 'string' }).result.get('a').length, 2)
+})
+
+test('a group invalidated by a sibling group in the same change', (t) => {
+	const reports = catchReports(t)
+	const query = table.query({
+		groupBy: 'string',
+		subqueries: { all: () => table.count({}) },
+		sort: (a, b) => {
+			if (a.string === 'b' && a.all > 4) {
+				throw boom
+			}
+			return a.number - b.number
+		},
+	})
+	const all = table.count({})
+	let allChanges = 0
+	all.observe(() => allChanges++)
+	table.insert({ number: 1, string: 'a' })
+	table.insert({ number: 2, string: 'a' })
+	table.insert({ number: 3, string: 'b' })
+	table.insert({ number: 4, string: 'b' })
+	table.insert({ number: 5, string: 'c' })
+	assertInvalid(query, 'the sort comparator threw', /boom/)
+	assert.equal(reports.length, 1)
+	assert.equal(allChanges, 5)
+	assert.equal(all.result, 5)
 })
 
 test('an invalid query leaves the registry and other tables', (t) => {

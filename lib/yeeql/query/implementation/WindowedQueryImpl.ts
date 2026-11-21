@@ -35,8 +35,8 @@ export class WindowedQueryImpl<
 		const callback = (ready: () => Change<S, Select, Q>) => {
 			const window = weakThis.deref()
 			if (window === undefined) {
-				query.internalUnobserve(callback)
 				ready()
+				query.internalUnobserve(callback)
 				return () => undefined
 			}
 			return window.update(ready())

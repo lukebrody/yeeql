@@ -63,10 +63,11 @@ export function rangeType(range: Range<Comparable>): string {
 	return typeof rangeBounds(range)[0]
 }
 
-// JSON writes Infinity, -Infinity and NaN all as null, and throws on bigints
+// JSON writes Infinity, -Infinity and NaN all as null, drops undefined properties, and throws on bigints
 export function stringifyKey(value: unknown): string {
 	return stringify(value, {
 		replacer: (_, value) =>
+			value === undefined ||
 			typeof value === 'bigint' ||
 			(typeof value === 'number' && !Number.isFinite(value))
 				? { [typeof value]: String(value) }

@@ -300,6 +300,8 @@ export class Table<S extends TableSchema> {
 		({ key, sort, subqueries }) => {
 			const layerOne = this.queryCache.get(key)
 			const layerTwo = layerOne.get(sort)
+			// The entry may already hold a replacement query
+			if (layerTwo.get(subqueries)?.deref() !== undefined) return
 			layerTwo.delete(subqueries)
 			if (layerTwo.size === 0) {
 				layerOne.delete(sort)

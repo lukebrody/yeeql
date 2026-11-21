@@ -114,6 +114,8 @@ export class LinearQueryWithSubqueriesImpl<
 								: this.result.indexOf(fresh[freshIndex + 1])
 						this.result.splice(insertedIndex, 0, augmentedRow)
 					}
+					// A nested sibling's change may have left this false
+					this.changeReported = true
 					if (!subquery.changeReported) {
 						if (insertedIndex === removedIndex) {
 							this.changeReported = false

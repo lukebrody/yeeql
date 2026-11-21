@@ -482,3 +482,44 @@ test('a throw in a transaction still ends it for a grouped query', () => {
 	table.insert({ number: 1, string: 'b' })
 	assert.deepEqual(changes, [['subquery', 1, 'add']])
 })
+
+test('a row moved by a shared grouped subquery reports its move after a sibling folded', () => {
+	const rows = new Table(doc.getMap('rows') as Y.Map<Y.Map<unknown>>, {
+		id: new Field<UUID>(),
+		group: new Field<number>(),
+		label: new Field<string>(),
+		order: new Field<number>(),
+	})
+	rows.insert({ group: 0, label: 'y', order: 2 })
+	rows.insert({ group: 1, label: 'y', order: 4 })
+	const query = rows.query({
+		select: ['id', 'order', 'group'],
+		subqueries: {
+			byLabel: (row) =>
+				rows.query({
+					select: ['id'],
+					filter: { group: row.group },
+					groupBy: 'label',
+				}),
+		},
+		sort: (a, b) => a.order - b.order,
+	})
+	const replayed = query.result.map(({ id }) => id)
+	query.observe((change) => {
+		if (change.kind !== 'add') {
+			replayed.splice(change.oldIndex, 1)
+		}
+		if (change.kind !== 'remove') {
+			replayed.splice(change.newIndex, 0, change.row.id)
+		}
+	})
+
+	doc.transact(() => {
+		rows.insert({ group: 1, label: 'x', order: 0 })
+		rows.insert({ group: 1, label: 'x', order: 3 })
+	})
+	assert.deepEqual(
+		replayed,
+		query.result.map(({ id }) => id),
+	)
+})

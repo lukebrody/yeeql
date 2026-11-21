@@ -405,7 +405,7 @@ type ExpectedChange<Result> =
     row: Readonly<Result>, // The row after the update
     oldIndex: number,
     newIndex: number,
-    oldValues: Readonly<Partial<Result>> // Of the columns that changed, these are the old values
+    oldValues: Readonly<Partial<Result>> // Of the columns that changed, these are the old values. Empty when only a subquery change already reported moved the row
     type: 'update'
 }
 // end docs QueryChange

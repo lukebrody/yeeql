@@ -167,7 +167,7 @@ export class LinearQueryWithSubqueriesImpl<
 		return this.notifyingObservers(() => {
 			const { augmentedRow, subQueries } = this.rowMap.get(row)!
 			for (const [, { query, callback }] of Object.entries(subQueries)) {
-				query.unobserve(callback)
+				query.internalUnobserve(callback)
 			}
 			this.rowMap.delete(row)
 

@@ -100,3 +100,12 @@ test('memory management', async () => {
 
 	assert.equal(weakQuery.deref(), undefined)
 })
+
+test('a NaN filter value matches NaN rows', () => {
+	table.insert({ number: NaN, string: 'a' })
+	table.insert({ number: 1, string: 'b' })
+	const count = table.count({ filter: { number: NaN } })
+	assert.equal(count.result, 1)
+	table.insert({ number: NaN, string: 'c' })
+	assert.equal(count.result, 2)
+})

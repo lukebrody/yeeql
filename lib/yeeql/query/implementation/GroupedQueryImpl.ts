@@ -103,6 +103,8 @@ export class GroupedQueryImpl<
 		const observer: InternalChangeCallback<QueryChange<Q>> = (ready) => {
 			return this.notifyingObservers(() => {
 				const change = ready()
+				this.changeReported =
+					query.changeReported && !this.groupsAddedThisTransaction.has(group)
 				return {
 					kind: 'subquery',
 					result: query.result as QueryResult<Q>,
@@ -110,7 +112,7 @@ export class GroupedQueryImpl<
 					change,
 					type: change.type,
 				}
-			}, !this.groupsAddedThisTransaction.has(group))
+			})
 		}
 		query.internalObserve(observer)
 		this.queries.set(group, { query, observer })

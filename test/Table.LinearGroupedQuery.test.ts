@@ -287,3 +287,198 @@ test('group with subqueries added in a transaction reports its later rows in add
 	})
 	assert.deepEqual(changes, [['addGroup', [2, 2]]])
 })
+
+// Count changes have only `delta`
+type ReplayChange = {
+	kind?: string
+	group?: unknown
+	result?: unknown
+	row?: { id: UUID }
+	oldIndex?: number
+	newIndex?: number
+	key?: string
+	delta?: number
+	change?: ReplayChange
+}
+type Replayed = number | Map<unknown, Replayed> | ReplayedRow[]
+type ReplayedRow = { id: UUID; subqueries: Record<string, Replayed> }
+
+function snapshot(result: unknown): Replayed {
+	if (typeof result === 'number') {
+		return result
+	}
+	if (Array.isArray(result)) {
+		return result.map(snapshotRow)
+	}
+	return new Map(
+		Array.from(result as Iterable<[unknown, unknown]>, ([group, rows]) => [
+			group,
+			snapshot(rows),
+		]),
+	)
+}
+
+function snapshotRow(row: { id: UUID }): ReplayedRow {
+	const subqueries: Record<string, Replayed> = {}
+	for (const [key, value] of Object.entries(row)) {
+		if (!Object.hasOwn(schema, key)) {
+			subqueries[key] = snapshot(value)
+		}
+	}
+	return { id: row.id, subqueries }
+}
+
+function applyChange(replayed: Replayed, change: ReplayChange): Replayed {
+	if (typeof replayed === 'number') {
+		return replayed + change.delta!
+	}
+	if (replayed instanceof Map) {
+		if (change.kind === 'addGroup') {
+			assert(!replayed.has(change.group))
+			replayed.set(change.group, snapshot(change.result))
+		} else if (change.kind === 'removeGroup') {
+			assert(replayed.delete(change.group))
+		} else {
+			replayed.set(
+				change.group,
+				applyChange(replayed.get(change.group)!, change.change!),
+			)
+		}
+		return replayed
+	}
+	let replayedRow = snapshotRow(change.row!)
+	if (change.kind !== 'add') {
+		assert.equal(replayed[change.oldIndex!].id, change.row!.id)
+		const [oldRow] = replayed.splice(change.oldIndex!, 1)
+		if (change.kind === 'subquery') {
+			replayedRow = oldRow
+			oldRow.subqueries[change.key!] = applyChange(
+				oldRow.subqueries[change.key!],
+				change.change!,
+			)
+		}
+	}
+	if (change.kind !== 'remove') {
+		replayed.splice(change.newIndex!, 0, replayedRow)
+	}
+	return replayed
+}
+
+// Returns a check that replaying the changes gives the query's result
+function replay(query: {
+	result: unknown
+	observe(observer: (change: ReplayChange) => void): void
+}) {
+	let replayed = snapshot(query.result)
+	query.observe((change) => (replayed = applyChange(replayed, change)))
+	return () => assert.deepEqual(replayed, snapshot(query.result))
+}
+
+test('grouped query nested in a grouped query replays a group added in a transaction', () => {
+	const nested = table.groupBy({
+		groupBy: 'string',
+		subquery: (string) =>
+			table.query({ select: ['id'], filter: { string }, groupBy: 'number' }),
+	})
+	const checkReplayed = replay(nested)
+	table.insert({ number: 0, string: 'a' })
+
+	doc.transact(() => {
+		table.insert({ number: 1, string: 'a' })
+		table.insert({ number: 1, string: 'a' })
+	})
+	checkReplayed()
+})
+
+for (const limit of [undefined, 1]) {
+	test(`linear query with a grouped subquery replays a group added in a transaction, limit ${limit}`, () => {
+		const parents = table.query({
+			select: ['id', 'string'],
+			filter: { number: 0 },
+			subqueries: {
+				children: (row) =>
+					table.query({
+						select: ['id'],
+						filter: { string: row.string },
+						groupBy: 'number',
+					}),
+			},
+			limit,
+		})
+		const changes: unknown[] = []
+		parents.observe((change) => changes.push(change.kind))
+		const checkReplayed = replay(parents)
+		table.insert({ number: 0, string: 'a' })
+
+		changes.length = 0
+		doc.transact(() => {
+			table.insert({ number: 1, string: 'a' })
+			table.insert({ number: 1, string: 'a' })
+		})
+		assert.deepEqual(changes, ['subquery'])
+		checkReplayed()
+	})
+}
+
+for (const limit of [undefined, 2]) {
+	test(`linear query sorted by a grouped count replays a group added in a transaction, limit ${limit}`, () => {
+		const parents = table.query({
+			select: ['id', 'string'],
+			filter: { number: 0 },
+			subqueries: {
+				counts: (row) =>
+					table.count({ filter: { string: row.string }, groupBy: 'number' }),
+			},
+			sort: (a, b) =>
+				(a.counts.get(1) ?? 0) - (b.counts.get(1) ?? 0) ||
+				a.string.localeCompare(b.string),
+			limit,
+		})
+		const checkReplayed = replay(parents)
+		table.insert({ number: 0, string: 'a' })
+		table.insert({ number: 0, string: 'b' })
+		table.insert({ number: 1, string: 'b' })
+
+		// The second row moves 'a' past 'b' after its group was added
+		doc.transact(() => {
+			table.insert({ number: 1, string: 'a' })
+			table.insert({ number: 1, string: 'a' })
+		})
+		checkReplayed()
+		assert.deepEqual(
+			parents.result.map(({ string }) => string),
+			['b', 'a'],
+		)
+
+		doc.transact(() => {
+			table.insert({ number: 2, string: 'b' })
+			table.insert({ number: 2, string: 'b' })
+		})
+		checkReplayed()
+	})
+}
+
+test('a throw in a transaction still ends it for a grouped query', () => {
+	const query = table.query({ select: ['id'], groupBy: 'number' })
+	table.query({
+		select: ['id', 'string'],
+		sort: (a, b) => {
+			if (a.string === 'throw' || b.string === 'throw') {
+				throw new Error('sort')
+			}
+			return 0
+		},
+	})
+	table.insert({ number: 2, string: 'a' })
+	const changes = observeGroups(query)
+
+	assert.throws(() =>
+		doc.transact(() => {
+			table.insert({ number: 1, string: 'a' })
+			table.insert({ number: 2, string: 'throw' })
+		}),
+	)
+	changes.length = 0
+	table.insert({ number: 1, string: 'b' })
+	assert.deepEqual(changes, [['subquery', 1, 'add']])
+})

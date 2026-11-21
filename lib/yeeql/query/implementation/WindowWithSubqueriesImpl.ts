@@ -39,7 +39,8 @@ export class WindowWithSubqueriesImpl<
 			subqueries,
 			dependencies,
 			filter,
-			(key, augmentedRow) => this.makeSubqueryCallback(key, augmentedRow),
+			(key, augmentedRow, subquery) =>
+				this.makeSubqueryCallback(key, augmentedRow, subquery),
 		)
 		this.result = window.result.map((row) => rowSubqueries.add(row as Row<S>))
 
@@ -79,17 +80,20 @@ export class WindowWithSubqueriesImpl<
 	private makeSubqueryCallback<Key extends keyof Q>(
 		key: Key,
 		augmentedRow: (typeof this.result)[0],
+		subquery: QueryInternal<SubqueryChange<S, Q[Key]>>,
 	): InternalChangeCallback<SubqueryChange<S, Q[Key]>> {
 		return (ready) =>
 			this.notifyingObservers(() => {
 				const index = this.result.indexOf(augmentedRow)
+				const change = ready()
+				this.changeReported = subquery.changeReported
 				return {
 					kind: 'subquery',
 					row: augmentedRow,
 					oldIndex: index,
 					newIndex: index,
 					key,
-					change: ready(),
+					change,
 					type: 'update',
 				}
 			})

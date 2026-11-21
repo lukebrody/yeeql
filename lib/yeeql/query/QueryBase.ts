@@ -21,10 +21,14 @@ export interface QueryInternal<Change> {
 	 */
 	internalObserve(callback: InternalChangeCallback<Change>): void
 	internalUnobserve(callback: InternalChangeCallback<Change>): void
+	// After `ready()`: false if that change was folded into an earlier one, so observers weren't told
+	readonly changeReported: boolean
 }
 
 export abstract class QueryBase<Change> implements QueryInternal<Change> {
 	version = 0
+
+	changeReported = true
 
 	private readonly observers = new Set<(change: Change) => void>()
 
@@ -68,20 +72,20 @@ export abstract class QueryBase<Change> implements QueryInternal<Change> {
 	 * @param doChange - updates this query's result
 	 * @returns a function that sends notifications to observers
 	 */
-	protected notifyingObservers(
-		doChange: () => Change,
-		notifyObservers = true,
-	): () => void {
+	protected notifyingObservers(doChange: () => Change): () => void {
 		const internalObservers = this.internalObservers.values()
 		const internalObserverNotifications: (() => void)[] = []
 
 		let change: Change
+		let reported: boolean
 		const callObserver = () => {
 			const next = internalObservers.next()
 			if (next.done === undefined || next.done === false) {
 				internalObserverNotifications.push(next.value(callObserver))
 			} else {
+				this.changeReported = true
 				change = doChange()
+				reported = this.changeReported
 				this.version++
 			}
 			return change
@@ -90,7 +94,7 @@ export abstract class QueryBase<Change> implements QueryInternal<Change> {
 		callObserver()
 
 		return () => {
-			if (notifyObservers) {
+			if (reported) {
 				this.observers.forEach((callback) => {
 					try {
 						callback(change)

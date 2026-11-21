@@ -6,6 +6,7 @@ import assert from 'assert/strict'
 import { LinearQuery } from 'yeeql/query/interface/LinearQuery'
 import { TableSchema } from 'yeeql/table/Schema'
 import { SubqueryGenerators } from 'yeeql/query/subquery'
+import { seededRandom } from 'test/random'
 
 const schema = {
 	id: new Field<UUID>(),
@@ -470,7 +471,7 @@ test('random windows', () => {
 		}
 	}
 
-	const randomInt = (max: number) => Math.floor(Math.random() * max)
+	const randomInt = seededRandom(1).int
 	const randomId = () => ids[randomInt(ids.length)]
 
 	for (let i = 0; i < 500; i++) {

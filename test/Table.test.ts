@@ -174,7 +174,55 @@ test('sort comparators must read selected columns unconditionally', () => {
 		() => table.insert({ number: 2, string: 'x' }),
 		/sort comparator read column 'number'/,
 	)
-	assert.equal(query.result.length, 1)
+	assert.equal(query.result.length, 2)
+})
+
+test('a missed read reports after the rest of the transaction applies', () => {
+	const query = table.query({
+		select: ['string'],
+		sort: (a, b) => (a.string === 'x' ? a.number - b.number : 0),
+	})
+	let changes = 0
+	query.observe(() => changes++)
+	const count = table.count({})
+	table.insert({ number: 1, string: 'x' })
+
+	assert.throws(
+		() =>
+			doc.transact(() => {
+				table.insert({ number: 2, string: 'x' })
+				table.insert({ number: 3, string: 'z' })
+			}),
+		/sort comparator read column 'number'/,
+	)
+	assert.equal(query.result.length, 3)
+	assert.equal(changes, 3)
+	assert.equal(count.result, 3)
+	assert.equal(table.count({ filter: { string: 'z' } }).result, 1)
+})
+
+test('a missed read while creating a query throws immediately', () => {
+	table.insert({ number: 1, string: 'x' })
+	table.insert({ number: 2, string: 'x' })
+	assert.throws(
+		() =>
+			table.query({
+				select: ['string'],
+				sort: (a, b) => (a.string === 'x' ? a.number - b.number : 0),
+			}),
+		/sort comparator read column 'number'/,
+	)
+})
+
+test('sort comparators may branch to equality-filtered columns', () => {
+	const query = table.query({
+		select: ['string'],
+		filter: { number: 1 },
+		sort: (a, b) => (a.string === 'x' ? a.number - b.number : 0),
+	})
+	table.insert({ number: 1, string: 'x' })
+	table.insert({ number: 1, string: 'x' })
+	assert.equal(query.result.length, 2)
 })
 
 test('sort comparators may branch when every column is selected', () => {

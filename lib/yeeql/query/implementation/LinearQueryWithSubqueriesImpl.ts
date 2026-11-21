@@ -132,6 +132,7 @@ export class LinearQueryWithSubqueriesImpl<
 		let calling = true
 		const guardedRow = guardColumnReads(
 			row,
+			this.filter,
 			(column) => !calling || this.subqueryDependencies.get(column).has(key),
 			`subquery '${String(key)}'`,
 		)

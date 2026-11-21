@@ -1,7 +1,6 @@
 /* c8 ignore next */
 import stringify from 'json-stable-stringify'
 import { UUID } from 'common/UUID'
-import { hasOwn } from 'common/object'
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export class Field<Type> {}
@@ -99,9 +98,24 @@ export function matchesFilter<S extends TableSchema>(
 	})
 }
 
+// Set while a Table handles Yjs events, so that a missed read doesn't stop the table partway through updating
+let missedReads: { error: Error | undefined } | undefined
+
+export function catchMissedReads(run: () => void): Error | undefined {
+	const outer = missedReads
+	missedReads = { error: undefined }
+	try {
+		run()
+		return missedReads.error
+	} finally {
+		missedReads = outer
+	}
+}
+
 // yeeql finds the columns a sort or subquery generator depends on by calling it once with placeholder values
 export function guardColumnReads<R extends object>(
 	row: R,
+	filter: Readonly<Record<string, unknown>>,
 	isAllowed: (column: string) => boolean,
 	reader: string,
 ): R {
@@ -110,12 +124,18 @@ export function guardColumnReads<R extends object>(
 			if (
 				typeof key === 'string' &&
 				key !== 'id' &&
-				!isAllowed(key) &&
-				hasOwn(target, key)
+				Object.hasOwn(target, key) &&
+				// Rows only stay in the result while equality-filtered columns are unchanged
+				!(Object.hasOwn(filter, key) && !isRange(filter[key])) &&
+				!isAllowed(key)
 			) {
-				throw new Error(
+				const error = new Error(
 					`${reader} read column '${key}', which it didn't read when yeeql called it with placeholder values. Read each column before branching on any value.`,
 				)
+				if (missedReads === undefined) {
+					throw error
+				}
+				missedReads.error ??= error
 			}
 			return Reflect.get(target, key)
 		},

@@ -18,6 +18,7 @@ import {
 	addedOrRemoved,
 } from 'yeeql/table/QueryRegistry'
 import {
+	catchMissedReads,
 	Filter,
 	guardColumnReads,
 	Primitives,
@@ -181,82 +182,89 @@ export class Table<S extends TableSchema> {
 		yTable.observeDeep((events: YEvent[]) => {
 			const runAfterTransaction: (() => void)[] = []
 
-			for (const event of events) {
-				if (event.target === yTable) {
-					for (const [key, { action }] of event.keys) {
-						if (action === 'delete' || action === 'update') {
-							const row = this.items.get(key as UUID)!
-							this.items.delete(key as UUID)
-							const queries = this.queryRegistry.queries(row, addedOrRemoved)
-							queries.forEach((query) => {
-								runAfterTransaction.push(query.removeRow(row, action))
-							})
+			const missedReadError = catchMissedReads(() => {
+				for (const event of events) {
+					if (event.target === yTable) {
+						for (const [key, { action }] of event.keys) {
+							if (action === 'delete' || action === 'update') {
+								const row = this.items.get(key as UUID)!
+								this.items.delete(key as UUID)
+								const queries = this.queryRegistry.queries(row, addedOrRemoved)
+								queries.forEach((query) => {
+									runAfterTransaction.push(query.removeRow(row, action))
+								})
+							}
+							if (action === 'add' || action === 'update') {
+								const row = this.mapValueToRow(key as UUID, yTable.get(key)!)
+								this.items.set(key as UUID, row)
+								const queries = this.queryRegistry.queries(row, addedOrRemoved)
+								queries.forEach((query) => {
+									runAfterTransaction.push(query.addRow(row, action))
+								})
+							}
 						}
-						if (action === 'add' || action === 'update') {
-							const row = this.mapValueToRow(key as UUID, yTable.get(key)!)
-							this.items.set(key as UUID, row)
-							const queries = this.queryRegistry.queries(row, addedOrRemoved)
-							queries.forEach((query) => {
-								runAfterTransaction.push(query.addRow(row, action))
-							})
+					} else if (event.target.parent === yTable) {
+						const id = event.path[event.path.length - 1] as UUID
+
+						const row = this.items.get(id)!
+
+						const oldValues: Partial<Row<S>> = {}
+						const newValues: Partial<Row<S>> = {}
+
+						for (const key of event.keys.keys() as IterableIterator<
+							keyof Row<S>
+						>) {
+							// eslint-disable-next-line @typescript-eslint/no-explicit-any
+							const value = event.target.get(key)! as any
+							oldValues[key] = row[key]
+							newValues[key] = value
 						}
-					}
-				} else if (event.target.parent === yTable) {
-					const id = event.path[event.path.length - 1] as UUID
 
-					const row = this.items.get(id)!
-
-					const oldValues: Partial<Row<S>> = {}
-					const newValues: Partial<Row<S>> = {}
-
-					for (const key of event.keys.keys() as IterableIterator<
-						keyof Row<S>
-					>) {
-						// eslint-disable-next-line @typescript-eslint/no-explicit-any
-						const value = event.target.get(key)! as any
-						oldValues[key] = row[key]
-						newValues[key] = value
-					}
-
-					const patch = (row: Record<string, unknown>) =>
-						Object.entries(newValues).forEach(
-							([key, value]) => (row[key] = value),
-						)
-
-					const unpatch = (row: Record<string, unknown>) =>
-						Object.entries(oldValues).forEach(
-							([key, value]) => (row[key] = value),
-						)
-
-					// Query `filter` should be a subset of `select` since we're querying on changes, and filter params may have changed
-					const beforeQueries = this.queryRegistry.queries(row, newValues)
-					patch(row)
-					const afterQueries = this.queryRegistry.queries(row, newValues)
-
-					unpatch(row)
-					for (const beforeQuery of beforeQueries) {
-						if (!afterQueries.has(beforeQuery)) {
-							runAfterTransaction.push(beforeQuery.removeRow(row, 'update'))
-						}
-					}
-
-					patch(row)
-					for (const afterQuery of afterQueries) {
-						if (!beforeQueries.has(afterQuery)) {
-							runAfterTransaction.push(afterQuery.addRow(row, 'update'))
-						} else {
-							unpatch(row)
-							runAfterTransaction.push(
-								afterQuery.changeRow(row, oldValues, newValues, patch),
+						const patch = (row: Record<string, unknown>) =>
+							Object.entries(newValues).forEach(
+								([key, value]) => (row[key] = value),
 							)
+
+						const unpatch = (row: Record<string, unknown>) =>
+							Object.entries(oldValues).forEach(
+								([key, value]) => (row[key] = value),
+							)
+
+						// Query `filter` should be a subset of `select` since we're querying on changes, and filter params may have changed
+						const beforeQueries = this.queryRegistry.queries(row, newValues)
+						patch(row)
+						const afterQueries = this.queryRegistry.queries(row, newValues)
+
+						unpatch(row)
+						for (const beforeQuery of beforeQueries) {
+							if (!afterQueries.has(beforeQuery)) {
+								runAfterTransaction.push(beforeQuery.removeRow(row, 'update'))
+							}
+						}
+
+						patch(row)
+						for (const afterQuery of afterQueries) {
+							if (!beforeQueries.has(afterQuery)) {
+								runAfterTransaction.push(afterQuery.addRow(row, 'update'))
+							} else {
+								unpatch(row)
+								runAfterTransaction.push(
+									afterQuery.changeRow(row, oldValues, newValues, patch),
+								)
+							}
 						}
 					}
 				}
-			}
+			})
 
 			yTable.doc!.once('afterTransaction', () => {
 				runAfterTransaction.forEach((callback) => callback())
 			})
+
+			// Yjs still runs the other observers and finishes the transaction, then rethrows
+			if (missedReadError !== undefined) {
+				throw missedReadError
+			}
 		})
 	}
 
@@ -433,8 +441,8 @@ export class Table<S extends TableSchema> {
 			const isWatched = (column: string) => watched.has(column)
 			checkedSort = (a, b) =>
 				sort(
-					guardColumnReads(a, isWatched, 'the sort comparator'),
-					guardColumnReads(b, isWatched, 'the sort comparator'),
+					guardColumnReads(a, filter, isWatched, 'the sort comparator'),
+					guardColumnReads(b, filter, isWatched, 'the sort comparator'),
 				)
 		}
 

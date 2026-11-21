@@ -10,7 +10,7 @@ It allows for creating schematized SQL-like queries on top of `Y.Map`s.
 
 ## Features
 
-- `select`, `filter`, `sort`, `groupBy`, `count`
+- `select`, `filter`, `sort`, `groupBy`, `count`, `limit`, `offset`
 - Range filters (`gt`, `gte`, `lt`, `lte`)
 - subscribe to query changes
 - React support with `useQuery`
@@ -256,6 +256,8 @@ yeeql has a `O(QD)` runtime when a row is inserted, updated, or deleted, where:
 
 This is notably better than the naive runtime of `O(ND)` where we must check each query to see if an operation has affected its result.
 
+A query with `limit` or `offset` costs an extra `O(L)`, where `L` is its `limit`, when an operation changes a row at or before the end of its window.
+
 ## Query Cleanup
 
 Queries are only weakly referenced by the table, and once they are garbage collected, they're no longer updated (obviously). This saves memory and runtime.
@@ -293,5 +295,4 @@ Once a row is constructed from the `Y.Table`, it is reused across all queries. E
 
 # Future Work
 
-- `LIMIT` and `OFFSET` equivalents.
 - Option to validate rows and only include rows from peers with a correct schema.

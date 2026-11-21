@@ -38,7 +38,8 @@ import { LinearQueryWithoutSubqueriesImpl } from 'yeeql/query/implementation/Lin
 import { LinearQueryWithSubqueriesImpl } from 'yeeql/query/implementation/LinearQueryWithSubqueriesImpl'
 import { GroupedQueryImpl } from 'yeeql/query/implementation/GroupedQueryImpl'
 import { CountQueryImpl } from 'yeeql/query/implementation/CountQueryImpl'
-import { MinimalQueryChange } from 'yeeql/query/QueryBase'
+import { WindowedQueryImpl } from 'yeeql/query/implementation/WindowedQueryImpl'
+import { MinimalQueryChange, QueryInternal } from 'yeeql/query/QueryBase'
 
 /*
  * We only allow the user to use primitives in their sort function,
@@ -308,7 +309,7 @@ export class Table<S extends TableSchema> {
 
 	private getCachedQuery<
 		Q extends Query<QueryResult<Q>, QueryChange<Q>, unknown> &
-			QueryRegistryEntry<S>,
+			Partial<QueryRegistryEntry<S>>,
 	>({ key, sort, subqueries }: QueryCacheKey, makeQuery: () => Q): Q {
 		const cached = this.queryCache.get(key).get(sort).get(subqueries)?.deref()
 		if (cached) {
@@ -316,7 +317,9 @@ export class Table<S extends TableSchema> {
 		} else {
 			const result = makeQuery()
 			this.queryCache.get(key).get(sort).set(subqueries, new WeakRef(result))
-			this.queryRegistry.register(result)
+			if (!(result instanceof WindowedQueryImpl)) {
+				this.queryRegistry.register(result as QueryRegistryEntry<S>)
+			}
 			this.queryFinalizer.register(result, { key, sort, subqueries })
 			return result
 		}
@@ -351,18 +354,24 @@ export class Table<S extends TableSchema> {
 		filter?: Filter<S>
 		subqueries?: undefined // Need this so TypeScript doesn't get confused??
 		sort?: Sort<S, {}>
+		limit?: number
+		offset?: number
 	}): LinearQuery<S, Select, {}>
 	query<Select extends keyof S, Q extends SubqueryGenerators<S>>(_: {
 		select?: ReadonlyArray<Select>
 		filter?: Filter<S>
 		subqueries: Q
 		sort?: Sort<S, Q>
+		limit?: number
+		offset?: number
 	}): LinearQuery<S, keyof S, Q>
 	query<Select extends keyof S, GroupBy extends keyof Primitives<S>>(_: {
 		select?: ReadonlyArray<Select>
 		filter?: Filter<S>
 		groupBy: GroupBy
 		sort?: Sort<S, {}>
+		limit?: number
+		offset?: number
 	}): GroupedQuery<S, GroupBy, LinearQuery<S, Select, {}>>
 	query<
 		Select extends keyof S,
@@ -374,6 +383,8 @@ export class Table<S extends TableSchema> {
 		groupBy: GroupBy
 		subqueries: Q
 		sort?: Sort<S, Q>
+		limit?: number
+		offset?: number
 	}): GroupedQuery<S, GroupBy, LinearQuery<S, Select, Q>>
 	query<
 		Select extends keyof S,
@@ -385,12 +396,16 @@ export class Table<S extends TableSchema> {
 		sort = noSort,
 		groupBy,
 		subqueries,
+		limit,
+		offset,
 	}: {
 		select?: ReadonlyArray<Select>
 		filter?: Filter<S>
 		sort?: Sort<S, Q>
 		groupBy?: GroupBy
 		subqueries?: Q
+		limit?: number
+		offset?: number
 	}):
 		| LinearQuery<S, Select, {}>
 		| LinearQuery<S, Select, Q>
@@ -411,7 +426,7 @@ export class Table<S extends TableSchema> {
 					filter,
 				)}, subqueries: ${subqueriesString}, sort: ${sort}, groupBy: ${JSON.stringify(
 					groupBy,
-				)}})`,
+				)}, limit: ${limit}, offset: ${offset}})`,
 			)
 		}
 		/* v8 ignore stop */
@@ -422,6 +437,11 @@ export class Table<S extends TableSchema> {
 			...Object.keys(filter),
 		])
 		this.validateRanges(filter)
+		for (const [name, value] of Object.entries({ limit, offset })) {
+			if (value !== undefined && !(Number.isInteger(value) && value >= 0)) {
+				throw new Error(`'${name}' must be a non-negative integer`)
+			}
+		}
 
 		const resolvedSelect = Array.from(
 			new Set([
@@ -451,7 +471,35 @@ export class Table<S extends TableSchema> {
 			| LinearQueryWithSubqueriesImpl<S, Select, Q>
 			| GroupedQueryImpl<S, GroupBy, LinearQuery<S, Select, {}>>
 			| GroupedQueryImpl<S, GroupBy, LinearQuery<S, Select, Q>>
-		if (groupBy === undefined) {
+		if (
+			groupBy === undefined &&
+			(limit !== undefined || offset !== undefined)
+		) {
+			return this.getCachedQuery(
+				{
+					key: stringifyKey({
+						filter,
+						resolvedSelect,
+						limit,
+						offset,
+						kind: 'window',
+					}),
+					sort,
+					subqueries: subqueries ?? null,
+				},
+				() => {
+					const query = this.query({
+						select,
+						filter,
+						sort,
+						// Undefined picks a linear query without subqueries
+						subqueries: subqueries as Q,
+					}) as unknown as LinearQuery<S, Select, Q> &
+						QueryInternal<QueryChange<LinearQuery<S, Select, Q>>>
+					return new WindowedQueryImpl(query, offset ?? 0, limit ?? Infinity)
+				},
+			)
+		} else if (groupBy === undefined) {
 			if (subqueries === undefined) {
 				result = this.getCachedQuery(
 					{
@@ -508,6 +556,8 @@ export class Table<S extends TableSchema> {
 							filter,
 							resolvedSelect,
 							groupBy,
+							limit,
+							offset,
 							kind: 'grouped',
 						}),
 						sort,
@@ -519,6 +569,8 @@ export class Table<S extends TableSchema> {
 								select,
 								filter: { ...filter, [groupBy]: group },
 								sort: sort as Sort<S, {}>,
+								limit,
+								offset,
 							}),
 						),
 				)
@@ -529,6 +581,8 @@ export class Table<S extends TableSchema> {
 							filter,
 							resolvedSelect,
 							groupBy,
+							limit,
+							offset,
 							kind: 'grouped',
 						}),
 						sort,
@@ -541,6 +595,8 @@ export class Table<S extends TableSchema> {
 								filter: { ...filter, [groupBy]: group },
 								subqueries,
 								sort,
+								limit,
+								offset,
 							}),
 						),
 				)

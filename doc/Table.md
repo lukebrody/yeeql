@@ -100,7 +100,7 @@ If the row does not exist in the table, this methods succeeds without doing anyt
 scoresTable.delete(kaylaId)
 ```
 
-## `table.query({ select?, filter?, sort? }): Query`
+## `table.query({ select?, filter?, sort?, offset?, limit? }): Query`
 
 Gets or creates a query on the `table`.
 
@@ -135,7 +135,27 @@ midScores.result /* [
 ] */
 ```
 
-## `table.query({ select?, filter?, sort?, groupBy }): Query`
+Use `offset` and `limit` to get a slice of the sorted result. Leaving out `offset` starts at the first row, and leaving out `limit` includes every row after `offset`.
+
+<!---Table Query Limit-->
+
+```typescript
+const secondPage = scoresTable.query({
+    select: ['playerName', 'score'],
+    sort: (a, b) => b.score - a.score,
+    offset: 2,
+    limit: 2,
+})
+
+secondPage.result /* [
+    { "playerName": "Andreas", "score": 800 },
+    { "playerName": "Tomi", "score": 700 }
+] */
+```
+
+With `groupBy`, `offset` and `limit` apply within each group.
+
+## `table.query({ select?, filter?, sort?, offset?, limit?, groupBy }): Query`
 
 Gets or creates a grouped query on the `table`.
 
@@ -155,7 +175,7 @@ bestPlayersByGame.result.get('skeeball') // [ { "playerName": "Andreas" }, { "pl
 
 If you `get` a group with no elements, the empty array `[]` is returned.
 
-## `table.query({ subqueries, select?, filter?, sort?, groupBy? }): Query`
+## `table.query({ subqueries, select?, filter?, sort?, offset?, limit?, groupBy? }): Query`
 
 Gets or creates a query on the table that uses `subqueries`, which embed another query result in each row.
 

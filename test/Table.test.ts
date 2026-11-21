@@ -3,6 +3,7 @@ import * as Y from 'yjs'
 
 import { beforeEach, test } from 'node:test'
 import assert from 'assert/strict'
+import { _testQueryEntries } from 'yeeql/table/QueryRegistry'
 
 const schema = {
 	id: new Field<UUID>(),
@@ -121,4 +122,13 @@ test('a NaN filter value matches NaN rows', () => {
 	assert.equal(count.result, 1)
 	table.insert({ number: NaN, string: 'c' })
 	assert.equal(count.result, 2)
+})
+
+test('cached count queries are registered once', () => {
+	const count = table.count({ filter: { string: 'a' } })
+	table.count({ filter: { string: 'a' } })
+	_testQueryEntries.value = 0
+	table.insert({ number: 1, string: 'a' })
+	assert.equal(count.result, 1)
+	assert.equal(_testQueryEntries.value, 1)
 })

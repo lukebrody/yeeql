@@ -577,7 +577,6 @@ export class Table<S extends TableSchema> {
 					),
 			)
 		}
-		this.queryRegistry.register(result)
 		return result
 	}
 

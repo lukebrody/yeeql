@@ -171,8 +171,11 @@ test('bigint range filters', () => {
 })
 
 test('invalid ranges are type errors', () => {
-	// @ts-expect-error no bounds
-	table.query({ filter: { number: {} } })
+	assert.throws(
+		// @ts-expect-error no bounds
+		() => table.query({ filter: { number: {} } }),
+		/range on 'number' needs a bound/,
+	)
 	assert.throws(
 		// @ts-expect-error redundant lower bounds
 		() => table.count({ filter: { number: { gt: 1, gte: 1 } } }),

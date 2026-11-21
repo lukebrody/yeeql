@@ -23,6 +23,7 @@ import {
 	Row,
 	TableSchema,
 	isRange,
+	rangeBounds,
 	schemaToDebugString,
 	stringifyKey,
 } from 'yeeql/table/Schema'
@@ -323,6 +324,9 @@ export class Table<S extends TableSchema> {
 		for (const [column, range] of Object.entries(filter)) {
 			if (!isRange(range)) {
 				continue
+			}
+			if (rangeBounds(range).length === 0) {
+				throw new Error(`range on '${column}' needs a bound`)
 			}
 			if (range.gt !== undefined && range.gte !== undefined) {
 				throw new Error(`range on '${column}' can't have both 'gt' and 'gte'`)

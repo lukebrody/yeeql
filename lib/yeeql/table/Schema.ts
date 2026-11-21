@@ -1,6 +1,7 @@
 /* c8 ignore next */
 import stringify from 'json-stable-stringify'
 import { UUID } from 'common/UUID'
+import { hasOwn } from 'common/object'
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export class Field<Type> {}
@@ -95,6 +96,29 @@ export function matchesFilter<S extends TableSchema>(
 			(range.lt === undefined || comparable < range.lt) &&
 			(range.lte === undefined || comparable <= range.lte)
 		)
+	})
+}
+
+// yeeql finds the columns a sort or subquery generator depends on by calling it once with placeholder values
+export function guardColumnReads<R extends object>(
+	row: R,
+	isAllowed: (column: string) => boolean,
+	reader: string,
+): R {
+	return new Proxy(row, {
+		get(target, key) {
+			if (
+				typeof key === 'string' &&
+				key !== 'id' &&
+				!isAllowed(key) &&
+				hasOwn(target, key)
+			) {
+				throw new Error(
+					`${reader} read column '${key}', which it didn't read when yeeql called it with placeholder values. Read each column before branching on any value.`,
+				)
+			}
+			return Reflect.get(target, key)
+		},
 	})
 }
 

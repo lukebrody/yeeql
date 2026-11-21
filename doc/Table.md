@@ -251,6 +251,8 @@ Only the columns extending the Javascript primitive types can be used for `filte
 - yeeql does not monitor Y data types or other objects for deep changes.
 - Objects and Y data types are not generally equatable, especially different instances created over the network.
 
+yeeql finds the columns a `sort` comparator or subquery generator reads by calling it once with placeholder values. Read every column you need before branching on any value, so that the placeholder call sees it. A subquery generator, or a `sort` comparator on a query with a `select`, that later reads a column the placeholder call didn't throws an error.
+
 ## Query Caching
 
 The `Table` weakly caches queries, and returns the same instance for duplicate queries. This additionally saves runtime and memory.

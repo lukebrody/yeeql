@@ -163,3 +163,28 @@ test('groupBy validates its columns', () => {
 		/unknown column 'nope'/,
 	)
 })
+
+test('sort comparators must read selected columns unconditionally', () => {
+	const query = table.query({
+		select: ['string'],
+		sort: (a, b) => (a.string === 'x' ? a.number - b.number : 0),
+	})
+	table.insert({ number: 1, string: 'y' })
+	assert.throws(
+		() => table.insert({ number: 2, string: 'x' }),
+		/sort comparator read column 'number'/,
+	)
+	assert.equal(query.result.length, 1)
+})
+
+test('sort comparators may branch when every column is selected', () => {
+	const query = table.query({
+		sort: (a, b) => (a.string === 'x' ? a.number - b.number : 0),
+	})
+	table.insert({ number: 2, string: 'x' })
+	table.insert({ number: 1, string: 'x' })
+	assert.deepEqual(
+		query.result.map(({ number }) => number),
+		[1, 2],
+	)
+})

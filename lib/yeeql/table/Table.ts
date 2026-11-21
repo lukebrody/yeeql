@@ -20,6 +20,7 @@ import {
 } from 'yeeql/table/QueryRegistry'
 import {
 	Filter,
+	guardColumnReads,
 	Primitives,
 	Row,
 	TableSchema,
@@ -423,6 +424,21 @@ export class Table<S extends TableSchema> {
 			]),
 		).sort() as unknown as ReadonlyArray<Select>
 
+		// Without `select`, every column is watched
+		let checkedSort = sort
+		if (select !== undefined && sort !== noSort) {
+			const watched = new Set<string>([
+				...(resolvedSelect as ReadonlyArray<string>),
+				...Object.keys(subqueries ?? {}),
+			])
+			const isWatched = (column: string) => watched.has(column)
+			checkedSort = (a, b) =>
+				sort(
+					guardColumnReads(a, isWatched, 'the sort comparator'),
+					guardColumnReads(b, isWatched, 'the sort comparator'),
+				)
+		}
+
 		let result:
 			| LinearQueryWithoutSubqueriesImpl<S, Select>
 			| LinearQueryWithSubqueriesImpl<S, Select, Q>
@@ -441,7 +457,7 @@ export class Table<S extends TableSchema> {
 							this.items,
 							resolvedSelect,
 							filter,
-							makeTiebrokenIdSort(sort as Sort<S, {}>),
+							makeTiebrokenIdSort(checkedSort as Sort<S, {}>),
 						),
 				)
 			} else {
@@ -468,7 +484,7 @@ export class Table<S extends TableSchema> {
 							this.items,
 							resolvedSelect,
 							filter,
-							makeTiebrokenIdSort(sort) as (
+							makeTiebrokenIdSort(checkedSort) as (
 								a: LinearQueryResultRow<S, keyof S, Q>,
 								b: LinearQueryResultRow<S, keyof S, Q>,
 							) => number,

@@ -16,8 +16,12 @@ const testStream = run({
 	isolation: 'none',
 })
 
+// Fail unless the whole-run summary (no `file`) reports success.
+process.exitCode = 1
+
 testStream.on('test:summary', (event) => {
-	if (event.success) {
+	if (event.file === undefined && event.success) {
+		process.exitCode = 0
 		docs.write()
 	}
 })

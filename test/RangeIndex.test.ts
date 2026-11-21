@@ -10,22 +10,22 @@ const schema = { id: new Field<UUID>(), number: new Field<number>() }
 function randomRange(): Range<number> {
 	const bound = () => Math.floor(Math.random() * 10)
 	switch (Math.floor(Math.random() * 8)) {
-	case 0:
-		return { gt: bound() }
-	case 1:
-		return { gte: bound() }
-	case 2:
-		return { lt: bound() }
-	case 3:
-		return { lte: bound() }
-	case 4:
-		return { gt: bound(), lt: bound() }
-	case 5:
-		return { gt: bound(), lte: bound() }
-	case 6:
-		return { gte: bound(), lt: bound() }
-	default:
-		return { gte: bound(), lte: bound() }
+		case 0:
+			return { gt: bound() }
+		case 1:
+			return { gte: bound() }
+		case 2:
+			return { lt: bound() }
+		case 3:
+			return { lte: bound() }
+		case 4:
+			return { gt: bound(), lt: bound() }
+		case 5:
+			return { gt: bound(), lte: bound() }
+		case 6:
+			return { gte: bound(), lt: bound() }
+		default:
+			return { gte: bound(), lte: bound() }
 	}
 }
 

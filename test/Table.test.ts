@@ -100,3 +100,16 @@ test('memory management', async () => {
 
 	assert.equal(weakQuery.deref(), undefined)
 })
+
+test('an undefined filter value is not the same as no filter', () => {
+	const optionalTable = new Table(
+		doc.getMap('optional') as Y.Map<Y.Map<unknown>>,
+		{ id: new Field<UUID>(), number: new Field<number | undefined>() },
+	)
+	optionalTable.insert({ number: 1 })
+	optionalTable.insert({ number: undefined })
+	const undefinedCount = optionalTable.count({ filter: { number: undefined } })
+	const allCount = optionalTable.count({})
+	assert.equal(undefinedCount.result, 1)
+	assert.equal(allCount.result, 2)
+})

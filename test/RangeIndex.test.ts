@@ -4,12 +4,15 @@ import { Field, UUID } from 'index'
 
 import assert from 'assert/strict'
 import test from 'node:test'
+import { seededRandom } from 'test/random'
 
 const schema = { id: new Field<UUID>(), number: new Field<number>() }
 
+const { random, int } = seededRandom(1)
+
 function randomRange(): Range<number> {
-	const bound = () => Math.floor(Math.random() * 10)
-	switch (Math.floor(Math.random() * 8)) {
+	const bound = () => int(10)
+	switch (int(8)) {
 		case 0:
 			return { gt: bound() }
 		case 1:
@@ -34,8 +37,8 @@ test('matches brute force', () => {
 	let ranges: Range<number>[] = []
 
 	for (let step = 0; step < 1000; step++) {
-		if (ranges.length > 0 && Math.random() < 0.45) {
-			const removed = ranges[Math.floor(Math.random() * ranges.length)]
+		if (ranges.length > 0 && random() < 0.45) {
+			const removed = ranges[int(ranges.length)]
 			ranges = ranges.filter((range) => range !== removed)
 			index.delete(removed, removed)
 		} else {

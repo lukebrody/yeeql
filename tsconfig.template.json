@@ -1,11 +1,11 @@
 {
 	"compilerOptions": {
-		"target": "ES2021",
+		"target": "ES2022",
 		"strict": true,
 		"declaration": true,
 		"moduleResolution": "Node",
 		"module": "ESNext",
-		"lib": ["DOM", "ES2021"],
+		"lib": ["DOM", "ES2022"],
 		"allowSyntheticDefaultImports": true,
 		"skipLibCheck": true
 	}

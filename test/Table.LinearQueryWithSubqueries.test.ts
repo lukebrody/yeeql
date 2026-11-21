@@ -776,3 +776,16 @@ test('resuse key', () => {
 		),
 	)
 })
+
+test('rows with subqueries keep Object.prototype methods', () => {
+	const query = children.query({
+		subqueries: { valueOf: () => parents.count({}) },
+	})
+	children.insert({ parentId: UUID.create(), order: 0 })
+
+	const [row] = query.result
+	// eslint-disable-next-line no-prototype-builtins
+	assert.equal(row.hasOwnProperty('order'), true)
+	assert.equal(typeof row.toString(), 'string')
+	assert.equal(row.valueOf, 0)
+})

@@ -124,6 +124,19 @@ test('a NaN filter value matches NaN rows', () => {
 	assert.equal(count.result, 2)
 })
 
+test('inherited object properties are not columns', () => {
+	assert.throws(
+		// @ts-expect-error not a column
+		() => table.query({ filter: { toString: 1 } }),
+		/unknown column 'toString'/,
+	)
+	assert.throws(
+		// @ts-expect-error not a column
+		() => table.query({ sort: (a, b) => a.toString - b.toString }),
+		/unknown column 'toString'/,
+	)
+})
+
 test('cached count queries are registered once', () => {
 	const count = table.count({ filter: { string: 'a' } })
 	table.count({ filter: { string: 'a' } })
@@ -131,4 +144,22 @@ test('cached count queries are registered once', () => {
 	table.insert({ number: 1, string: 'a' })
 	assert.equal(count.result, 1)
 	assert.equal(_testQueryEntries.value, 1)
+})
+
+test('groupBy validates its columns', () => {
+	assert.throws(
+		// @ts-expect-error not a column
+		() => table.groupBy({ groupBy: 'nope', subquery: () => table.count({}) }),
+		/unknown column 'nope'/,
+	)
+	assert.throws(
+		() =>
+			table.groupBy({
+				groupBy: 'number',
+				// @ts-expect-error not a column
+				filter: { nope: 1 },
+				subquery: () => table.count({}),
+			}),
+		/unknown column 'nope'/,
+	)
 })

@@ -80,7 +80,7 @@ export class LinearQueryWithSubqueriesImpl<
 		const subQueries = {} as MapValue<typeof this.rowMap>['subQueries']
 		const augmentedRow = new Proxy(row, {
 			get(row, p) {
-				if (p in subQueries && String(p) !== 'constructor') {
+				if (Object.hasOwn(subQueries, p)) {
 					return subQueries[p as string].query.result
 				}
 				return row[p as string]
@@ -89,7 +89,7 @@ export class LinearQueryWithSubqueriesImpl<
 				return Reflect.ownKeys(row).concat(Reflect.ownKeys(subQueries))
 			},
 			getOwnPropertyDescriptor(row, p) {
-				if (p in subQueries && String(p) !== 'constructor') {
+				if (Object.hasOwn(subQueries, p)) {
 					return {
 						configurable: true,
 						enumerable: true,

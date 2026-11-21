@@ -153,7 +153,7 @@ secondPage.result /* [
 ] */
 ```
 
-With `groupBy`, `offset` and `limit` apply within each group.
+With `groupBy`, `offset` and `limit` apply within each group, and a group only appears in the result while its slice has rows.
 
 With `subqueries`, if `sort` doesn't read a subquery, yeeql only creates subqueries for the rows inside the window.
 

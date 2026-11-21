@@ -123,6 +123,10 @@ test('window cache', () => {
 	assert.notEqual(query, table.query({ sort: byNumber, limit: 2, offset: 1 }))
 	assert.notEqual(query, table.query({ sort: byNumber }))
 	assert.notEqual(query, table.query({ sort: byNumber, offset: 1 }))
+	assert.equal(
+		table.query({ sort: byNumber, offset: 0 }),
+		table.query({ sort: byNumber }),
+	)
 })
 
 test('invalid limit and offset', () => {
@@ -161,10 +165,49 @@ test('grouped window', () => {
 		[2],
 	)
 	assert.deepEqual(query.result.get('b'), [])
+	assert.deepEqual([...query.result.keys()], ['a'])
 	assert.notEqual(
 		query,
 		table.query({ select: ['number'], groupBy: 'string', sort: byNumber }),
 	)
+})
+
+test('a group shows once its window has a row', () => {
+	const query = table.query({
+		groupBy: 'string',
+		sort: byNumber,
+		offset: 1,
+	})
+	const changes: QueryChange<typeof query>[] = []
+	query.observe((change) => changes.push(change))
+
+	const firstId = table.insert({ number: 1, string: 'a' })
+	assert.equal(query.result.has('a'), false)
+	assert.deepEqual(changes, [])
+
+	table.insert({ number: 2, string: 'a' })
+	assert.deepEqual(
+		changes.map(({ kind, group }) => ({ kind, group })),
+		[{ kind: 'addGroup', group: 'a' }],
+	)
+	assert.deepEqual(
+		query.result.get('a').map(({ number }) => number),
+		[2],
+	)
+
+	changes.length = 0
+	table.update(firstId, 'string', 'b')
+	assert.deepEqual(
+		changes.map(({ kind, group }) => ({ kind, group })),
+		[
+			{ kind: 'subquery', group: 'a' },
+			{ kind: 'removeGroup', group: 'a' },
+		],
+	)
+	assert.equal(query.result.size, 0)
+
+	const empty = table.query({ groupBy: 'string', sort: byNumber, limit: 0 })
+	assert.equal(empty.result.size, 0)
 })
 
 test('window over subqueries', () => {
@@ -303,6 +346,60 @@ test('a sort that skips reading a subquery during the probe throws', () => {
 	)
 })
 
+test('a subquery the sort missed is caught even when an unwatched full query is cached', () => {
+	table.insert({ number: 0, string: '' })
+	table.insert({ number: 1, string: '' })
+	const subqueries = {
+		sameString: ({ string }: { string: string }) =>
+			table.count({ filter: { string } }),
+	}
+	type SortRow = {
+		id: UUID
+		number: number
+		string: string
+		sameString: number
+	}
+	const sort = (a: SortRow, b: SortRow) =>
+		a.number > 100 && b.number > 100
+			? (a.sameString ?? 0) - (b.sameString ?? 0)
+			: a.number - b.number
+	// Same `sort` without a `select`, so its full query is unguarded
+	const unwatched = table.query({ sort: sort as unknown as typeof byNumber })
+	const query = table.query({
+		subqueries,
+		sort,
+		limit: 3,
+	})
+	table.insert({ number: 101, string: '' })
+	assert.throws(
+		() => table.insert({ number: 102, string: '' }),
+		/sort comparator read column 'sameString'/,
+	)
+	// The placeholder keeps the comparator from crashing, so the change still applies
+	assert.deepEqual(query.result.map(({ number }) => number).slice(0, 2), [0, 1])
+	assert.equal(query.result.length, 3)
+	assert.equal(unwatched.result.length, 4)
+})
+
+test('a sort that reads a missed subquery gets a placeholder instead of crashing', () => {
+	table.insert({ number: 101, string: '' })
+	const query = table.query({
+		subqueries: {
+			sameString: ({ string }) => table.count({ filter: { string } }),
+		},
+		sort: (a, b) =>
+			a.number > 100 && b.number > 100
+				? a.sameString.valueOf() - b.sameString.valueOf()
+				: a.number - b.number,
+		limit: 2,
+	})
+	assert.throws(
+		() => table.insert({ number: 102, string: '' }),
+		/sort comparator read column 'sameString'/,
+	)
+	assert.equal(query.result.length, 2)
+})
+
 test('a dropped window stops observing', async () => {
 	const full = table.query({ sort: byNumber })
 	let window: typeof full | undefined = table.query({
@@ -338,11 +435,12 @@ test('random windows', () => {
 		query: { result: readonly unknown[] }
 		full: { result: readonly unknown[] }
 		offset: number
-		limit: number
+		limit: number | undefined
 		replayed: unknown[]
 	}[] = []
 	for (const offset of [0, 1, 3]) {
-		for (const limit of [0, 1, 4]) {
+		// Without `limit`, offset 0 is the full query, not a window
+		for (const limit of offset === 0 ? [0, 1, 4] : [0, 1, 4, undefined]) {
 			for (const sort of [
 				byNumber,
 				(a: { string: string }, b: { string: string }) =>
@@ -395,7 +493,13 @@ test('random windows', () => {
 			}
 		})
 		for (const { query, full, offset, limit, replayed } of windows) {
-			assert.deepEqual(query.result, full.result.slice(offset, offset + limit))
+			assert.deepEqual(
+				query.result,
+				full.result.slice(
+					offset,
+					limit === undefined ? undefined : offset + limit,
+				),
+			)
 			assert.deepEqual(replayed, query.result)
 		}
 	}

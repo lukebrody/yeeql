@@ -256,7 +256,7 @@ yeeql has a `O(QD)` runtime when a row is inserted, updated, or deleted, where:
 
 This is notably better than the naive runtime of `O(ND)` where we must check each query to see if an operation has affected its result.
 
-A query with `limit` or `offset` costs an extra `O(L)`, where `L` is its `limit`, when an operation changes a row at or before the end of its window.
+A query with `limit` or `offset` costs an extra `O(L)` when an operation changes a row at or before the end of its window, where `L` is its `limit`, or the number of rows after `offset` if it has no `limit`.
 
 ## Query Cleanup
 

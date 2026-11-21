@@ -504,3 +504,26 @@ test('random windows', () => {
 		}
 	}
 })
+
+test('a throwing observer does not stop later changes to the window', (t) => {
+	const reported = t.mock.method(
+		globalThis,
+		'queueMicrotask',
+		(_: VoidFunction) => {},
+	)
+	table.insert({ number: 2, string: '' })
+	const query = table.query({ select: ['number'], sort: byNumber, limit: 1 })
+	query.observe((change) => {
+		if (change.kind === 'remove') {
+			throw new Error('remove')
+		}
+	})
+	const { replayed } = replay(query)
+
+	table.insert({ number: 1, string: '' })
+	assert.deepEqual(
+		replayed.map(({ number }) => number),
+		[1],
+	)
+	assert.equal(reported.mock.callCount(), 1)
+})

@@ -87,17 +87,17 @@ export abstract class QueryBase<Change> implements QueryInternal<Change> {
 		callObserver()
 
 		return () => {
-			let error: { thrown: unknown } | undefined
-			const call = (notify: () => void) => {
+			this.observers.forEach((callback) => {
 				try {
-					notify()
-				} catch (thrown) {
-					if (error === undefined) error = { thrown }
+					callback(change)
+				} catch (error) {
+					// Throwing inside Yjs's afterTransaction would skip the remaining notifications
+					queueMicrotask(() => {
+						throw error
+					})
 				}
-			}
-			this.observers.forEach((callback) => call(() => callback(change)))
-			internalObserverNotifications.forEach(call)
-			if (error !== undefined) throw error.thrown
+			})
+			internalObserverNotifications.forEach((notify) => notify())
 		}
 	}
 	/* c8 ignore next */

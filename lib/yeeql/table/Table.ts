@@ -262,16 +262,7 @@ export class Table<S extends TableSchema> {
 			})
 
 			yTable.doc!.once('afterTransaction', () => {
-				// One throwing observer shouldn't keep the others from seeing the change
-				let error: { thrown: unknown } | undefined
-				for (const callback of runAfterTransaction) {
-					try {
-						callback()
-					} catch (thrown) {
-						if (error === undefined) error = { thrown }
-					}
-				}
-				if (error !== undefined) throw error.thrown
+				runAfterTransaction.forEach((callback) => callback())
 			})
 
 			// Yjs still runs the other observers and finishes the transaction, then rethrows

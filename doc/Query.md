@@ -52,7 +52,7 @@ const rowId = songsTable.insert({ title: 'Give Life Back to Music', genre: 'pop'
 `titlesObserver` prints:
 {
     "kind": "add",
-    "row": { "id": "\u0006=÷FzÖÁ`", "title": "Give Life Back to Music" },
+    "row": { "id": "A'ÄùÙ", "title": "Give Life Back to Music" },
     "newIndex": 0,
     "type": "add"
 }
@@ -120,7 +120,7 @@ First, the song is removed from the 'electronic' group:
         "oldIndex": 0,
         "row": {
             "genre": "pop",
-            "id": "\u0006=÷FzÖÁ`",
+            "id": "A'ÄùÙ",
             "title": "Give Life Back to Music"
         },
         "type": "update"
@@ -144,11 +144,7 @@ Finally, a new 'pop' group is created with the song:
     "group": "pop",
     "kind": "addGroup",
     "result": [
-        {
-            "genre": "pop",
-            "id": "\u0006=÷FzÖÁ`",
-            "title": "Give Life Back to Music"
-        }
+        { "genre": "pop", "id": "A'ÄùÙ", "title": "Give Life Back to Music" }
     ],
     "type": "update"
 }
@@ -168,7 +164,7 @@ songsTable.insert({ title: 'Beat It', genre: 'pop' })
 `titlesObserver` prints:
 {
     "kind": "add",
-    "row": { "id": "®\u0003\u0004GÁ", "title": "Beat It" },
+    "row": { "id": "¿\u000f\n1#¯}Ä", "title": "Beat It" },
     "newIndex": 0,
     "type": "add"
 }
@@ -177,11 +173,7 @@ byGenre observer logs:
 {
     "change": {
         "kind": "add",
-        "row": {
-            "id": "®\u0003\u0004GÁ",
-            "title": "Beat It",
-            "genre": "pop"
-        },
+        "row": { "id": "¿\u000f\n1#¯}Ä", "title": "Beat It", "genre": "pop" },
         "newIndex": 1,
         "type": "add"
     },
@@ -195,7 +187,7 @@ songsTable.update(titles.result[1].id, 'title', 'Around the World')
 `titlesObserver` logs:
 {
     "kind": "update",
-    "row": { "id": "\u0006=÷FzÖÁ`", "title": "Around the World" },
+    "row": { "id": "A'ÄùÙ", "title": "Around the World" },
     "oldIndex": 1,
     "newIndex": 0,
     "oldValues": { "title": "Give Life Back to Music" },
@@ -207,7 +199,7 @@ byGenre observer logs:
     "change": {
         "kind": "update",
         "row": {
-            "id": "\u0006=÷FzÖÁ`",
+            "id": "A'ÄùÙ",
             "title": "Around the World",
             "genre": "pop"
         },
@@ -271,7 +263,7 @@ songsTable.delete(titles.result[0].id)
 `titlesObserver` logs:
 {
     "kind": "remove",
-    "row": { "id": "\u0006=÷FzÖÁ`", "title": "Around the World" },
+    "row": { "id": "A'ÄùÙ", "title": "Around the World" },
     "oldIndex": 0,
     "type": "delete"
 }
@@ -281,7 +273,7 @@ byGenre observer logs:
     "change": {
         "kind": "remove",
         "row": {
-            "id": "\u0006=÷FzÖÁ`",
+            "id": "A'ÄùÙ",
             "title": "Around the World",
             "genre": "pop"
         },
@@ -321,13 +313,7 @@ songsTable.insert({ title: 'Xtal', genre: 'electronic' })
 byGenre observer logs:
 {
     "kind": "addGroup",
-    "result": [
-        {
-            "genre": "electronic",
-            "id": "\u001aA9\u0006)Ö\u0015",
-            "title": "Xtal"
-        }
-    ],
+    "result": [ { "genre": "electronic", "id": "âÒâãéP(", "title": "Xtal" } ],
     "type": "add",
     "group": "electronic"
 }

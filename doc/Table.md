@@ -124,9 +124,9 @@ A `filter` value can also be a range using `gt`, `gte`, `lt`, and `lte`. Ranges 
 
 ```typescript
 const midScores = scoresTable.query({
-	select: ['playerName', 'score'],
-	filter: { score: { gte: 800, lt: 1200 } },
-	sort: (a, b) => b.score - a.score,
+    select: ['playerName', 'score'],
+    filter: { score: { gte: 800, lt: 1200 } },
+    sort: (a, b) => b.score - a.score,
 })
 
 midScores.result /* [

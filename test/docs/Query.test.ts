@@ -5,7 +5,16 @@ import test from 'node:test'
 // eslint-disable-next-line no-restricted-imports
 import { docs } from '../run'
 
-test('Query.md', () => {
+test('Query.md', (t) => {
+	// Fixed IDs keep the generated docs stable
+	let seed = 1
+	t.mock.method(crypto, 'getRandomValues', (array: Uint8Array) => {
+		for (let i = 0; i < array.length; i++) {
+			seed = Math.imul(seed, 1103515245) + 12345
+			array[i] = seed >>> 24
+		}
+		return array
+	})
 	const yDoc = new Y.Doc()
 	const yTable = yDoc.getMap('table') as Y.Map<Y.Map<unknown>>
 	let titlesChanges: QueryChange<typeof titles>[] = []

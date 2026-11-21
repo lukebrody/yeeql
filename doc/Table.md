@@ -268,6 +268,8 @@ If you exclude the `filter` parameter, the query returns all rows.
 
 If you exclude the `sort` parameter, the rows will be sorted by `id`.
 
+yeeql may pass the same objects to the `sort` comparator for every comparison, pointed at different rows. Only read their columns during the call. Don't keep them or use them as keys, e.g. in a `WeakMap` cache.
+
 Only the columns extending the Javascript primitive types can be used for `filter`, `sort`, and `groupBy`. This is because:
 
 - yeeql does not monitor Y data types or other objects for deep changes.

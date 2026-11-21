@@ -544,30 +544,19 @@ export class Table<S extends TableSchema> {
 							const stubs = Object.fromEntries(
 								subqueryKeys.map((key) => [key, stubProxy]),
 							)
-							const guardA = makeReusedColumnGuard<Row<S>>(
-								columns,
-								filter,
-								isWatched,
-								'the sort comparator',
-								stubs,
-							)
-							const guardB = makeReusedColumnGuard<Row<S>>(
-								columns,
-								filter,
-								isWatched,
-								'the sort comparator',
-								stubs,
-							)
+							const guardA = makeReusedColumnGuard<
+								Row<S>,
+								Parameters<typeof sort>[0]
+							>(columns, filter, isWatched, 'the sort comparator', stubs)
+							const guardB = makeReusedColumnGuard<
+								Row<S>,
+								Parameters<typeof sort>[0]
+							>(columns, filter, isWatched, 'the sort comparator', stubs)
 							return new LinearQueryWithoutSubqueriesImpl<S, keyof S>(
 								this.items,
 								resolvedSelect,
 								filter,
-								makeTiebrokenIdSort((a, b) =>
-									sort(
-										guardA(a) as Parameters<typeof sort>[0],
-										guardB(b) as Parameters<typeof sort>[0],
-									),
-								),
+								makeTiebrokenIdSort((a, b) => sort(guardA(a), guardB(b))),
 							)
 						},
 					)

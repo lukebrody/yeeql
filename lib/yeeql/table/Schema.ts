@@ -134,13 +134,13 @@ export function guardColumnReads<R extends object>(
 }
 
 // Like `guardColumnReads`, but every call returns the same object repointed at `row`, since proxy traps are slow
-export function makeReusedColumnGuard<R extends object>(
+export function makeReusedColumnGuard<R extends object, Guarded = R>(
 	columns: Iterable<string>,
 	filter: Readonly<Record<string, unknown>>,
 	isAllowed: (column: string) => boolean,
 	reader: string,
 	stubs: Readonly<Record<string, unknown>>,
-): (row: R) => R {
+): (row: R) => Guarded {
 	let current: Record<string, unknown> = {}
 	const view = {}
 	for (const column of columns) {
@@ -160,7 +160,7 @@ export function makeReusedColumnGuard<R extends object>(
 	}
 	return (row) => {
 		current = row as Record<string, unknown>
-		return view as R
+		return view as Guarded
 	}
 }
 

@@ -68,7 +68,10 @@ export abstract class QueryBase<Change> implements QueryInternal<Change> {
 	 * @param doChange - updates this query's result
 	 * @returns a function that sends notifications to observers
 	 */
-	protected notifyingObservers(doChange: () => Change): () => void {
+	protected notifyingObservers(
+		doChange: () => Change,
+		notifyObservers = true,
+	): () => void {
 		const internalObservers = this.internalObservers.values()
 		const internalObserverNotifications: (() => void)[] = []
 
@@ -87,7 +90,9 @@ export abstract class QueryBase<Change> implements QueryInternal<Change> {
 		callObserver()
 
 		return () => {
-			this.observers.forEach((callback) => callback(change))
+			if (notifyObservers) {
+				this.observers.forEach((callback) => callback(change))
+			}
 			internalObserverNotifications.forEach((notify) => notify())
 		}
 	}

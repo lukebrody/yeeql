@@ -345,9 +345,8 @@ test('Query.md', (t) => {
 		type: 'add',
 		group: 'electronic'
 	}
-	assert.equal(byGenreChanges.length, 2)
+	assert.equal(byGenreChanges.length, 1)
 	assert.partialDeepStrictEqual(byGenreChanges[0], byGenre6)
-	// 2nd change is a subquery thing, we can leave it out of the docs for brevity
 	byGenreChanges = []
 	docs.replaceToken('Unobserve', '{{byGenre6}}', byGenre6)
 

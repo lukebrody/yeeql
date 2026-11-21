@@ -179,3 +179,111 @@ test('with subqueries', () => {
 
 	assert.equal(query.result.get(1)[0].sameString[1].id, row2Id)
 })
+
+function observeGroups(query: {
+	observe(
+		observer: (change: {
+			kind: string
+			group: number
+			result: readonly { id: UUID }[]
+			change?: { kind: string }
+		}) => void,
+	): void
+}) {
+	const changes: unknown[] = []
+	query.observe((change) =>
+		changes.push(
+			change.change === undefined
+				? [change.kind, change.group, change.result.map(({ id }) => id)]
+				: [change.kind, change.group, change.change.kind],
+		),
+	)
+	return changes
+}
+
+test('group added in a transaction reports its later rows in addGroup', () => {
+	const query = table.query({ select: ['id'], groupBy: 'number' })
+	const changes = observeGroups(query)
+
+	doc.transact(() => {
+		table.insert({ number: 1, string: 'a' })
+		table.insert({ number: 1, string: 'b' })
+	})
+	assert.deepEqual(changes, [
+		['addGroup', 1, query.result.get(1).map(({ id }) => id)],
+	])
+	assert.equal(query.result.get(1).length, 2)
+
+	changes.length = 0
+	table.insert({ number: 1, string: 'c' })
+	assert.deepEqual(changes, [['subquery', 1, 'add']])
+})
+
+test('returning group whose subquery is still cached', () => {
+	const query = table.query({ select: ['id'], groupBy: 'number' })
+	const changes = observeGroups(query)
+	table.delete(table.insert({ number: 1, string: 'a' }))
+
+	changes.length = 0
+	const id = table.insert({ number: 1, string: 'a' })
+	assert.deepEqual(changes, [['addGroup', 1, [id]]])
+})
+
+test('group added by moving a row reports later rows in addGroup', () => {
+	const query = table.query({ select: ['id'], groupBy: 'number' })
+	const aId = table.insert({ number: 1, string: 'a' })
+	const changes = observeGroups(query)
+
+	doc.transact(() => {
+		table.update(aId, 'number', 2)
+		table.insert({ number: 2, string: 'b' })
+	})
+	assert.deepEqual(changes, [
+		['addGroup', 2, query.result.get(2).map(({ id }) => id)],
+		['subquery', 1, 'remove'],
+		['removeGroup', 1, []],
+	])
+	assert.equal(query.result.get(2).length, 2)
+})
+
+test('windowed group added in a transaction reports its later rows in addGroup', () => {
+	const query = table.query({
+		select: ['id', 'string'],
+		groupBy: 'number',
+		sort: (a, b) => a.string.localeCompare(b.string),
+		offset: 1,
+		limit: 1,
+	})
+	const changes = observeGroups(query)
+
+	let bId: UUID
+	doc.transact(() => {
+		table.insert({ number: 1, string: 'c' })
+		table.insert({ number: 1, string: 'a' })
+		bId = table.insert({ number: 1, string: 'b' })
+	})
+	assert.deepEqual(changes, [['addGroup', 1, [bId!]]])
+})
+
+test('group with subqueries added in a transaction reports its later rows in addGroup', () => {
+	const query = table.query({
+		groupBy: 'number',
+		subqueries: {
+			sameString: (row) => table.count({ filter: { string: row.string } }),
+		},
+	})
+	const changes: unknown[] = []
+	query.observe((change) =>
+		changes.push(
+			change.kind === 'subquery'
+				? [change.kind, change.change.kind]
+				: [change.kind, change.result.map((row) => row.sameString)],
+		),
+	)
+
+	doc.transact(() => {
+		table.insert({ number: 1, string: 'a' })
+		table.insert({ number: 1, string: 'a' })
+	})
+	assert.deepEqual(changes, [['addGroup', [2, 2]]])
+})

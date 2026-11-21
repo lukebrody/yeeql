@@ -110,7 +110,7 @@ export class GroupedQueryImpl<
 					change,
 					type: change.type,
 				}
-			})
+			}, !this.groupsAddedThisTransaction.has(group))
 		}
 		query.internalObserve(observer)
 		this.queries.set(group, { query, observer })
@@ -124,17 +124,29 @@ export class GroupedQueryImpl<
 		if (rowCount !== this.minRows) {
 			return () => undefined
 		} else {
-			return this.notifyingObservers(() => {
-				const query = this.addQuery(group)
-				return {
-					kind: 'addGroup',
-					group,
-					type,
-					result: query.result,
-				}
+			let query: MapValue<typeof this.queries>['query']
+			let change: {
+				kind: 'addGroup'
+				group: Row<S>[GroupBy]
+				type: 'add' | 'update'
+				result: QueryResult<Q>
+			}
+			const notify = this.notifyingObservers(() => {
+				query = this.addQuery(group)
+				this.groupsAddedThisTransaction.add(group)
+				change = { kind: 'addGroup', group, type, result: query.result }
+				return change
 			})
+			// Notifications run after the transaction, so `result` already has the group's later changes
+			return () => {
+				this.groupsAddedThisTransaction.delete(group)
+				change.result = query.result
+				notify()
+			}
 		}
 	}
+
+	private readonly groupsAddedThisTransaction = new Set<Row<S>[GroupBy]>()
 
 	removeRow(row: Row<S>, type: 'delete' | 'update'): () => void {
 		const group = row[this.groupBy]

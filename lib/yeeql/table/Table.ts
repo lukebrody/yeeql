@@ -684,6 +684,7 @@ export class Table<S extends TableSchema> {
 									limit,
 									offset,
 								}),
+							() => [],
 						),
 				)
 			} else {
@@ -715,6 +716,7 @@ export class Table<S extends TableSchema> {
 									limit,
 									offset,
 								}),
+							() => [],
 						),
 				)
 			}
@@ -769,8 +771,13 @@ export class Table<S extends TableSchema> {
 					subqueries: null,
 				},
 				() =>
-					new GroupedQueryImpl(this.items, filter, groupBy, 1, (group) =>
-						this.count({ filter: { ...filter, [groupBy]: group } }),
+					new GroupedQueryImpl(
+						this.items,
+						filter,
+						groupBy,
+						1,
+						(group) => this.count({ filter: { ...filter, [groupBy]: group } }),
+						() => 0,
 					),
 			)
 		}
@@ -792,6 +799,13 @@ export class Table<S extends TableSchema> {
 		this.validateColumns([groupBy, ...Object.keys(filter)])
 		this.validateRanges(filter)
 
+		const wrapped = (group: Row<Primitives<S>>[GroupBy]) => {
+			try {
+				return subquery(group)
+			} catch (error) {
+				throw new Error('the groupBy subquery threw', { cause: error })
+			}
+		}
 		return this.getCachedQuery(
 			{
 				key: stringifyKey({ groupBy, filter, kind: 'groupBy' }),
@@ -799,13 +813,14 @@ export class Table<S extends TableSchema> {
 				subqueries: subquery,
 			},
 			() =>
-				new GroupedQueryImpl(this.items, filter, groupBy, 1, (group) => {
-					try {
-						return subquery(group)
-					} catch (error) {
-						throw new Error('the groupBy subquery threw', { cause: error })
-					}
-				}),
+				new GroupedQueryImpl(
+					this.items,
+					filter,
+					groupBy,
+					1,
+					wrapped,
+					(group) => wrapped(group).result,
+				),
 		)
 	}
 

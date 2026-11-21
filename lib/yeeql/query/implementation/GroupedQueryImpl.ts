@@ -37,6 +37,8 @@ export class GroupedQueryImpl<
 		readonly groupBy: GroupBy,
 		private readonly minRows: number,
 		readonly makeSubquery: (group: Row<Primitives<S>>[GroupBy]) => Q,
+		// Not the subquery's result, which lags behind removeGroup during a transaction
+		missingGroupResult: (group: Row<Primitives<S>>[GroupBy]) => unknown,
 	) {
 		super()
 		this.queries = new Map()
@@ -44,7 +46,7 @@ export class GroupedQueryImpl<
 		this.result = {
 			get: (group) =>
 				(queries.get(group)?.query.result ??
-					makeSubquery(group).result) as QueryResult<Q>,
+					missingGroupResult(group)) as QueryResult<Q>,
 			forEach(callbackfn, thisArg) {
 				queries.forEach(({ query }, group) =>
 					callbackfn.bind(thisArg)(query.result as QueryResult<Q>, group, this),

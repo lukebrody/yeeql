@@ -789,3 +789,32 @@ test('rows with subqueries keep Object.prototype methods', () => {
 	assert.equal(typeof row.toString(), 'string')
 	assert.equal(row.valueOf, 0)
 })
+
+test('subquery generators must read columns unconditionally', () => {
+	children.query({
+		subqueries: {
+			parent: (child) =>
+				child.order > 0
+					? parents.query({ filter: { id: child.parentId } })
+					: parents.query({}),
+		},
+	})
+	assert.throws(
+		() => children.insert({ parentId: UUID.create(), order: 1 }),
+		/subquery 'parent' read column 'parentId'/,
+	)
+})
+
+test('rows kept by a subquery generator are unguarded after it returns', () => {
+	let kept: { order: number } | undefined
+	children.query({
+		subqueries: {
+			count: (child) => {
+				kept = child
+				return parents.count({})
+			},
+		},
+	})
+	children.insert({ parentId: UUID.create(), order: 3 })
+	assert.equal(kept?.order, 3)
+})

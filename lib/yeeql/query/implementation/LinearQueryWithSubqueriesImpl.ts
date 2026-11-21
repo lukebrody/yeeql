@@ -12,7 +12,13 @@ import {
 	SubqueryGenerators,
 	SubqueryResult,
 } from 'yeeql/query/subquery'
-import { Filter, matchesFilter, Row, TableSchema } from 'yeeql/table/Schema'
+import {
+	Filter,
+	guardColumnReads,
+	matchesFilter,
+	Row,
+	TableSchema,
+} from 'yeeql/table/Schema'
 import {
 	LinearQuery,
 	Change,
@@ -104,19 +110,8 @@ export class LinearQueryWithSubqueriesImpl<
 			subQueries,
 		})
 
-		for (const [key, makeQuery] of Object.entries(this.subQueries) as [
-			keyof Q,
-			Q[keyof Q],
-		][]) {
-			debug.makingSubquery = true
-			const query = makeQuery(row) as Query<
-				SubqueryResult<S, Q[keyof Q]>,
-				SubqueryChange<S, Q[keyof Q]>,
-				unknown
-			> &
-				QueryInternal<SubqueryChange<S, Q[keyof Q]>>
-			debug.makingSubquery = false
-
+		for (const key of Object.keys(this.subQueries) as (keyof Q)[]) {
+			const query = this.makeSubquery(key, row)
 			const callback = this.makeInternalCallback(key, augmentedRow)
 			query.internalObserve(callback)
 			subQueries[key] = { query, callback }
@@ -131,6 +126,28 @@ export class LinearQueryWithSubqueriesImpl<
 				type,
 			}
 		})
+	}
+
+	private makeSubquery(key: keyof Q, row: Row<S>) {
+		let calling = true
+		const guardedRow = guardColumnReads(
+			row,
+			this.filter,
+			(column) => !calling || this.subqueryDependencies.get(column).has(key),
+			`subquery '${String(key)}'`,
+		)
+		debug.makingSubquery = true
+		try {
+			return this.subQueries[key](guardedRow) as Query<
+				SubqueryResult<S, Q[keyof Q]>,
+				SubqueryChange<S, Q[keyof Q]>,
+				unknown
+			> &
+				QueryInternal<SubqueryChange<S, Q[keyof Q]>>
+		} finally {
+			debug.makingSubquery = false
+			calling = false
+		}
 	}
 
 	private makeInternalCallback<Key extends keyof Q>(
@@ -218,15 +235,7 @@ export class LinearQueryWithSubqueriesImpl<
 			}
 
 			updateQuery: for (const key of subqueriesToUpdate) {
-				const makeQuery = this.subQueries[key]
-				debug.makingSubquery = true
-				const query = makeQuery(row) as Query<
-					SubqueryResult<S, Q[keyof Q]>,
-					SubqueryChange<S, Q[keyof Q]>,
-					unknown
-				> &
-					QueryInternal<SubqueryChange<S, Q[keyof Q]>>
-				debug.makingSubquery = false
+				const query = this.makeSubquery(key, row)
 				const { query: oldQuery, callback: oldCallback } = subQueries[key]
 				if (query === oldQuery) {
 					continue updateQuery

@@ -113,3 +113,12 @@ test('an undefined filter value is not the same as no filter', () => {
 	assert.equal(undefinedCount.result, 1)
 	assert.equal(allCount.result, 2)
 })
+
+test('a NaN filter value matches NaN rows', () => {
+	table.insert({ number: NaN, string: 'a' })
+	table.insert({ number: 1, string: 'b' })
+	const count = table.count({ filter: { number: NaN } })
+	assert.equal(count.result, 1)
+	table.insert({ number: NaN, string: 'c' })
+	assert.equal(count.result, 2)
+})

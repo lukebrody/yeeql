@@ -82,7 +82,8 @@ export function matchesFilter<S extends TableSchema>(
 	return Object.entries(filter).every(([key, range]) => {
 		const value = row[key]
 		if (!isRange(range)) {
-			return value === range
+			// SameValueZero, to agree with the registry's Map lookup
+			return value === range || (Number.isNaN(value) && Number.isNaN(range))
 		}
 		if (typeof value !== rangeType(range)) {
 			return false

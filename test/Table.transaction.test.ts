@@ -144,11 +144,7 @@ test('transaction many updates', () => {
 })
 
 test('a throwing observer does not stop observers of other tables', (t) => {
-	const reported = t.mock.method(
-		globalThis,
-		'queueMicrotask',
-		(_: VoidFunction) => {},
-	)
+	const reported = t.mock.method(globalThis, 'queueMicrotask', () => undefined)
 	table1.query({}).observe(() => {
 		throw new Error('table1')
 	})

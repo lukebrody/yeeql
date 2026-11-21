@@ -125,11 +125,7 @@ test('a NaN filter value matches NaN rows', () => {
 })
 
 test('a throwing observer does not stop observers of other queries', (t) => {
-	const reported = t.mock.method(
-		globalThis,
-		'queueMicrotask',
-		(_: VoidFunction) => {},
-	)
+	const reported = t.mock.method(globalThis, 'queueMicrotask', () => undefined)
 	const query = table.query({ filter: { number: 1 } })
 	const count = table.count({ filter: { number: 1 } })
 	query.observe(() => {
@@ -142,15 +138,11 @@ test('a throwing observer does not stop observers of other queries', (t) => {
 	assert.equal(count.result, 1)
 	assert.equal(countNotifications, 1)
 	assert.equal(reported.mock.callCount(), 1)
-	assert.throws(reported.mock.calls[0].arguments[0], /query observer/)
+	assert.throws(reported.mock.calls[0].arguments[0]!, /query observer/)
 })
 
 test('a throwing observer does not stop sibling observers', (t) => {
-	const reported = t.mock.method(
-		globalThis,
-		'queueMicrotask',
-		(_: VoidFunction) => {},
-	)
+	const reported = t.mock.method(globalThis, 'queueMicrotask', () => undefined)
 	const query = table.query({ filter: { number: 1 } })
 	const notified: string[] = []
 	query.observe(() => {
@@ -166,8 +158,8 @@ test('a throwing observer does not stop sibling observers', (t) => {
 	table.insert({ number: 1, string: 'a' })
 	assert.deepEqual(notified, ['first', 'second', 'third'])
 	assert.equal(reported.mock.callCount(), 2)
-	assert.throws(reported.mock.calls[0].arguments[0], /first/)
-	assert.throws(reported.mock.calls[1].arguments[0], /second/)
+	assert.throws(reported.mock.calls[0].arguments[0]!, /first/)
+	assert.throws(reported.mock.calls[1].arguments[0]!, /second/)
 })
 
 test('inherited object properties are not columns', () => {

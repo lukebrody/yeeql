@@ -506,11 +506,7 @@ test('random windows', () => {
 })
 
 test('a throwing observer does not stop later changes to the window', (t) => {
-	const reported = t.mock.method(
-		globalThis,
-		'queueMicrotask',
-		(_: VoidFunction) => {},
-	)
+	const reported = t.mock.method(globalThis, 'queueMicrotask', () => undefined)
 	table.insert({ number: 2, string: '' })
 	const query = table.query({ select: ['number'], sort: byNumber, limit: 1 })
 	query.observe((change) => {

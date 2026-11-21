@@ -93,11 +93,7 @@ test('iterators', () => {
 })
 
 test('a throwing observer does not stop the group change', (t) => {
-	const reported = t.mock.method(
-		globalThis,
-		'queueMicrotask',
-		(_: VoidFunction) => {},
-	)
+	const reported = t.mock.method(globalThis, 'queueMicrotask', () => undefined)
 	const id = table.insert({ number: 1, string: 'a' })
 	query.observe((change) => {
 		if (change.kind === 'removeGroup') {

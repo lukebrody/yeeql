@@ -13,6 +13,7 @@ export interface Query<
 	PrimitiveResult,
 > {
 	readonly result: Result
+	readonly version: number
 	observe(observer: (change: Change) => void): void
 	unobserve(observer: (change: Change) => void): void
 }

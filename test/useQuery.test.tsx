@@ -3,7 +3,7 @@ import * as Y from 'yjs'
 
 import { beforeEach, test } from 'node:test'
 import assert from 'assert/strict'
-import React, { useState } from 'react'
+import React, { useLayoutEffect, useState } from 'react'
 import { render, screen, act } from '@testing-library/react'
 
 const child = {
@@ -148,4 +148,26 @@ test('add parent, children, then re-order', () => {
 	assert.deepEqual(childIds(), [child2Id, child1Id])
 
 	assert.equal(screen.getByTestId('updates').textContent, '4 Updates')
+})
+
+test('changes before the subscription effect still render', () => {
+	function InsertOnMount(): React.ReactNode {
+		useLayoutEffect(() => {
+			parents.insert({ order: 0 })
+		}, [])
+		return null
+	}
+
+	function Count(): React.ReactNode {
+		const count = useQuery(() => parents.count({}), [])
+		return (
+			<>
+				<div data-testid="count">{count}</div>
+				<InsertOnMount />
+			</>
+		)
+	}
+
+	render(<Count />)
+	assert.equal(screen.getByTestId('count').textContent, '1')
 })

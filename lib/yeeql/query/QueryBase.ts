@@ -24,6 +24,8 @@ export interface QueryInternal<Change> {
 }
 
 export abstract class QueryBase<Change> implements QueryInternal<Change> {
+	version = 0
+
 	private readonly observers = new Set<(change: Change) => void>()
 
 	observe(observer: (change: Change) => void): void {
@@ -77,6 +79,7 @@ export abstract class QueryBase<Change> implements QueryInternal<Change> {
 				internalObserverNotifications.push(next.value(callObserver))
 			} else {
 				change = doChange()
+				this.version++
 			}
 			return change
 		}

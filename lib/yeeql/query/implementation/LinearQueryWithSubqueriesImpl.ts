@@ -159,34 +159,43 @@ export class LinearQueryWithSubqueriesImpl<
 	): InternalChangeCallback<SubqueryChange<S, Q[Key]>> {
 		return (ready) => {
 			this.staleRows.add(augmentedRow)
-			return this.notifyingObservers(() => {
-				const change = ready()
+			try {
+				return this.notifyingObservers(() => {
+					const change = ready()
+					this.staleRows.delete(augmentedRow)
+					const removedIndex = this.result.indexOf(augmentedRow)
+					if (removedIndex === -1) {
+						throw new Error(
+							'subquery changed for a row missing from the result',
+						)
+					}
+					this.result.splice(removedIndex, 1)
+					let insertedIndex: number
+					if (this.staleRows.size === 0) {
+						insertedIndex = insertOrdered(this.result, augmentedRow, this.sort)
+					} else {
+						// Binary search needs a sorted array, so search only the rows already in place
+						const fresh = this.result.filter((row) => !this.staleRows.has(row))
+						const freshIndex = insertOrdered(fresh, augmentedRow, this.sort)
+						insertedIndex =
+							freshIndex === fresh.length - 1
+								? this.result.length
+								: this.result.indexOf(fresh[freshIndex + 1])
+						this.result.splice(insertedIndex, 0, augmentedRow)
+					}
+					return {
+						kind: 'subquery',
+						row: augmentedRow,
+						oldIndex: removedIndex,
+						newIndex: insertedIndex,
+						key,
+						change,
+						type: 'update',
+					}
+				})
+			} finally {
 				this.staleRows.delete(augmentedRow)
-				const removedIndex = this.result.indexOf(augmentedRow)
-				this.result.splice(removedIndex, 1)
-				let insertedIndex: number
-				if (this.staleRows.size === 0) {
-					insertedIndex = insertOrdered(this.result, augmentedRow, this.sort)
-				} else {
-					// Binary search needs a sorted array, so search only the rows already in place
-					const fresh = this.result.filter((row) => !this.staleRows.has(row))
-					const freshIndex = insertOrdered(fresh, augmentedRow, this.sort)
-					insertedIndex =
-						freshIndex === fresh.length - 1
-							? this.result.length
-							: this.result.indexOf(fresh[freshIndex + 1])
-					this.result.splice(insertedIndex, 0, augmentedRow)
-				}
-				return {
-					kind: 'subquery',
-					row: augmentedRow,
-					oldIndex: removedIndex,
-					newIndex: insertedIndex,
-					key,
-					change,
-					type: 'update',
-				}
-			})
+			}
 		}
 	}
 

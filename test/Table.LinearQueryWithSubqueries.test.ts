@@ -868,7 +868,14 @@ for (const sortBySubquery of [false, true]) {
 		const replayed = replay(query)
 
 		const parentIds: UUID[] = []
-		const randomInt = (max: number) => Math.floor(Math.random() * max)
+		// mulberry32, seeded so failures reproduce
+		let seed = 1
+		const randomInt = (max: number) => {
+			seed = (seed + 0x6d2b79f5) | 0
+			let mixed = Math.imul(seed ^ (seed >>> 15), 1 | seed)
+			mixed = (mixed + Math.imul(mixed ^ (mixed >>> 7), 61 | mixed)) ^ mixed
+			return Math.floor((((mixed ^ (mixed >>> 14)) >>> 0) / 4294967296) * max)
+		}
 		const randomParentId = () => parentIds[randomInt(parentIds.length)]
 		for (let i = 0; i < 300; i++) {
 			doc.transact(() => {

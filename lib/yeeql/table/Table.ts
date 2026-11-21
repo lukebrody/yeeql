@@ -667,6 +667,7 @@ export class Table<S extends TableSchema> {
 									limit,
 									offset,
 								}),
+							() => [],
 						),
 				)
 			} else {
@@ -698,6 +699,7 @@ export class Table<S extends TableSchema> {
 									limit,
 									offset,
 								}),
+							() => [],
 						),
 				)
 			}
@@ -752,8 +754,13 @@ export class Table<S extends TableSchema> {
 					subqueries: null,
 				},
 				() =>
-					new GroupedQueryImpl(this.items, filter, groupBy, 1, (group) =>
-						this.count({ filter: { ...filter, [groupBy]: group } }),
+					new GroupedQueryImpl(
+						this.items,
+						filter,
+						groupBy,
+						1,
+						(group) => this.count({ filter: { ...filter, [groupBy]: group } }),
+						() => 0,
 					),
 			)
 		}
@@ -781,7 +788,15 @@ export class Table<S extends TableSchema> {
 				sort: null,
 				subqueries: subquery,
 			},
-			() => new GroupedQueryImpl(this.items, filter, groupBy, 1, subquery),
+			() =>
+				new GroupedQueryImpl(
+					this.items,
+					filter,
+					groupBy,
+					1,
+					subquery,
+					(group) => subquery(group).result,
+				),
 		)
 	}
 

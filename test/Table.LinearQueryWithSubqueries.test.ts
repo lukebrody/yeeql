@@ -408,6 +408,47 @@ test('subquery sort update', () => {
 	])
 })
 
+test('sort by a grouped subquery whose group is removed', () => {
+	const orderZeroCount = parents.query({
+		subqueries: {
+			childOrders: ({ id }) =>
+				children.count({ groupBy: 'order', filter: { parentId: id } }),
+		},
+		sort: (a, b) =>
+			a.childOrders.get(0) - b.childOrders.get(0) || a.order - b.order,
+	})
+	const orderZeroRows = parents.query({
+		subqueries: {
+			childOrders: ({ id }) =>
+				children.query({
+					select: ['id'],
+					groupBy: 'order',
+					filter: { parentId: id },
+				}),
+		},
+		sort: (a, b) =>
+			a.childOrders.get(0).length - b.childOrders.get(0).length ||
+			a.order - b.order,
+	})
+	const ids = (rows: readonly { id: UUID }[]) => rows.map(({ id }) => id)
+	const parentA = parents.insert({ order: 0 })
+	const parentB = parents.insert({ order: 1 })
+	const child = children.insert({ parentId: parentA, order: 0 })
+	children.insert({ parentId: parentA, order: 1 })
+	assert.deepEqual(ids(orderZeroCount.result), [parentB, parentA])
+	assert.deepEqual(ids(orderZeroRows.result), [parentB, parentA])
+
+	// The removed group's subquery hadn't processed the delete yet
+	children.delete(child)
+	assert.deepEqual(ids(orderZeroCount.result), [parentA, parentB])
+	assert.deepEqual(ids(orderZeroRows.result), [parentA, parentB])
+
+	// Used to crash searching the out-of-order result
+	parents.update(parentA, 'order', 2)
+	assert.deepEqual(ids(orderZeroCount.result), [parentB, parentA])
+	assert.deepEqual(ids(orderZeroRows.result), [parentB, parentA])
+})
+
 test('subquery on self', () => {
 	const query = children.query({
 		subqueries: {

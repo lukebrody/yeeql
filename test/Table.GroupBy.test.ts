@@ -83,4 +83,11 @@ test('iterators', () => {
 	assert.equal(query.result.has(3), false)
 
 	assert.deepEqual(Array.from(query.result.keys()), [1, 2])
+
+	const values = query.result.values()
+	values.next()
+	assert.deepEqual(Array.from(values), [1])
+	const entries = query.result.entries()
+	entries.next()
+	assert.deepEqual(Array.from(entries), [[2, 1]])
 })

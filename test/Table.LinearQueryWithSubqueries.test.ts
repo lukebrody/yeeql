@@ -674,6 +674,19 @@ test('subquery cache', () => {
 	assert.equal(query.result[0].parent === query.result[1].parent, true)
 })
 
+test('removed rows stop observing their subqueries', () => {
+	const allParents = parents.query({})
+	const query = children.query({
+		subqueries: { parents: () => allParents },
+	})
+
+	const childId = children.insert({ parentId: UUID.create(), order: 0 })
+	children.delete(childId)
+	parents.insert({ order: 0 })
+
+	assert.equal(query.result.length, 0)
+})
+
 test('self referential', () => {
 	assert.throws(() => {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any

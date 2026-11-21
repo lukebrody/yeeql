@@ -126,6 +126,20 @@ test('grouped query with a range', () => {
 	)
 })
 
+test('updates within a counted range reach the row', () => {
+	const id = insert(1)
+	table.count({ filter: { number: { gt: 0 } } })
+	table.update(id, 'number', 2)
+	assert.equal(table.query({ filter: { number: 2 } }).result.length, 1)
+})
+
+test('updates within a grouped range reach the row', () => {
+	const id = insert(1, 'a')
+	table.count({ filter: { number: { gt: 0 } }, groupBy: 'string' })
+	table.update(id, 'number', 2)
+	assert.equal(table.query({ filter: { number: 2 } }).result.length, 1)
+})
+
 test('a NaN bound matches nothing', () => {
 	const id = insert(1)
 	const count = table.count({ filter: { number: { gt: NaN } } })

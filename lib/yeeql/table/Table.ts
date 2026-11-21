@@ -20,7 +20,7 @@ import {
 import {
 	catchMissedReads,
 	Filter,
-	guardColumnReads,
+	makeReusedColumnGuard,
 	Primitives,
 	Row,
 	TableSchema,
@@ -479,11 +479,15 @@ export class Table<S extends TableSchema> {
 				...Object.keys(subqueries ?? {}),
 			])
 			const isWatched = (column: string) => watched.has(column)
-			checkedSort = (a, b) =>
-				sort(
-					guardColumnReads(a, filter, isWatched, 'the sort comparator'),
-					guardColumnReads(b, filter, isWatched, 'the sort comparator'),
-				)
+			const [guardA, guardB] = [0, 1].map(() =>
+				makeReusedColumnGuard<Parameters<typeof sort>[0]>(
+					[...Object.keys(this.schema), ...Object.keys(subqueries ?? {})],
+					filter,
+					isWatched,
+					'the sort comparator',
+				),
+			)
+			checkedSort = (a, b) => sort(guardA(a), guardB(b))
 		}
 
 		let result:

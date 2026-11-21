@@ -41,27 +41,29 @@ const byGroupSize = (
 	b: { groupSize: number; order: number },
 ) => a.groupSize - b.groupSize || byOrder(a, b)
 
+type LinearChange = {
+	kind: string
+	row: unknown
+	oldIndex?: number
+	newIndex?: number
+}
+
+function applyChange(replayed: unknown[], change: LinearChange) {
+	if (change.kind !== 'add') {
+		assert.equal(replayed[change.oldIndex!], change.row)
+		replayed.splice(change.oldIndex!, 1)
+	}
+	if (change.kind !== 'remove') {
+		replayed.splice(change.newIndex!, 0, change.row)
+	}
+}
+
 function replay(query: {
 	result: readonly unknown[]
-	observe(
-		observer: (change: {
-			kind: string
-			row: unknown
-			oldIndex?: number
-			newIndex?: number
-		}) => void,
-	): void
+	observe(observer: (change: LinearChange) => void): void
 }) {
 	const replayed = [...query.result]
-	query.observe((change) => {
-		if (change.kind !== 'add') {
-			assert.equal(replayed[change.oldIndex!], change.row)
-			replayed.splice(change.oldIndex!, 1)
-		}
-		if (change.kind !== 'remove') {
-			replayed.splice(change.newIndex!, 0, change.row)
-		}
-	})
+	query.observe((change) => applyChange(replayed, change))
 	return replayed
 }
 
@@ -77,8 +79,14 @@ for (const seed of seeds) {
 			return array
 		})
 
+		// RangeIndex's treap priorities
+		context.mock.method(Math, 'random', random)
+
+		// Client ids decide which conflicting edit wins
 		const doc = new Y.Doc()
+		doc.clientID = 1
 		const peer = new Y.Doc()
+		peer.clientID = 2
 		const yTable = doc.getMap('table') as Y.Map<Y.Map<unknown>>
 		const peerTable = peer.getMap('table') as Y.Map<Y.Map<unknown>>
 		const table = new Table(yTable, schema)
@@ -172,6 +180,22 @@ for (const seed of seeds) {
 			subqueryWindow,
 			sortedBySubqueryWindow,
 		].map((query) => ({ query, replayed: replay(query) }))
+		let replayedNanCount = nanCount.result
+		nanCount.observe(({ delta }) => (replayedNanCount += delta))
+		const replayedGroupedCounts = new Map(groupedCounts.result)
+		groupedCounts.observe((change) => {
+			if (change.kind === 'addGroup') {
+				assert(!replayedGroupedCounts.has(change.group))
+				replayedGroupedCounts.set(change.group, change.result)
+			} else if (change.kind === 'removeGroup') {
+				assert(replayedGroupedCounts.delete(change.group))
+			} else {
+				replayedGroupedCounts.set(
+					change.group,
+					replayedGroupedCounts.get(change.group)! + change.change.delta,
+				)
+			}
+		})
 
 		const check = () => {
 			const rows = allRows()
@@ -279,6 +303,8 @@ for (const seed of seeds) {
 			for (const { query, replayed: rows } of replayed) {
 				assert.deepEqual(ids(rows as FuzzRow[]), ids(query.result))
 			}
+			assert.equal(replayedNanCount, nanCount.result)
+			assert.deepEqual(replayedGroupedCounts, new Map(groupedCounts.result))
 
 			// Built mid-run, from rows that already went through updates
 			const fresh = table.query({
@@ -318,14 +344,16 @@ for (const seed of seeds) {
 		check()
 		for (let step = 0; step < 60; step++) {
 			if (random() < 0.3) {
+				const edits = 1 + int(3)
 				peer.transact(() => {
-					for (let j = 0; j < 1 + int(3); j++) {
+					for (let j = 0; j < edits; j++) {
 						editPeer()
 					}
 				})
 			}
+			const edits = int(4)
 			doc.transact(() => {
-				for (let j = 0; j < int(4); j++) {
+				for (let j = 0; j < edits; j++) {
 					const localIds = Array.from(yTable.keys()) as UUID[]
 					const action = int(5)
 					if (action === 0 || localIds.length === 0) {

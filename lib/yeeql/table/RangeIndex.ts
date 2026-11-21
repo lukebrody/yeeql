@@ -1,99 +1,148 @@
 /* c8 ignore next */
 import { Comparable, Range, rangeBounds } from 'yeeql/table/Schema'
 
-// Bound values split the domain into alternating open intervals and points.
-// `segments[2 * i]` is the interval below `points[i]` and `segments[2 * i + 1]` is `points[i]` itself.
+function admitsLower(range: Range<Comparable>, value: Comparable): boolean {
+	return (
+		(range.gt === undefined || value > range.gt) &&
+		(range.gte === undefined || value >= range.gte)
+	)
+}
+
+function admitsUpper(range: Range<Comparable>, value: Comparable): boolean {
+	return (
+		(range.lt === undefined || value < range.lt) &&
+		(range.lte === undefined || value <= range.lte)
+	)
+}
+
+// Unbounded first, then by value, with `gte` before `gt`
+function compareLower(a: Range<Comparable>, b: Range<Comparable>): number {
+	const aValue = a.gt ?? a.gte
+	const bValue = b.gt ?? b.gte
+	if (aValue === undefined || bValue === undefined) {
+		return Number(aValue !== undefined) - Number(bValue !== undefined)
+	}
+	if (aValue !== bValue) {
+		return aValue < bValue ? -1 : 1
+	}
+	return Number(a.gt !== undefined) - Number(b.gt !== undefined)
+}
+
+// By value with `lt` before `lte`, then unbounded last
+function compareUpper(a: Range<Comparable>, b: Range<Comparable>): number {
+	const aValue = a.lt ?? a.lte
+	const bValue = b.lt ?? b.lte
+	if (aValue === undefined || bValue === undefined) {
+		return Number(aValue === undefined) - Number(bValue === undefined)
+	}
+	if (aValue !== bValue) {
+		return aValue < bValue ? -1 : 1
+	}
+	return Number(a.lte !== undefined) - Number(b.lte !== undefined)
+}
+
+// `entries` is sorted by lower bound, so the entries whose lower bound admits a value are a prefix.
+// `maxUpper` is a segment tree over `entries` holding the index of the highest upper bound in each node.
 export class RangeIndex<T> {
 	add(range: Range<Comparable>, item: T) {
 		if (rangeBounds(range).some(Number.isNaN)) {
 			return
 		}
-		rangeBounds(range).forEach((bound) => this.addPoint(bound))
-		const [start, end] = this.segmentSpan(range)
-		for (let i = start; i <= end; i++) {
-			this.segments[i].add(item)
-		}
+		const index = this.firstIndex(
+			(entry) => compareLower(entry.range, range) > 0,
+		)
+		this.entries.splice(index, 0, { range, item })
+		this.maxUpperStale = true
 	}
 
 	delete(range: Range<Comparable>, item: T) {
 		if (rangeBounds(range).some(Number.isNaN)) {
 			return
 		}
-		const [start, end] = this.segmentSpan(range)
-		for (let i = start; i <= end; i++) {
-			this.segments[i].delete(item)
-		}
-		rangeBounds(range).forEach((bound) => this.removePoint(bound))
+		this.entries.splice(
+			this.entries.findIndex((entry) => entry.item === item),
+			1,
+		)
+		this.maxUpperStale = true
 	}
 
 	get(value: Comparable): ReadonlySet<T> {
+		const result = new Set<T>()
 		if (Number.isNaN(value)) {
-			return new Set()
+			return result
 		}
-		const index = this.search(value)
-		return this.segments[
-			this.points[index] === value ? 2 * index + 1 : 2 * index
-		]
+		if (this.maxUpperStale) {
+			this.buildMaxUpper(1, 0, this.entries.length)
+			this.maxUpperStale = false
+		}
+		const count = this.firstIndex((entry) => !admitsLower(entry.range, value))
+		this.collect(1, 0, this.entries.length, count, value, result)
+		return result
 	}
 
 	get isEmpty(): boolean {
-		return this.points.length === 0
+		return this.entries.length === 0
 	}
 
-	private readonly points: Comparable[] = []
-	private readonly pointRefCounts: number[] = []
-	private readonly segments: Set<T>[] = [new Set()]
+	private readonly entries: { range: Range<Comparable>; item: T }[] = []
+	private readonly maxUpper: number[] = []
+	private maxUpperStale = false
 
-	// Index of the first point >= `value`
-	private search(value: Comparable): number {
+	// Index of the first entry matching `predicate`, which must be false then true across `entries`
+	private firstIndex(
+		predicate: (entry: { range: Range<Comparable>; item: T }) => boolean,
+	): number {
 		let low = 0
-		let high = this.points.length
+		let high = this.entries.length
 		while (low < high) {
 			const mid = (low + high) >>> 1
-			if (this.points[mid] < value) {
-				low = mid + 1
-			} else {
+			if (predicate(this.entries[mid])) {
 				high = mid
+			} else {
+				low = mid + 1
 			}
 		}
 		return low
 	}
 
-	private addPoint(value: Comparable) {
-		const index = this.search(value)
-		if (this.points[index] === value) {
-			this.pointRefCounts[index]++
-		} else {
-			this.points.splice(index, 0, value)
-			this.pointRefCounts.splice(index, 0, 1)
-			const interval = this.segments[2 * index]
-			this.segments.splice(2 * index, 0, new Set(interval), new Set(interval))
+	private buildMaxUpper(node: number, low: number, high: number) {
+		if (high - low <= 1) {
+			this.maxUpper[node] = low
+			return
 		}
+		const mid = (low + high) >>> 1
+		this.buildMaxUpper(2 * node, low, mid)
+		this.buildMaxUpper(2 * node + 1, mid, high)
+		const left = this.maxUpper[2 * node]
+		const right = this.maxUpper[2 * node + 1]
+		this.maxUpper[node] =
+			compareUpper(this.entries[left].range, this.entries[right].range) >= 0
+				? left
+				: right
 	}
 
-	private removePoint(value: Comparable) {
-		const index = this.search(value)
-		if (--this.pointRefCounts[index] === 0) {
-			this.points.splice(index, 1)
-			this.pointRefCounts.splice(index, 1)
-			this.segments.splice(2 * index + 1, 2)
+	// Adds entries in `[low, high)` before `count` whose upper bound admits `value`
+	private collect(
+		node: number,
+		low: number,
+		high: number,
+		count: number,
+		value: Comparable,
+		result: Set<T>,
+	) {
+		if (
+			low >= count ||
+			!admitsUpper(this.entries[this.maxUpper[node]].range, value)
+		) {
+			return
 		}
-	}
-
-	private segmentSpan(range: Range<Comparable>): [number, number] {
-		let start = 0
-		if (range.gte !== undefined) {
-			start = 2 * this.search(range.gte) + 1
-		} else if (range.gt !== undefined) {
-			start = 2 * this.search(range.gt) + 2
+		if (high - low === 1) {
+			result.add(this.entries[low].item)
+			return
 		}
-		let end = this.segments.length - 1
-		if (range.lte !== undefined) {
-			end = 2 * this.search(range.lte) + 1
-		} else if (range.lt !== undefined) {
-			end = 2 * this.search(range.lt)
-		}
-		return [start, end]
+		const mid = (low + high) >>> 1
+		this.collect(2 * node, low, mid, count, value, result)
+		this.collect(2 * node + 1, mid, high, count, value, result)
 	}
 	/* c8 ignore next */
 }

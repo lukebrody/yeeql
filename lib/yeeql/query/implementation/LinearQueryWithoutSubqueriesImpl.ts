@@ -26,8 +26,9 @@ export class LinearQueryWithoutSubqueriesImpl<
 			if (!matchesFilter(filter, row)) {
 				continue
 			}
-			insertOrdered(this.result, row, sort)
+			this.result.push(row)
 		}
+		this.result.sort(sort)
 		this.select = new Set(select)
 	}
 

@@ -48,8 +48,9 @@ export class LinearQueryWithSubqueriesImpl<
 			if (!matchesFilter(filter, row)) {
 				continue
 			}
-			this.addRow(row, 'add')
+			this.result.push(this.rowSubqueries.add(row))
 		}
+		this.result.sort(this.sort)
 		this.select = new Set(select)
 	}
 

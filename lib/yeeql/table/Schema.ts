@@ -123,23 +123,65 @@ export function guardColumnReads<R extends object>(
 		get(target, key) {
 			if (
 				typeof key === 'string' &&
-				key !== 'id' &&
 				Object.hasOwn(target, key) &&
-				// Rows only stay in the result while equality-filtered columns are unchanged
-				!(Object.hasOwn(filter, key) && !isRange(filter[key])) &&
-				!isAllowed(key)
+				isGuarded(key, filter, isAllowed)
 			) {
-				const error = new Error(
-					`${reader} read column '${key}', which it didn't read when yeeql called it with placeholder values. Read each column before branching on any value.`,
-				)
-				if (missedReads === undefined) {
-					throw error
-				}
-				missedReads.error ??= error
+				reportMissedRead(reader, key)
 			}
 			return Reflect.get(target, key)
 		},
 	})
+}
+
+// Like `guardColumnReads`, but every call returns the same object repointed at `row`, since proxy traps are slow
+export function makeReusedColumnGuard<R extends object>(
+	columns: Iterable<string>,
+	filter: Readonly<Record<string, unknown>>,
+	isAllowed: (column: string) => boolean,
+	reader: string,
+): (row: R) => R {
+	let current: Record<string, unknown> = {}
+	const view = {}
+	for (const column of columns) {
+		Object.defineProperty(view, column, {
+			enumerable: true,
+			get: isGuarded(column, filter, isAllowed)
+				? () => {
+						if (Object.hasOwn(current, column)) {
+							reportMissedRead(reader, column)
+						}
+						return current[column]
+				  }
+				: () => current[column],
+		})
+	}
+	return (row) => {
+		current = row as Record<string, unknown>
+		return view as R
+	}
+}
+
+function isGuarded(
+	column: string,
+	filter: Readonly<Record<string, unknown>>,
+	isAllowed: (column: string) => boolean,
+): boolean {
+	return (
+		column !== 'id' &&
+		// Rows only stay in the result while equality-filtered columns are unchanged
+		!(Object.hasOwn(filter, column) && !isRange(filter[column])) &&
+		!isAllowed(column)
+	)
+}
+
+function reportMissedRead(reader: string, column: string) {
+	const error = new Error(
+		`${reader} read column '${column}', which it didn't read when yeeql called it with placeholder values. Read each column before branching on any value.`,
+	)
+	if (missedReads === undefined) {
+		throw error
+	}
+	missedReads.error ??= error
 }
 
 /* v8 ignore start */

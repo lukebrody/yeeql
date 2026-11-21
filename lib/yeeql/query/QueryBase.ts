@@ -91,7 +91,16 @@ export abstract class QueryBase<Change> implements QueryInternal<Change> {
 
 		return () => {
 			if (notifyObservers) {
-				this.observers.forEach((callback) => callback(change))
+				this.observers.forEach((callback) => {
+					try {
+						callback(change)
+					} catch (error) {
+						// Throwing inside Yjs's afterTransaction would skip the remaining notifications
+						queueMicrotask(() => {
+							throw error
+						})
+					}
+				})
 			}
 			internalObserverNotifications.forEach((notify) => notify())
 		}

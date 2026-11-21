@@ -48,29 +48,15 @@ export class GroupedQueryImpl<
 			get size() {
 				return queries.size
 			},
-			entries() {
-				const iterator = queries.entries()
-				return {
-					[Symbol.iterator]: () => this.entries(),
-					next() {
-						const { value, done } = iterator.next()
-						if (done === true) {
-							return { value: undefined, done: true }
-						} else {
-							return { value: [value[0], value[1].query.result], done: false }
-						}
-					},
+			*entries() {
+				for (const [group, { query }] of queries) {
+					yield [group, query.result]
 				}
 			},
 			keys: () => queries.keys(),
-			values() {
-				const iterator = queries.values()
-				return {
-					[Symbol.iterator]: () => this.values(),
-					next() {
-						const { value, done } = iterator.next()
-						return { value: value?.query.result, done }
-					},
+			*values() {
+				for (const { query } of queries.values()) {
+					yield query.result
 				}
 			},
 			[Symbol.iterator]: function () {

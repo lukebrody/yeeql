@@ -5,6 +5,9 @@ import { Comparable, Range, rangeBounds } from 'yeeql/table/Schema'
 // `segments[2 * i]` is the interval below `points[i]` and `segments[2 * i + 1]` is `points[i]` itself.
 export class RangeIndex<T> {
 	add(range: Range<Comparable>, item: T) {
+		if (rangeBounds(range).some(Number.isNaN)) {
+			return
+		}
 		rangeBounds(range).forEach((bound) => this.addPoint(bound))
 		const [start, end] = this.segmentSpan(range)
 		for (let i = start; i <= end; i++) {
@@ -13,6 +16,9 @@ export class RangeIndex<T> {
 	}
 
 	delete(range: Range<Comparable>, item: T) {
+		if (rangeBounds(range).some(Number.isNaN)) {
+			return
+		}
 		const [start, end] = this.segmentSpan(range)
 		for (let i = start; i <= end; i++) {
 			this.segments[i].delete(item)

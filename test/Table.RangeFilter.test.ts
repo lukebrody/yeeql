@@ -125,43 +125,25 @@ test('grouped query with a range', () => {
 	)
 })
 
-test('invalid ranges', () => {
-	assert.throws(
-		() => table.query({ filter: { number: {} } }),
-		new Error('range for \'number\' has no bounds'),
-	)
-	assert.throws(
-		() => table.count({ filter: { number: { gt: 1, gte: 1 } } }),
-		new Error('range for \'number\' has redundant bounds'),
-	)
-	assert.throws(
-		() =>
-			table.groupBy({
-				groupBy: 'string',
-				filter: { number: { lt: 1, lte: 1 } },
-				subquery: () => table.count({}),
-			}),
-		new Error('range for \'number\' has redundant bounds'),
-	)
-	const typeError = new Error(
-		'range bounds for \'mixed\' must be all numbers, all strings, or all bigints',
-	)
-	assert.throws(
-		() => table.query({ filter: { mixed: { gt: 1, lt: 'a' } } }),
-		typeError,
-	)
-	assert.throws(
-		() => table.query({ filter: { mixed: { gt: NaN } } }),
-		typeError,
-	)
-	assert.throws(
-		() =>
-			table.query({
-				// @ts-expect-error booleans can't be ranged
-				filter: { boolean: { gt: true } },
-			}),
-		new Error(
-			'range bounds for \'boolean\' must be all numbers, all strings, or all bigints',
-		),
-	)
+test('a NaN bound matches nothing', () => {
+	const id = insert(1)
+	const count = table.count({ filter: { number: { gt: NaN } } })
+	assert.equal(count.result, 0)
+	table.update(id, 'number', 2)
+	assert.equal(count.result, 0)
+})
+
+test('invalid ranges are type errors', () => {
+	// @ts-expect-error no bounds
+	table.query({ filter: { number: {} } })
+	// @ts-expect-error redundant lower bounds
+	table.count({ filter: { number: { gt: 1, gte: 1 } } })
+	// @ts-expect-error redundant upper bounds
+	table.count({ filter: { number: { lt: 1, lte: 1 } } })
+	// @ts-expect-error mixed bound types
+	table.query({ filter: { mixed: { gt: 1, lt: 'a' } } })
+	// @ts-expect-error booleans can't be ranged
+	table.query({ filter: { boolean: { gt: true } } })
+	table.query({ filter: { mixed: { gt: 1, lte: 2 } } })
+	table.query({ filter: { mixed: { gte: 'a' } } })
 })

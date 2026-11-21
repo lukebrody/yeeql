@@ -27,12 +27,24 @@ export type Primitives<S extends Schema> = Pick<
 
 export type Comparable = number | string | bigint
 
-export type Range<T> = { gt?: T; gte?: T; lt?: T; lte?: T }
+type Lower<T> = { gt: T; gte?: never } | { gt?: never; gte: T }
+type Upper<T> = { lt: T; lte?: never } | { lt?: never; lte: T }
+type NoLower = { gt?: never; gte?: never }
+type NoUpper = { lt?: never; lte?: never }
+
+export type Range<T> = (Lower<T> & (Upper<T> | NoUpper)) | (NoLower & Upper<T>)
+
+// Split by type so a range on a `number | string` column can't mix bound types
+type RangeOf<T, P> = [Extract<T, P>] extends [never]
+	? never
+	: Range<Extract<T, P>>
 
 export type Filter<S extends TableSchema> = {
 	[F in keyof Primitives<S>]?:
 		| Row<Primitives<S>>[F]
-		| Range<Extract<Row<Primitives<S>>[F], Comparable>>
+		| RangeOf<Row<Primitives<S>>[F], number>
+		| RangeOf<Row<Primitives<S>>[F], string>
+		| RangeOf<Row<Primitives<S>>[F], bigint>
 }
 
 export function isRange(value: unknown): value is Range<Comparable> {
@@ -45,7 +57,7 @@ export function rangeBounds(range: Range<Comparable>): Comparable[] {
 	)
 }
 
-// `validateFilter` guarantees all bounds share a type
+// `Filter` guarantees all bounds share a type
 export function rangeType(range: Range<Comparable>): string {
 	return typeof rangeBounds(range)[0]
 }
@@ -70,33 +82,6 @@ export function matchesFilter<S extends TableSchema>(
 			(range.lte === undefined || comparable <= range.lte)
 		)
 	})
-}
-
-export function validateFilter<S extends TableSchema>(filter: Filter<S>) {
-	for (const [key, range] of Object.entries(filter)) {
-		if (!isRange(range)) {
-			continue
-		}
-		const bounds = rangeBounds(range)
-		if (bounds.length === 0) {
-			throw new Error(`range for '${key}' has no bounds`)
-		}
-		if (
-			(range.gt !== undefined && range.gte !== undefined) ||
-			(range.lt !== undefined && range.lte !== undefined)
-		) {
-			throw new Error(`range for '${key}' has redundant bounds`)
-		}
-		const type = typeof bounds[0]
-		if (
-			!['number', 'string', 'bigint'].includes(type) ||
-			bounds.some((bound) => typeof bound !== type || Number.isNaN(bound))
-		) {
-			throw new Error(
-				`range bounds for '${key}' must be all numbers, all strings, or all bigints`,
-			)
-		}
-	}
 }
 
 /* v8 ignore start */

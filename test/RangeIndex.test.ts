@@ -1,5 +1,5 @@
 import { RangeIndex } from 'yeeql/table/RangeIndex'
-import { Range, matchesFilter, rangeBounds } from 'yeeql/table/Schema'
+import { Range, matchesFilter } from 'yeeql/table/Schema'
 import { Field, UUID } from 'index'
 
 import assert from 'assert/strict'
@@ -7,16 +7,26 @@ import test from 'node:test'
 
 const schema = { id: new Field<UUID>(), number: new Field<number>() }
 
-function randomBound(): number | undefined {
-	return Math.random() < 0.3 ? undefined : Math.floor(Math.random() * 10)
-}
-
 function randomRange(): Range<number> {
-	const range: Range<number> = {
-		[Math.random() < 0.5 ? 'gt' : 'gte']: randomBound(),
-		[Math.random() < 0.5 ? 'lt' : 'lte']: randomBound(),
+	const bound = () => Math.floor(Math.random() * 10)
+	switch (Math.floor(Math.random() * 8)) {
+	case 0:
+		return { gt: bound() }
+	case 1:
+		return { gte: bound() }
+	case 2:
+		return { lt: bound() }
+	case 3:
+		return { lte: bound() }
+	case 4:
+		return { gt: bound(), lt: bound() }
+	case 5:
+		return { gt: bound(), lte: bound() }
+	case 6:
+		return { gte: bound(), lt: bound() }
+	default:
+		return { gte: bound(), lte: bound() }
 	}
-	return rangeBounds(range).length === 0 ? randomRange() : range
 }
 
 test('matches brute force', () => {
@@ -51,4 +61,15 @@ test('NaN is in no range', () => {
 	const index = new RangeIndex<string>()
 	index.add({ lt: 5 }, 'a')
 	assert.equal(index.get(NaN).size, 0)
+})
+
+test('ranges with NaN bounds contain nothing', () => {
+	const index = new RangeIndex<string>()
+	index.add({ gt: NaN }, 'a')
+	index.add({ gt: 1, lt: NaN }, 'b')
+	assert.equal(index.get(2).size, 0)
+	assert.equal(index.isEmpty, true)
+	index.delete({ gt: NaN }, 'a')
+	index.delete({ gt: 1, lt: NaN }, 'b')
+	assert.equal(index.isEmpty, true)
 })

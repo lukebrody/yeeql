@@ -133,6 +133,33 @@ test('a NaN bound matches nothing', () => {
 	assert.equal(count.result, 0)
 })
 
+test('non-finite bounds are distinct filters', () => {
+	const id = insert(1)
+	const belowInfinity = table.count({ filter: { number: { lt: Infinity } } })
+	const belowNegativeInfinity = table.count({
+		filter: { number: { lt: -Infinity } },
+	})
+	const belowNaN = table.query({
+		select: ['number'],
+		filter: { number: { lt: NaN } },
+	})
+	const belowInfinityQuery = table.query({
+		select: ['number'],
+		filter: { number: { lt: Infinity } },
+	})
+	assert.equal(belowInfinity.result, 1)
+	assert.equal(belowNegativeInfinity.result, 0)
+	assert.equal(belowNaN.result.length, 0)
+	assert.equal(belowInfinityQuery.result.length, 1)
+
+	insert(2)
+	table.update(id, 'number', 3)
+	assert.equal(belowInfinity.result, 2)
+	assert.equal(belowNegativeInfinity.result, 0)
+	assert.equal(belowNaN.result.length, 0)
+	assert.equal(belowInfinityQuery.result.length, 2)
+})
+
 test('invalid ranges are type errors', () => {
 	// @ts-expect-error no bounds
 	table.query({ filter: { number: {} } })

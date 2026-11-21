@@ -1,5 +1,4 @@
 /* c8 ignore next */
-import stringify from 'json-stable-stringify'
 import { DefaultMap } from 'common/DefaultMap'
 import {
 	Comparable,
@@ -8,6 +7,7 @@ import {
 	TableSchema,
 	isRange,
 	rangeType,
+	stringifyKey,
 } from 'yeeql/table/Schema'
 import { RangeIndex } from 'yeeql/table/RangeIndex'
 
@@ -77,7 +77,7 @@ function insertIntoQueryTree<S extends TableSchema>(
 				: notSpecified
 		let child: QueryTree<S>
 		if (isRange(key)) {
-			const rangeKey = stringify(key)
+			const rangeKey = stringifyKey(key)
 			if (!node.ranges.has(rangeKey)) {
 				node.rangeIndexes
 					.get(rangeType(key))
@@ -117,7 +117,7 @@ function deleteFromQueryTree<S extends TableSchema>(
 				? filter[fields[0] as keyof typeof filter]
 				: notSpecified
 		if (isRange(key)) {
-			const rangeKey = stringify(key)
+			const rangeKey = stringifyKey(key)
 			// Already removed when finalizing another query with the same filter
 			if (!node.ranges.has(rangeKey)) {
 				return

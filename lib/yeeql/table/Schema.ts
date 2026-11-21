@@ -1,4 +1,5 @@
 /* c8 ignore next */
+import stringify from 'json-stable-stringify'
 import { UUID } from 'common/UUID'
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -60,6 +61,16 @@ export function rangeBounds(range: Range<Comparable>): Comparable[] {
 // `Filter` guarantees all bounds share a type
 export function rangeType(range: Range<Comparable>): string {
 	return typeof rangeBounds(range)[0]
+}
+
+// JSON writes Infinity, -Infinity and NaN all as null
+export function stringifyKey(value: unknown): string {
+	return stringify(value, {
+		replacer: (_, value) =>
+			typeof value === 'number' && !Number.isFinite(value)
+				? { number: String(value) }
+				: value,
+	})
 }
 
 export function matchesFilter<S extends TableSchema>(

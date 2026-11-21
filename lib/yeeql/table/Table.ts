@@ -1,5 +1,4 @@
 /* c8 ignore next */
-import stringify from 'json-stable-stringify'
 import * as Y from 'yjs'
 import { DefaultMap } from 'common/DefaultMap'
 import { UUID } from 'common/UUID'
@@ -24,6 +23,7 @@ import {
 	Row,
 	TableSchema,
 	schemaToDebugString,
+	stringifyKey,
 } from 'yeeql/table/Schema'
 import {
 	SubqueriesDependencies,
@@ -411,7 +411,7 @@ export class Table<S extends TableSchema> {
 			if (subqueries === undefined) {
 				result = this.getCachedQuery(
 					{
-						key: stringify({ filter, resolvedSelect, kind: 'linear' }),
+						key: stringifyKey({ filter, resolvedSelect, kind: 'linear' }),
 						sort,
 						subqueries: null,
 					},
@@ -434,7 +434,7 @@ export class Table<S extends TableSchema> {
 
 				result = this.getCachedQuery(
 					{
-						key: stringify({
+						key: stringifyKey({
 							filter,
 							resolvedSelect,
 							kind: 'linearSubqueries',
@@ -460,7 +460,7 @@ export class Table<S extends TableSchema> {
 			if (subqueries === undefined) {
 				result = this.getCachedQuery(
 					{
-						key: stringify({
+						key: stringifyKey({
 							filter,
 							resolvedSelect,
 							groupBy,
@@ -481,7 +481,7 @@ export class Table<S extends TableSchema> {
 			} else {
 				result = this.getCachedQuery(
 					{
-						key: stringify({
+						key: stringifyKey({
 							filter,
 							resolvedSelect,
 							groupBy,
@@ -537,7 +537,7 @@ export class Table<S extends TableSchema> {
 		if (groupBy === undefined) {
 			result = this.getCachedQuery(
 				{
-					key: stringify({ filter, kind: 'count' }),
+					key: stringifyKey({ filter, kind: 'count' }),
 					sort: null,
 					subqueries: null,
 				},
@@ -546,7 +546,7 @@ export class Table<S extends TableSchema> {
 		} else {
 			result = this.getCachedQuery(
 				{
-					key: stringify({ filter, groupBy, kind: 'groupCount' }),
+					key: stringifyKey({ filter, groupBy, kind: 'groupCount' }),
 					sort: null,
 					subqueries: null,
 				},
@@ -574,7 +574,7 @@ export class Table<S extends TableSchema> {
 	}): GroupedQuery<S, GroupBy, Q> {
 		return this.getCachedQuery(
 			{
-				key: stringify({ groupBy, filter, kind: 'groupBy' }),
+				key: stringifyKey({ groupBy, filter, kind: 'groupBy' }),
 				sort: null,
 				subqueries: subquery,
 			},

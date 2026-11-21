@@ -91,3 +91,21 @@ test('iterators', () => {
 	entries.next()
 	assert.deepEqual(Array.from(entries), [[2, 1]])
 })
+
+test('a throwing observer does not stop the group change', (t) => {
+	const reported = t.mock.method(globalThis, 'queueMicrotask', () => undefined)
+	const id = table.insert({ number: 1, string: 'a' })
+	query.observe((change) => {
+		if (change.kind === 'removeGroup') {
+			throw new Error('removeGroup')
+		}
+	})
+	spy.mock.resetCalls()
+
+	table.update(id, 'number', 2)
+	assert.deepEqual(
+		popChanges().map((change) => change.kind),
+		['subquery', 'removeGroup', 'addGroup'],
+	)
+	assert.equal(reported.mock.callCount(), 1)
+})

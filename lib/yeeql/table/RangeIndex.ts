@@ -53,10 +53,11 @@ type TreapNode<T> = {
 
 function update<T>(node: TreapNode<T>) {
 	node.maxUpper = node.range
-	for (const child of [node.left, node.right]) {
-		if (child && compareUpper(child.maxUpper, node.maxUpper) > 0) {
-			node.maxUpper = child.maxUpper
-		}
+	if (node.left && compareUpper(node.left.maxUpper, node.maxUpper) > 0) {
+		node.maxUpper = node.left.maxUpper
+	}
+	if (node.right && compareUpper(node.right.maxUpper, node.maxUpper) > 0) {
+		node.maxUpper = node.right.maxUpper
 	}
 }
 

@@ -593,6 +593,7 @@ export class Table<S extends TableSchema> {
 		filter?: Filter<S>
 		subquery: (group: Row<Primitives<S>>[GroupBy]) => Q
 	}): GroupedQuery<S, GroupBy, Q> {
+		this.validateColumns([groupBy, ...Object.keys(filter)])
 		this.validateRanges(filter)
 
 		return this.getCachedQuery(

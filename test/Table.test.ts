@@ -145,3 +145,21 @@ test('cached count queries are registered once', () => {
 	assert.equal(count.result, 1)
 	assert.equal(_testQueryEntries.value, 1)
 })
+
+test('groupBy validates its columns', () => {
+	assert.throws(
+		// @ts-expect-error not a column
+		() => table.groupBy({ groupBy: 'nope', subquery: () => table.count({}) }),
+		/unknown column 'nope'/,
+	)
+	assert.throws(
+		() =>
+			table.groupBy({
+				groupBy: 'number',
+				// @ts-expect-error not a column
+				filter: { nope: 1 },
+				subquery: () => table.count({}),
+			}),
+		/unknown column 'nope'/,
+	)
+})

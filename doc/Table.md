@@ -118,6 +118,23 @@ const highestPinballScores = scoresTable.query({
 highestPinballScores.result // [ { "score": 1200 }, { "score": 1000 } ]
 ```
 
+A `filter` value can also be a range using `gt`, `gte`, `lt`, and `lte`. Ranges work on `number`, `string`, and `bigint` columns. Rows whose value has a different type than the range's bounds don't match.
+
+<!---Table Query Range-->
+
+```typescript
+const midScores = scoresTable.query({
+	select: ['playerName', 'score'],
+	filter: { score: { gte: 800, lt: 1200 } },
+	sort: (a, b) => b.score - a.score,
+})
+
+midScores.result /* [
+    { "playerName": "Kayla", "score": 1000 },
+    { "playerName": "Andreas", "score": 800 }
+] */
+```
+
 ## `table.query({ select?, filter?, sort?, groupBy }): Query`
 
 Gets or creates a grouped query on the `table`.

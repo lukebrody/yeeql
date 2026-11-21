@@ -111,3 +111,60 @@ test('memory management', async () => {
 
 	assert.equal(_testQueryEntries.value, 1)
 })
+
+class RangeStubQuery implements QueryRegistryEntry<typeof schema> {
+	constructor(readonly filter: { number: { gt: number } }) {}
+	readonly select = new Set<'string'>(['string'])
+
+	addRow(): () => void {
+		throw new Error('not implemented')
+	}
+
+	removeRow(): () => void {
+		throw new Error('not implemented')
+	}
+
+	changeRow(): () => void {
+		throw new Error('not implemented')
+	}
+}
+
+test('range memory management', async () => {
+	const qr = new QueryRegistry(schema)
+
+	let releasedQuery: RangeStubQuery | undefined = new RangeStubQuery({
+		number: { gt: 0 },
+	})
+	let releasedDuplicate: RangeStubQuery | undefined = new RangeStubQuery({
+		number: { gt: 0 },
+	})
+	let retainedQuery: RangeStubQuery | undefined = new RangeStubQuery({
+		number: { gt: 1 },
+	})
+
+	qr.register(releasedQuery)
+	qr.register(releasedDuplicate)
+	qr.register(retainedQuery)
+
+	const row = { id: UUID.create(), number: 2, string: '', boolean: false }
+	assert.equal(qr.queries(row, addedOrRemoved).size, 3)
+
+	releasedQuery = undefined
+	releasedDuplicate = undefined
+	await new Promise((resolve) => setTimeout(resolve, 10))
+	global.gc!()
+	await new Promise((resolve) => setTimeout(resolve, 10))
+
+	_testQueryEntries.value = 0
+	assert.equal(qr.queries(row, addedOrRemoved).size, 1)
+	assert.equal(_testQueryEntries.value, 1)
+
+	retainedQuery = undefined
+	await new Promise((resolve) => setTimeout(resolve, 10))
+	global.gc!()
+	await new Promise((resolve) => setTimeout(resolve, 10))
+
+	_testQueryEntries.value = 0
+	assert.equal(qr.queries(row, addedOrRemoved).size, 0)
+	assert.equal(_testQueryEntries.value, 0)
+})

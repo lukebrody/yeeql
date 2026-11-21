@@ -12,7 +12,7 @@ import {
 	SubqueryGenerators,
 	SubqueryResult,
 } from 'yeeql/query/subquery'
-import { Filter, Row, TableSchema } from 'yeeql/table/Schema'
+import { Filter, matchesFilter, Row, TableSchema } from 'yeeql/table/Schema'
 import {
 	LinearQuery,
 	Change,
@@ -20,7 +20,7 @@ import {
 } from 'yeeql/query/interface/LinearQuery'
 import { QueryRegistryEntry } from 'yeeql/table/QueryRegistry'
 import { UUID } from 'common/UUID'
-import { Query, QueryResult } from 'yeeql/query/Query'
+import { Query } from 'yeeql/query/Query'
 import { insertOrdered, removeOrdered } from 'common/array'
 import { MapValue } from 'common/DefaultMap'
 
@@ -45,11 +45,9 @@ export class LinearQueryWithSubqueriesImpl<
 	) {
 		super()
 		this.result = []
-		addItem: for (const [, row] of items) {
-			for (const [key, value] of Object.entries(filter)) {
-				if (row[key] !== value) {
-					continue addItem
-				}
+		for (const [, row] of items) {
+			if (!matchesFilter(filter, row)) {
+				continue
 			}
 			this.addRow(row, 'add')
 		}

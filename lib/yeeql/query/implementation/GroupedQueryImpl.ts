@@ -1,5 +1,11 @@
 /* c8 ignore next */
-import { Filter, Primitives, Row, TableSchema } from 'yeeql/table/Schema'
+import {
+	Filter,
+	matchesFilter,
+	Primitives,
+	Row,
+	TableSchema,
+} from 'yeeql/table/Schema'
 import { QueryRegistryEntry } from 'yeeql/table/QueryRegistry'
 import { UUID } from 'common/UUID'
 import { MapValue, ReadonlyDefaultMap } from 'common/DefaultMap'
@@ -73,11 +79,9 @@ export class GroupedQueryImpl<
 		}
 		this.select = new Set([groupBy])
 
-		addItem: for (const [, row] of items) {
-			for (const [key, value] of Object.entries(filter)) {
-				if (row[key] !== value) {
-					continue addItem
-				}
+		for (const [, row] of items) {
+			if (!matchesFilter(filter, row)) {
+				continue
 			}
 			const group = row[groupBy]
 			const query = this.queries.get(group)

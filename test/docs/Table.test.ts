@@ -76,6 +76,31 @@ test('Table.md', () => {
 
 	docs.replaceToken('Table Query 1', '{{expected1}}', expected1)
 
+	// start docs Table Query Range
+	const midScores = scoresTable.query({
+		select: ['playerName', 'score'],
+		filter: { score: { gte: 800, lt: 1200 } },
+		sort: (a, b) => b.score - a.score,
+	})
+
+	// end docs Table Query Range
+	const actualRange =
+		// start docs Table Query Range
+		midScores.result /* {{expectedRange}} */
+	// end docs Table Query Range
+
+	const expectedRange = [
+		{ playerName: 'Kayla', score: 1000 },
+		{ playerName: 'Andreas', score: 800 },
+	]
+
+	assert.partialDeepStrictEqual(
+		actualRange.map(({ playerName, score }) => ({ playerName, score })),
+		expectedRange,
+	)
+
+	docs.replaceToken('Table Query Range', '{{expectedRange}}', expectedRange)
+
 	// start docs Table Query 2
 	const bestPlayersByGame = scoresTable.query({
 		select: ['playerName'],

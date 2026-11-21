@@ -24,6 +24,7 @@ import {
 	Row,
 	TableSchema,
 	schemaToDebugString,
+	validateFilter,
 } from 'yeeql/table/Schema'
 import {
 	SubqueriesDependencies,
@@ -393,6 +394,7 @@ export class Table<S extends TableSchema> {
 			...(groupBy !== undefined ? [groupBy] : []),
 			...Object.keys(filter),
 		])
+		validateFilter(filter)
 
 		const resolvedSelect = Array.from(
 			new Set([
@@ -532,6 +534,7 @@ export class Table<S extends TableSchema> {
 			...(groupBy !== undefined ? [groupBy] : []),
 			...Object.keys(filter),
 		])
+		validateFilter(filter)
 
 		let result: CountQueryImpl<S> | GroupedQueryImpl<S, GroupBy, CountQuery>
 		if (groupBy === undefined) {
@@ -572,6 +575,7 @@ export class Table<S extends TableSchema> {
 		filter?: Filter<S>
 		subquery: (group: Row<Primitives<S>>[GroupBy]) => Q
 	}): GroupedQuery<S, GroupBy, Q> {
+		validateFilter(filter)
 		return this.getCachedQuery(
 			{
 				key: stringify({ groupBy, filter, kind: 'groupBy' }),

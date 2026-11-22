@@ -9,7 +9,12 @@ import {
 import { QueryRegistryEntry } from 'yeeql/table/QueryRegistry'
 import { UUID } from 'common/UUID'
 import { MapValue, ReadonlyDefaultMap } from 'common/DefaultMap'
-import { Query, QueryChange, QueryResult } from 'yeeql/query/Query'
+import {
+	InvalidChange,
+	Query,
+	QueryChange,
+	QueryResult,
+} from 'yeeql/query/Query'
 import {
 	InternalChangeCallback,
 	MinimalQueryChange,
@@ -75,10 +80,16 @@ export class GroupedQueryImpl<
 			const group = row[groupBy]
 			this.rowCounts.set(group, (this.rowCounts.get(group) ?? 0) + 1)
 		}
-		for (const [group, rowCount] of this.rowCounts) {
-			if (rowCount >= minRows) {
-				this.addQuery(group)
+		try {
+			for (const [group, rowCount] of this.rowCounts) {
+				if (rowCount >= minRows) {
+					this.addQuery(group)
+				}
 			}
+		} catch (error) {
+			// Nobody gets this query, so it must not stay on its subqueries
+			this.unobserveDependencies()
+			throw error
 		}
 	}
 
@@ -90,8 +101,8 @@ export class GroupedQueryImpl<
 		Row<S>[GroupBy],
 		{
 			query: Query<QueryResult<Q>, QueryChange<Q>, unknown> &
-				QueryInternal<QueryChange<Q>>
-			observer: InternalChangeCallback<QueryChange<Q>>
+				QueryInternal<Exclude<QueryChange<Q>, InvalidChange>>
+			observer: InternalChangeCallback<Exclude<QueryChange<Q>, InvalidChange>>
 		}
 	>
 	readonly result: ReadonlyDefaultMap<Row<S>[GroupBy], QueryResult<Q>>
@@ -102,7 +113,9 @@ export class GroupedQueryImpl<
 		const query = this.makeSubquery(group) as unknown as MapValue<
 			typeof this.queries
 		>['query']
-		const observer: InternalChangeCallback<QueryChange<Q>> = (ready) => {
+		const observer: InternalChangeCallback<
+			Exclude<QueryChange<Q>, InvalidChange>
+		> = (ready) => {
 			return this.notifyingObservers(() => {
 				const change = ready()
 				this.changeReported =
@@ -116,9 +129,15 @@ export class GroupedQueryImpl<
 				}
 			})
 		}
-		query.internalObserve(observer)
+		query.internalObserve(observer, (error) => this.invalidate(error))
 		this.queries.set(group, { query, observer })
 		return query
+	}
+
+	protected override unobserveDependencies() {
+		for (const { query, observer } of this.queries.values()) {
+			query.internalUnobserve(observer)
+		}
 	}
 
 	addRow(row: Row<S>, type: 'add' | 'update'): () => void {
@@ -144,7 +163,9 @@ export class GroupedQueryImpl<
 			// Notifications run after the transaction, so `result` already has the group's later changes
 			return () => {
 				this.groupsAddedThisTransaction.delete(group)
-				change.result = query.result
+				if (this.error === undefined) {
+					change.result = query.result
+				}
 				notify()
 			}
 		}

@@ -91,16 +91,19 @@ function insertIntoQueryTree<S extends TableSchema>(
 	}
 }
 
+// Deletes `removed` and garbage collected queries
 function deleteFromQueryTree<S extends TableSchema>(
 	qt: QueryTree<S>,
 	fields: ReadonlyArray<keyof S>,
 	filter: Filter<S>,
+	removed: QueryRegistryEntry<S> | undefined,
 ): void {
 	if (fields.length == 0) {
 		const leaf = qt as QueryTreeLeaf<S>
 		for (const [key, arr] of leaf) {
 			for (let i = 0; i < arr.length; ) {
-				if (arr[i].deref() === undefined) {
+				const query = arr[i].deref()
+				if (query === undefined || query === removed) {
 					arr.splice(i, 1)
 				} else {
 					i++
@@ -123,7 +126,7 @@ function deleteFromQueryTree<S extends TableSchema>(
 				return
 			}
 			const child = node.ranges.get(rangeKey)
-			deleteFromQueryTree(child, fields.slice(1), filter)
+			deleteFromQueryTree(child, fields.slice(1), filter, removed)
 			if (child.size == 0) {
 				node.ranges.delete(rangeKey)
 				const rangeIndex = node.rangeIndexes.get(rangeType(key))
@@ -134,7 +137,7 @@ function deleteFromQueryTree<S extends TableSchema>(
 			}
 		} else {
 			const child = node.values.get(key)
-			deleteFromQueryTree(child, fields.slice(1), filter)
+			deleteFromQueryTree(child, fields.slice(1), filter, removed)
 			if (child.size == 0) {
 				node.values.delete(key)
 			}
@@ -195,7 +198,7 @@ function collectFromQueryTree<S extends TableSchema>(
 
 export class QueryRegistry<S extends TableSchema> {
 	private readonly finalizer = new FinalizationRegistry<Filter<S>>((filter) =>
-		deleteFromQueryTree(this.qt, this.fields, filter),
+		deleteFromQueryTree(this.qt, this.fields, filter, undefined),
 	)
 
 	constructor(schema: S) {
@@ -209,6 +212,8 @@ export class QueryRegistry<S extends TableSchema> {
 	register(query: QueryRegistryEntry<S>): void {
 		insertIntoQueryTree(this.qt, this.fields, query)
 		this.finalizer.register(query, query.filter)
+		query.unregister = () =>
+			deleteFromQueryTree(this.qt, this.fields, query.filter, query)
 	}
 
 	queries(
@@ -225,6 +230,10 @@ export class QueryRegistry<S extends TableSchema> {
 export interface QueryRegistryEntry<S extends TableSchema> {
 	readonly filter: Readonly<Filter<S>> // Values that old or new need to match
 	readonly select: ReadonlySet<keyof S> // Other fields that we care about changing
+	readonly error: unknown
+	unregister: () => void
+
+	invalidate(error: unknown): () => void
 
 	// The below methods are driven from Table.ts
 

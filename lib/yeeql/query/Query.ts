@@ -18,6 +18,12 @@ export interface Query<
 	unobserve(observer: (change: Change) => void): void
 }
 
+export type InvalidChange = Readonly<{
+	kind: 'invalid'
+	error: unknown
+	type: 'update'
+}>
+
 export type QueryResult<Q extends Query<unknown, MinimalQueryChange, unknown>> =
 	Q extends Query<infer Result, MinimalQueryChange, unknown> ? Result : never
 

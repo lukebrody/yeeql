@@ -183,22 +183,27 @@ test('with subqueries', () => {
 
 function observeGroups(query: {
 	observe(
-		observer: (change: {
-			kind: string
-			group: number
-			result: readonly { id: UUID }[]
-			change?: { kind: string }
-		}) => void,
+		observer: (
+			change:
+				| {
+						kind: string
+						group: number
+						result: readonly { id: UUID }[]
+						change?: { kind: string }
+				  }
+				| { kind: 'invalid' },
+		) => void,
 	): void
 }) {
 	const changes: unknown[] = []
-	query.observe((change) =>
+	query.observe((change) => {
+		assert('group' in change)
 		changes.push(
 			change.change === undefined
 				? [change.kind, change.group, change.result.map(({ id }) => id)]
 				: [change.kind, change.group, change.change.kind],
-		),
-	)
+		)
+	})
 	return changes
 }
 
@@ -274,13 +279,14 @@ test('group with subqueries added in a transaction reports its later rows in add
 		},
 	})
 	const changes: unknown[] = []
-	query.observe((change) =>
+	query.observe((change) => {
+		assert(change.kind !== 'invalid')
 		changes.push(
 			change.kind === 'subquery'
 				? [change.kind, change.change.kind]
 				: [change.kind, change.result.map((row) => row.sameString)],
-		),
-	)
+		)
+	})
 
 	doc.transact(() => {
 		table.insert({ number: 1, string: 'a' })
@@ -373,7 +379,8 @@ for (const limit of [undefined, 2]) {
 	})
 }
 
-test('a throw in a transaction still ends it for a grouped query', () => {
+test('a throw in a transaction still ends it for a grouped query', (t) => {
+	t.mock.method(globalThis, 'queueMicrotask', () => undefined)
 	const query = table.query({ select: ['id'], groupBy: 'number' })
 	table.query({
 		select: ['id', 'string'],
@@ -387,12 +394,10 @@ test('a throw in a transaction still ends it for a grouped query', () => {
 	table.insert({ number: 2, string: 'a' })
 	const changes = observeGroups(query)
 
-	assert.throws(() =>
-		doc.transact(() => {
-			table.insert({ number: 1, string: 'a' })
-			table.insert({ number: 2, string: 'throw' })
-		}),
-	)
+	doc.transact(() => {
+		table.insert({ number: 1, string: 'a' })
+		table.insert({ number: 2, string: 'throw' })
+	})
 	changes.length = 0
 	table.insert({ number: 1, string: 'b' })
 	assert.deepEqual(changes, [['subquery', 1, 'add']])
@@ -421,6 +426,7 @@ test('a row moved by a shared grouped subquery reports its move after a sibling 
 	})
 	const replayed = query.result.map(({ id }) => id)
 	query.observe((change) => {
+		assert(change.kind !== 'invalid')
 		if (change.kind !== 'add') {
 			replayed.splice(change.oldIndex, 1)
 		}

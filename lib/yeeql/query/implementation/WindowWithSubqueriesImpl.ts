@@ -41,10 +41,18 @@ export class WindowWithSubqueriesImpl<
 			filter,
 			(key, augmentedRow, subquery) =>
 				this.makeSubqueryCallback(key, augmentedRow, subquery),
+			(error) => this.invalidate(error),
 		)
-		this.result = window.result.map((row) => rowSubqueries.add(row as Row<S>))
+		this.rowSubqueries = rowSubqueries
+		try {
+			this.result = window.result.map((row) => rowSubqueries.add(row as Row<S>))
+		} catch (error) {
+			// Nobody gets this query, so it must not stay on its subqueries
+			rowSubqueries.removeAll()
+			throw error
+		}
 
-		window.internalObserve((ready) => {
+		this.windowCallback = (ready) => {
 			const notify = this.notifyingObservers(() => {
 				const change = ready()
 				const row = change.row as Row<S>
@@ -80,7 +88,20 @@ export class WindowWithSubqueriesImpl<
 				this.rowsReportedThisTransaction.clear()
 				notify()
 			}
-		})
+		}
+		window.internalObserve(this.windowCallback, (error) =>
+			this.invalidate(error),
+		)
+	}
+
+	private readonly rowSubqueries: RowSubqueries<S, Q>
+	private readonly windowCallback: InternalChangeCallback<
+		Change<S, keyof S, {}>
+	>
+
+	protected override unobserveDependencies() {
+		this.window.internalUnobserve(this.windowCallback)
+		this.rowSubqueries.removeAll()
 	}
 
 	// Rows already reported with their live subquery results
@@ -113,7 +134,8 @@ export class WindowWithSubqueriesImpl<
 	}
 
 	// Strong, so the window lives as long as this does
-	private readonly window: LinearQuery<S, keyof S, {}>
+	private readonly window: LinearQuery<S, keyof S, {}> &
+		QueryInternal<Change<S, keyof S, {}>>
 
 	readonly result: (Row<S> & SubqueriesResults<S, Q>)[]
 	/* c8 ignore next */

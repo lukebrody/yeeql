@@ -1,6 +1,7 @@
 /* v8 ignore start */
 import { ReadonlyDefaultMap } from 'common/DefaultMap'
 import {
+	InvalidChange,
 	Query,
 	QueryChange,
 	QueryPrimitiveResult,
@@ -31,9 +32,10 @@ export type GroupedQuery<
 			kind: 'subquery'
 			group: Row<Primitives<S>>[GroupBy]
 			result: QueryResult<Q>
-			change: QueryChange<Q>
+			change: Exclude<QueryChange<Q>, InvalidChange>
 			type: 'add' | 'update' | 'delete'
-	  }>,
+	  }>
+	| InvalidChange,
 	ReadonlyDefaultMap<Row<Primitives<S>>[GroupBy], QueryPrimitiveResult<Q>>
 >
 /* v8 ignore stop */

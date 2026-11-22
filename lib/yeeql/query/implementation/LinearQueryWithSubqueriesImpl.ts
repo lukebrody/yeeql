@@ -48,14 +48,21 @@ export class LinearQueryWithSubqueriesImpl<
 			filter,
 			(key, augmentedRow, subquery) =>
 				this.makeInternalCallback(key, augmentedRow, subquery),
+			(error) => this.invalidate(error),
 		)
-		for (const [, row] of items) {
-			if (!matchesFilter(filter, row)) {
-				continue
+		try {
+			for (const [, row] of items) {
+				if (!matchesFilter(filter, row)) {
+					continue
+				}
+				this.result.push(this.rowSubqueries.add(row))
 			}
-			this.result.push(this.rowSubqueries.add(row))
+			this.result.sort(this.sort)
+		} catch (error) {
+			// Nobody gets this query, so it must not stay on its subqueries
+			this.rowSubqueries.removeAll()
+			throw error
 		}
-		this.result.sort(this.sort)
 		this.select = new Set(select)
 	}
 
@@ -65,9 +72,13 @@ export class LinearQueryWithSubqueriesImpl<
 
 	readonly result: (Row<S> & SubqueriesResults<S, Q>)[]
 
+	protected override unobserveDependencies() {
+		this.rowSubqueries.removeAll()
+	}
+
 	addRow(row: Row<S>, type: 'add' | 'update'): () => void {
-		const augmentedRow = this.rowSubqueries.add(row)
 		const notify = this.notifyingObservers(() => {
+			const augmentedRow = this.rowSubqueries.add(row)
 			const addedIndex = insertOrdered(this.result, augmentedRow, this.sort)
 			this.rowsReportedThisTransaction.add(augmentedRow)
 			return {

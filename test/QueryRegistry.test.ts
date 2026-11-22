@@ -19,6 +19,12 @@ const schema = {
 class StubQuery implements QueryRegistryEntry<typeof schema> {
 	readonly filter = { number: 1 }
 	readonly select = new Set<'string'>(['string'])
+	readonly error = undefined
+	unregister = () => undefined
+
+	invalidate(): () => void {
+		throw new Error('not implemented')
+	}
 
 	addRow(): () => void {
 		throw new Error('not implemented')
@@ -115,6 +121,12 @@ test('memory management', async () => {
 class RangeStubQuery implements QueryRegistryEntry<typeof schema> {
 	constructor(readonly filter: { number: { gt: number } }) {}
 	readonly select = new Set<'string'>(['string'])
+	readonly error = undefined
+	unregister = () => undefined
+
+	invalidate(): () => void {
+		throw new Error('not implemented')
+	}
 
 	addRow(): () => void {
 		throw new Error('not implemented')

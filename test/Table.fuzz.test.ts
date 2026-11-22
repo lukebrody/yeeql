@@ -61,10 +61,13 @@ function applyChange(replayed: unknown[], change: LinearChange) {
 
 function replay(query: {
 	result: readonly unknown[]
-	observe(observer: (change: LinearChange) => void): void
+	observe(observer: (change: LinearChange | { kind: 'invalid' }) => void): void
 }) {
 	const replayed = [...query.result]
-	query.observe((change) => applyChange(replayed, change))
+	query.observe((change) => {
+		assert('row' in change)
+		applyChange(replayed, change)
+	})
 	return replayed
 }
 
@@ -72,18 +75,23 @@ function replay(query: {
 function replayGroups(query: {
 	result: ReadonlyMap<unknown, readonly unknown[]>
 	observe(
-		observer: (change: {
-			kind: string
-			group: unknown
-			result: readonly unknown[]
-			change?: LinearChange
-		}) => void,
+		observer: (
+			change:
+				| {
+						kind: string
+						group: unknown
+						result: readonly unknown[]
+						change?: LinearChange
+				  }
+				| { kind: 'invalid' },
+		) => void,
 	): void
 }) {
 	const copy = (groups: ReadonlyMap<unknown, readonly unknown[]>) =>
 		new Map(Array.from(groups, ([group, rows]) => [group, [...rows]]))
 	const replayed = copy(query.result)
 	query.observe((change) => {
+		assert('group' in change)
 		if (change.kind === 'addGroup') {
 			assert(!replayed.has(change.group))
 			replayed.set(change.group, [...change.result])
@@ -142,6 +150,42 @@ for (const seed of seeds) {
 					.filter(filter)
 					.sort((a, b) => sort(a, b) || compareStrings(a.id, b.id)),
 			)
+
+		const reports: unknown[] = []
+		context.mock.method(
+			globalThis,
+			'queueMicrotask',
+			(callback: () => void) => {
+				try {
+					callback()
+				} catch (error) {
+					reports.push(error)
+				}
+			},
+		)
+		// Throws on a subquery value, so it can fail partway through a subquery's changes
+		const throwing = table.query({
+			select: ['id', 'label', 'order'],
+			subqueries: {
+				groupSize: (row) => table.count({ filter: { group: row.group } }),
+			},
+			sort: (a, b) => {
+				if ([a, b].some((row) => row.label === 'z' && row.groupSize >= 7)) {
+					throw new Error('fuzz')
+				}
+				return byOrder(a, b)
+			},
+		})
+		const replayedThrowing = [...throwing.result]
+		let throwingInvalid = false
+		throwing.observe((change) => {
+			assert(!throwingInvalid)
+			if (change.kind === 'invalid') {
+				throwingInvalid = true
+			} else {
+				applyChange(replayedThrowing, change)
+			}
+		})
 
 		for (let i = 0; i < 5; i++) {
 			table.insert(randomValues())
@@ -273,9 +317,13 @@ for (const seed of seeds) {
 			replayGroups,
 		)
 		let replayedNanCount = nanCount.result
-		nanCount.observe(({ delta }) => (replayedNanCount += delta))
+		nanCount.observe((change) => {
+			assert('delta' in change)
+			replayedNanCount += change.delta
+		})
 		const replayedGroupedCounts = new Map(groupedCounts.result)
 		groupedCounts.observe((change) => {
+			assert(change.kind !== 'invalid')
 			if (change.kind === 'addGroup') {
 				assert(!replayedGroupedCounts.has(change.group))
 				replayedGroupedCounts.set(change.group, change.result)
@@ -410,6 +458,14 @@ for (const seed of seeds) {
 				assert.deepEqual(ids(rows as FuzzRow[]), ids(query.result))
 			}
 			checkReplayedGroups.forEach((checkReplayed) => checkReplayed())
+			if (throwingInvalid) {
+				assert.throws(() => throwing.result, /the sort comparator threw/)
+				assert.equal(reports.length, 1)
+			} else {
+				assert.deepEqual(ids(throwing.result), expected(rows, all, byOrder))
+				assert.deepEqual(ids(replayedThrowing), ids(throwing.result))
+				assert.equal(reports.length, 0)
+			}
 			checkReplayedSubqueries.forEach((checkReplayed) => checkReplayed())
 			assert.equal(replayedNanCount, nanCount.result)
 			assert.deepEqual(replayedGroupedCounts, new Map(groupedCounts.result))

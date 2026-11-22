@@ -88,6 +88,11 @@ Queries that return rows have the following change type:
     newIndex: number,
     oldValues: Readonly<Partial<Result>> // Of the columns that changed, these are the old values. Empty when only a subquery change already reported moved the row
     type: 'update'
+} |
+{
+    kind: 'invalid', // A sort comparator, subquery generator or groupBy subquery threw. `unobserve` still works. See "Errors in Sorts and Subqueries" in Table.md
+    error: unknown,
+    type: 'update'
 }
 ```
 
@@ -242,6 +247,11 @@ For `count` queries without a group, the `Change` is simply either `1` or `-1`.
         delta: -1,
         type: 'delete' | 'update'
     }
+} |
+{
+    kind: 'invalid',
+    error: unknown,
+    type: 'update'
 }
 ```
 

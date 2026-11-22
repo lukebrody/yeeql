@@ -1,6 +1,6 @@
 /* v8 ignore start */
 import { DefaultMap } from 'common/DefaultMap'
-import { Query } from 'yeeql/query/Query'
+import { InvalidChange, Query } from 'yeeql/query/Query'
 import { MinimalQueryChange } from 'yeeql/query/QueryBase'
 import { TableSchema, Row } from 'yeeql/table/Schema'
 
@@ -52,7 +52,7 @@ export type SubqueryChange<
 	S extends TableSchema,
 	Q extends SubqueryGenerator<S, Query<unknown, MinimalQueryChange, unknown>>,
 > = Q extends SubqueryGenerator<S, Query<unknown, infer Change, unknown>>
-	? Change
+	? Exclude<Change, InvalidChange>
 	: never
 
 export type SubqueriesPrimitiveResults<

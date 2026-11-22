@@ -407,6 +407,11 @@ type ExpectedChange<Result> =
     newIndex: number,
     oldValues: Readonly<Partial<Result>> // Of the columns that changed, these are the old values. Empty when only a subquery change already reported moved the row
     type: 'update'
+} |
+{
+    kind: 'invalid', // A sort comparator, subquery generator or groupBy subquery threw. `unobserve` still works. See "Errors in Sorts and Subqueries" in Table.md
+    error: unknown,
+    type: 'update'
 }
 // end docs QueryChange
 
@@ -434,5 +439,10 @@ type GroupedCountChange<Group> =
 		delta: -1,
 		type: 'delete' | 'update'
 	}
+} |
+{
+	kind: 'invalid',
+	error: unknown,
+	type: 'update'
 }
 // end docs GroupedCountChange

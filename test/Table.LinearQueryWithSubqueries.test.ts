@@ -836,8 +836,9 @@ test('rows with subqueries keep Object.prototype methods', () => {
 	assert.equal(row.valueOf, 0)
 })
 
-test('subquery generators must read columns unconditionally', () => {
-	children.query({
+test('subquery generators must read columns unconditionally', (t) => {
+	t.mock.method(globalThis, 'queueMicrotask', () => undefined)
+	const query = children.query({
 		subqueries: {
 			parent: (child) =>
 				child.order > 0
@@ -845,9 +846,18 @@ test('subquery generators must read columns unconditionally', () => {
 					: parents.query({}),
 		},
 	})
+	children.insert({ parentId: UUID.create(), order: 1 })
 	assert.throws(
-		() => children.insert({ parentId: UUID.create(), order: 1 }),
-		/subquery 'parent' read column 'parentId'/,
+		() => query.result,
+		(error: Error) => {
+			// eslint-disable-next-line quotes
+			assert.equal(error.message, "subquery 'parent' threw")
+			assert.match(
+				String(error.cause),
+				/subquery 'parent' read column 'parentId'/,
+			)
+			return true
+		},
 	)
 })
 
@@ -872,6 +882,7 @@ function replay<
 >(query: LinearQuery<S, Select, Q>) {
 	const replayed = [...query.result]
 	query.observe((change) => {
+		assert(change.kind !== 'invalid')
 		if (change.kind !== 'add') {
 			assert.equal(replayed[change.oldIndex], change.row)
 			replayed.splice(change.oldIndex, 1)

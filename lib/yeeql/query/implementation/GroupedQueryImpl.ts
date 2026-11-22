@@ -110,6 +110,7 @@ export class GroupedQueryImpl<
 	private addQuery(
 		group: Row<S>[GroupBy],
 	): MapValue<typeof this.queries>['query'] {
+		this.unobserveRemovedGroup(group)
 		const query = this.makeSubquery(group) as unknown as MapValue<
 			typeof this.queries
 		>['query']
@@ -119,7 +120,9 @@ export class GroupedQueryImpl<
 			return this.notifyingObservers(() => {
 				const change = ready()
 				this.changeReported =
-					query.changeReported && !this.groupsAddedThisTransaction.has(group)
+					query.changeReported &&
+					this.queries.has(group) &&
+					!this.groupsAddedThisTransaction.has(group)
 				return {
 					kind: 'subquery',
 					result: query.result as QueryResult<Q>,
@@ -129,14 +132,36 @@ export class GroupedQueryImpl<
 				}
 			})
 		}
-		query.internalObserve(observer, (error) => this.invalidate(error))
+		query.internalObserve(observer, (error) =>
+			// A removed group's subquery no longer affects this query
+			this.queries.get(group)?.query === query
+				? this.invalidate(error)
+				: () => undefined,
+		)
 		this.queries.set(group, { query, observer })
 		return query
 	}
 
 	protected override unobserveDependencies() {
-		for (const { query, observer } of this.queries.values()) {
+		for (const { query, observer } of [
+			...this.queries.values(),
+			...this.removedGroups.values(),
+		]) {
 			query.internalUnobserve(observer)
+		}
+	}
+
+	// Still observed until the transaction ends, because the registry gives this query a removed row before the group's subquery
+	private readonly removedGroups = new Map<
+		Row<S>[GroupBy],
+		MapValue<typeof this.queries>
+	>()
+
+	private unobserveRemovedGroup(group: Row<S>[GroupBy]) {
+		const removed = this.removedGroups.get(group)
+		if (removed !== undefined) {
+			removed.query.internalUnobserve(removed.observer)
+			this.removedGroups.delete(group)
 		}
 	}
 
@@ -183,9 +208,9 @@ export class GroupedQueryImpl<
 		}
 		if (rowCount + 1 === this.minRows) {
 			const query = this.queries.get(group)!
-			return this.notifyingObservers(() => {
-				query.query.internalUnobserve(query.observer)
+			const notify = this.notifyingObservers(() => {
 				this.queries.delete(group)
+				this.removedGroups.set(group, query)
 				return {
 					kind: 'removeGroup',
 					group,
@@ -193,6 +218,10 @@ export class GroupedQueryImpl<
 					type,
 				}
 			})
+			return () => {
+				this.unobserveRemovedGroup(group)
+				notify()
+			}
 		} else {
 			return () => undefined
 		}

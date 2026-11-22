@@ -449,6 +449,34 @@ test('sort by a grouped subquery whose group is removed', () => {
 	assert.deepEqual(ids(orderZeroRows.result), [parentB, parentA])
 })
 
+test('sort by a groupBy subquery whose group is removed', () => {
+	const query = parents.query({
+		subqueries: {
+			childOrders: ({ id }) =>
+				children.groupBy({
+					groupBy: 'order',
+					filter: { parentId: id },
+					subquery: (order) =>
+						children.count({ filter: { parentId: id, order } }),
+				}),
+		},
+		sort: (a, b) =>
+			a.childOrders.get(0) - b.childOrders.get(0) || a.order - b.order,
+	})
+	const ids = (rows: readonly { id: UUID }[]) => rows.map(({ id }) => id)
+	const parentA = parents.insert({ order: 0 })
+	const parentB = parents.insert({ order: 1 })
+	const child = children.insert({ parentId: parentA, order: 0 })
+	children.insert({ parentId: parentA, order: 1 })
+	assert.deepEqual(ids(query.result), [parentB, parentA])
+
+	children.delete(child)
+	assert.deepEqual(ids(query.result), [parentA, parentB])
+
+	parents.update(parentA, 'order', 2)
+	assert.deepEqual(ids(query.result), [parentB, parentA])
+})
+
 test('subquery on self', () => {
 	const query = children.query({
 		subqueries: {

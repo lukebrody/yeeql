@@ -149,7 +149,7 @@ const groupZeroByString = () =>
 			table.query({ filter: { string }, sort: throwingSort }),
 	})
 
-test("a grouped query invalidated by a sibling group stops observing a removed group's subquery", (t) => {
+test('a grouped query invalidated by a sibling group stops observing the subquery of a removed group', (t) => {
 	t.mock.method(globalThis, 'queueMicrotask', () => undefined)
 	const grouped = groupZeroByString()
 	const removed = table.insert({ number: 0, string: 'x' })
@@ -184,7 +184,7 @@ for (const batched of [true, false]) {
 	})
 }
 
-test("a removed group's subquery is unobserved after the transaction", () => {
+test('the subquery of a removed group is unobserved after the transaction', () => {
 	const grouped = table.groupBy({
 		groupBy: 'string',
 		filter: { number: 0 },

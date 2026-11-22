@@ -44,13 +44,14 @@ export class WindowWithSubqueriesImpl<
 		)
 		this.result = window.result.map((row) => rowSubqueries.add(row as Row<S>))
 
-		window.internalObserve((ready) =>
-			this.notifyingObservers(() => {
+		window.internalObserve((ready) => {
+			const notify = this.notifyingObservers(() => {
 				const change = ready()
 				const row = change.row as Row<S>
 				if (change.kind === 'add') {
 					const augmentedRow = rowSubqueries.add(row)
 					this.result.splice(change.newIndex, 0, augmentedRow)
+					this.rowsReportedThisTransaction.add(augmentedRow)
 					return { ...change, row: augmentedRow }
 				} else if (change.kind === 'remove') {
 					const augmentedRow = rowSubqueries.remove(row)
@@ -64,6 +65,7 @@ export class WindowWithSubqueriesImpl<
 					)
 					this.result.splice(change.oldIndex, 1)
 					this.result.splice(change.newIndex, 0, augmentedRow)
+					this.rowsReportedThisTransaction.add(augmentedRow)
 					return {
 						kind: 'update',
 						row: augmentedRow,
@@ -73,9 +75,18 @@ export class WindowWithSubqueriesImpl<
 						type: 'update',
 					}
 				}
-			}),
-		)
+			})
+			return () => {
+				this.rowsReportedThisTransaction.clear()
+				notify()
+			}
+		})
 	}
+
+	// Rows already reported with their live subquery results
+	private readonly rowsReportedThisTransaction = new Set<
+		(typeof this.result)[0]
+	>()
 
 	private makeSubqueryCallback<Key extends keyof Q>(
 		key: Key,
@@ -86,7 +97,9 @@ export class WindowWithSubqueriesImpl<
 			this.notifyingObservers(() => {
 				const index = this.result.indexOf(augmentedRow)
 				const change = ready()
-				this.changeReported = subquery.changeReported
+				this.changeReported =
+					subquery.changeReported &&
+					!this.rowsReportedThisTransaction.has(augmentedRow)
 				return {
 					kind: 'subquery',
 					row: augmentedRow,

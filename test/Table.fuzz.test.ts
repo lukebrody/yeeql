@@ -164,11 +164,11 @@ for (const seed of seeds) {
 				}
 			},
 		)
-		// Throws on a subquery value, so it can fail partway through a subquery's changes
 		const throwingSubqueries = {
 			groupSize: (row: { group: number }) =>
 				table.count({ filter: { group: row.group } }),
 		}
+		// Throws on a subquery value, so it can fail partway through a subquery's changes
 		const throwingSort = (
 			a: { label: string; groupSize: number; order: number },
 			b: { label: string; groupSize: number; order: number },

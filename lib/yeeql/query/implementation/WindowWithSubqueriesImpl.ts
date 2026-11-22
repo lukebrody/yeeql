@@ -44,7 +44,13 @@ export class WindowWithSubqueriesImpl<
 			(error) => this.invalidate(error),
 		)
 		this.rowSubqueries = rowSubqueries
-		this.result = window.result.map((row) => rowSubqueries.add(row as Row<S>))
+		try {
+			this.result = window.result.map((row) => rowSubqueries.add(row as Row<S>))
+		} catch (error) {
+			// Nobody gets this query, so it must not stay on its subqueries
+			rowSubqueries.removeAll()
+			throw error
+		}
 
 		this.windowCallback = (ready) => {
 			const notify = this.notifyingObservers(() => {

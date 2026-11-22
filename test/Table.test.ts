@@ -728,6 +728,90 @@ test('a group invalidated by a sibling group in the same change', (t) => {
 	assert.equal(all.result, 5)
 })
 
+test('a query made from an invalid query is invalid', (t) => {
+	catchReports(t)
+	const full = table.query({
+		sort: (a, b) => {
+			if (a.string === 'boom' || b.string === 'boom') {
+				throw boom
+			}
+			return a.number - b.number
+		},
+	})
+	table.insert({ number: 1, string: 'a' })
+	table.insert({ number: 2, string: 'boom' })
+	assertInvalid(full, 'the sort comparator threw', /boom/)
+
+	assert.throws(
+		() => table.query({ subqueries: { sorted: () => full } }),
+		/the sort comparator threw/,
+	)
+	assert.throws(
+		() => table.groupBy({ groupBy: 'string', subquery: () => full }),
+		/the sort comparator threw/,
+	)
+
+	const parent = table.query({
+		filter: { number: 3 },
+		subqueries: { sorted: () => full },
+	})
+	const changes: string[] = []
+	parent.observe(({ kind }) => changes.push(kind))
+	table.insert({ number: 3, string: 'a' })
+	assertInvalid(parent, 'the sort comparator threw', /boom/)
+	assert.deepEqual(changes, ['invalid'])
+})
+
+test('a query that throws while being made leaves its subqueries', (t) => {
+	const reports = catchReports(t)
+	const all = table.count({})
+	table.insert({ number: 1, string: 'a' })
+	table.insert({ number: 2, string: 'b' })
+	const throwOnB = (row: { string: string }) => {
+		if (row.string === 'b') {
+			throw boom
+		}
+		return all
+	}
+
+	assert.throws(
+		() =>
+			table.query({
+				subqueries: { all: () => all },
+				sort: (a, b) => {
+					throwOnB(a)
+					throwOnB(b)
+					return 0
+				},
+			}),
+		/the sort comparator threw/,
+	)
+	assert.throws(
+		() =>
+			table.query({
+				subqueries: { all: () => all, throwOnB },
+				sort: (a, b) => a.number - b.number,
+				limit: 2,
+			}),
+		/subquery 'throwOnB' threw/,
+	)
+	assert.throws(
+		() =>
+			table.groupBy({
+				groupBy: 'string',
+				subquery: (string) => throwOnB({ string }),
+			}),
+		/the groupBy subquery threw/,
+	)
+
+	table.insert({ number: 3, string: 'c' })
+	assert.deepEqual(reports, [])
+	assert.equal(
+		(Reflect.get(all, 'internalObservers') as Map<unknown, unknown>).size,
+		0,
+	)
+})
+
 test('an invalid query leaves the registry and other tables', (t) => {
 	catchReports(t)
 	const otherTable = new Table(

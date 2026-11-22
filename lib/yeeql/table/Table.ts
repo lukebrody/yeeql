@@ -203,14 +203,7 @@ export class Table<S extends TableSchema> {
 				if (query.error !== undefined) {
 					return
 				}
-				try {
-					runAfterTransaction.push(change())
-				} catch (error) {
-					queueMicrotask(() => {
-						throw error
-					})
-					runAfterTransaction.push(query.invalidate(error))
-				}
+				runAfterTransaction.push(change())
 			}
 
 			for (const event of events) {

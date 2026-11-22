@@ -66,6 +66,9 @@ export abstract class QueryBase<Change> implements QueryInternal<Change> {
 		callback: InternalChangeCallback<Change>,
 		invalidated: InvalidatedCallback,
 	): void {
+		if (this.error !== undefined) {
+			throw this.error
+		}
 		this.internalObservers.set(callback, invalidated)
 	}
 

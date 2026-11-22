@@ -409,7 +409,7 @@ type ExpectedChange<Result> =
     type: 'update'
 } |
 {
-    kind: 'invalid', // The query's sort comparator or a subquery generator threw. See "Errors in Sorts and Subqueries" in Table.md
+    kind: 'invalid', // A sort comparator, subquery generator or groupBy subquery threw. `unobserve` still works. See "Errors in Sorts and Subqueries" in Table.md
     error: unknown,
     type: 'update'
 }

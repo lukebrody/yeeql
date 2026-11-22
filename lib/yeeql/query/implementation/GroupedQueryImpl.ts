@@ -80,10 +80,16 @@ export class GroupedQueryImpl<
 			const group = row[groupBy]
 			this.rowCounts.set(group, (this.rowCounts.get(group) ?? 0) + 1)
 		}
-		for (const [group, rowCount] of this.rowCounts) {
-			if (rowCount >= minRows) {
-				this.addQuery(group)
+		try {
+			for (const [group, rowCount] of this.rowCounts) {
+				if (rowCount >= minRows) {
+					this.addQuery(group)
+				}
 			}
+		} catch (error) {
+			// Nobody gets this query, so it must not stay on its subqueries
+			this.unobserveDependencies()
+			throw error
 		}
 	}
 

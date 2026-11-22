@@ -7,6 +7,7 @@ import { Change, LinearQuery } from 'yeeql/query/interface/LinearQuery'
 import { TableSchema } from 'yeeql/table/Schema'
 import { SubqueryGenerators } from 'yeeql/query/subquery'
 import { seededRandom } from 'test/random'
+import { replay as replayWithSubqueries } from 'test/replay'
 
 const schema = {
 	id: new Field<UUID>(),
@@ -565,4 +566,44 @@ test('a throwing observer does not stop later changes to the window', (t) => {
 		[1],
 	)
 	assert.equal(reported.mock.callCount(), 1)
+})
+
+test('a row that entered the window this transaction reports a later subquery move as an update', () => {
+	const leaving = table.insert({ number: 1, string: 'a' })
+	table.insert({ number: 2, string: 'b' })
+	table.insert({ number: 0, string: 'c' })
+	const sibling = table.insert({ number: 100, string: 'c' })
+	const query = table.query({
+		select: ['number', 'string'],
+		subqueries: {
+			sameString: (row) => table.count({ filter: { string: row.string } }),
+		},
+		sort: (a, b) => a.sameString - b.sameString || byNumber(a, b),
+		limit: 2,
+	})
+	const { changes } = replay(query)
+	const checkReplayed = replayWithSubqueries(query, schema)
+
+	// 'c' enters the window, then its count drops and it moves ahead of 'b'
+	doc.transact(() => {
+		table.delete(leaving)
+		table.delete(sibling)
+	})
+	assert.deepEqual(
+		changes.map(({ kind, row }) => [kind, row.string]),
+		[
+			['remove', 'a'],
+			['add', 'c'],
+			['update', 'c'],
+		],
+	)
+	assert.deepEqual(changes[2], {
+		kind: 'update',
+		row: query.result[0],
+		oldIndex: 1,
+		newIndex: 0,
+		oldValues: {},
+		type: 'update',
+	})
+	checkReplayed()
 })

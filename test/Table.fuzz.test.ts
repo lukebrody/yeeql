@@ -6,6 +6,7 @@ import assert from 'assert/strict'
 import { compareStrings } from 'common/string'
 import { seededRandom } from 'test/random'
 import { replay as replayWithSubqueries } from 'test/replay'
+import { QueryRegistry, addedOrRemoved } from 'yeeql/table/QueryRegistry'
 
 // FUZZ_SEED reproduces one failing seed, FUZZ_SEEDS runs more
 const seeds =
@@ -133,8 +134,8 @@ for (const seed of seeds) {
 			label: pick(labels),
 			order: pick(orders),
 		})
-		const allRows = (): FuzzRow[] =>
-			Array.from(yTable.entries(), ([id, row]) => ({
+		const allRows = (yRows: Y.Map<Y.Map<unknown>>): FuzzRow[] =>
+			Array.from(yRows.entries(), ([id, row]) => ({
 				id: id as UUID,
 				group: row.get('group') as number,
 				label: row.get('label') as string,
@@ -163,29 +164,128 @@ for (const seed of seeds) {
 				}
 			},
 		)
+		const throwingSubqueries = {
+			groupSize: (row: { group: number }) =>
+				table.count({ filter: { group: row.group } }),
+		}
 		// Throws on a subquery value, so it can fail partway through a subquery's changes
+		const throwingSort = (
+			a: { label: string; groupSize: number; order: number },
+			b: { label: string; groupSize: number; order: number },
+		) => {
+			// Reads groupSize on the placeholder call too, so its window wraps this query
+			if ([a, b].some((row) => row.groupSize >= 7 && row.label === 'z')) {
+				throw new Error('fuzz')
+			}
+			return byOrder(a, b)
+		}
 		const throwing = table.query({
 			select: ['id', 'label', 'order'],
-			subqueries: {
-				groupSize: (row) => table.count({ filter: { group: row.group } }),
-			},
-			sort: (a, b) => {
-				if ([a, b].some((row) => row.label === 'z' && row.groupSize >= 7)) {
-					throw new Error('fuzz')
+			subqueries: throwingSubqueries,
+			sort: throwingSort,
+		})
+
+		// Queries that can become invalid, built before any rows so they start valid
+		let step = -1
+		const probeId = UUID.create()
+		const invalidErrors = new Map<object, unknown>()
+		const watchInvalidation = (query: {
+			result: unknown
+			observe(
+				observer: (change: { kind: string; error?: unknown }) => void,
+			): void
+		}) => {
+			query.observe((change) => {
+				assert(!invalidErrors.has(query))
+				if (change.kind === 'invalid') {
+					invalidErrors.set(query, change.error)
 				}
-				return byOrder(a, b)
+			})
+			return replayWithSubqueries(query, schema)
+		}
+		const throwingWindow = table.query({
+			select: ['id', 'label', 'order'],
+			subqueries: throwingSubqueries,
+			sort: throwingSort,
+			limit: 2,
+			offset: 1,
+		})
+		const generated = (row: { group: number; order: number }) => {
+			const { group, order } = row
+			if (group === 2 && order === 5) {
+				throw new Error('generator')
+			}
+			return table.count({ filter: { group } })
+		}
+		const generating = table.query({
+			select: ['id', 'order', 'group'],
+			subqueries: { generated },
+			sort: byOrder,
+		})
+		const generatingWindow = table.query({
+			select: ['id', 'order', 'group'],
+			subqueries: { generated },
+			sort: byOrder,
+			limit: 2,
+			offset: 1,
+		})
+		const throwingGroups = table.groupBy({
+			groupBy: 'order',
+			subquery: (order) => {
+				if (step >= 20 && order === 0) {
+					throw new Error('groupBy')
+				}
+				return table.count({ filter: { order } })
 			},
 		})
-		const replayedThrowing = [...throwing.result]
-		let throwingInvalid = false
-		throwing.observe((change) => {
-			assert(!throwingInvalid)
-			if (change.kind === 'invalid') {
-				throwingInvalid = true
-			} else {
-				applyChange(replayedThrowing, change)
-			}
+		// Reads `label` only once armed, which the placeholder call didn't see
+		const missedReadSort = (
+			a: { label: string; order: number },
+			b: { label: string; order: number },
+		) => (step >= 30 ? compareStrings(a.label, b.label) : 0) || byOrder(a, b)
+		const missedRead = table.query({
+			select: ['id', 'order'],
+			sort: missedReadSort,
 		})
+		const missedReadWindow = table.query({
+			select: ['id', 'order'],
+			sort: missedReadSort,
+			limit: 2,
+			offset: 1,
+		})
+		const mayFail = [
+			{ query: throwing, message: /^the sort comparator threw: fuzz$/ },
+			{ query: generating, message: /^subquery 'generated' threw: generator$/ },
+			{
+				query: generatingWindow,
+				message: /^subquery 'generated' threw: generator$/,
+			},
+			{
+				query: throwingGroups,
+				message: /^the groupBy subquery threw: groupBy$/,
+			},
+			{
+				query: missedRead,
+				message:
+					/^the sort comparator threw: the sort comparator read column 'label'/,
+			},
+		].map((entry) => ({
+			...entry,
+			checkReplayed: watchInvalidation(entry.query),
+		}))
+		// Windows only fail through the query under them
+		const windowsOver = [
+			{ window: throwingWindow, source: throwing },
+			{ window: missedReadWindow, source: missedRead },
+		].map((entry) => ({
+			...entry,
+			checkReplayed: watchInvalidation(entry.window),
+		}))
+		const tableRegistry = (
+			table as unknown as {
+				queryRegistry: QueryRegistry<typeof schema>
+			}
+		).queryRegistry
 
 		for (let i = 0; i < 5; i++) {
 			table.insert(randomValues())
@@ -337,8 +437,38 @@ for (const seed of seeds) {
 			}
 		})
 
+		// A second table on the same doc, edited in the same transactions, with subqueries across tables
+		const yOther = doc.getMap('other') as Y.Map<Y.Map<unknown>>
+		const peerOther = peer.getMap('other') as Y.Map<Y.Map<unknown>>
+		const other = new Table(yOther, schema)
+		for (let i = 0; i < 3; i++) {
+			other.insert(randomValues())
+		}
+		const countingOther = table.query({
+			select: ['id', 'order', 'group'],
+			subqueries: {
+				otherCount: (row) => other.count({ filter: { group: row.group } }),
+			},
+			sort: (a, b) => a.otherCount - b.otherCount || byOrder(a, b),
+		})
+		const listingTable = other.query({
+			select: ['id', 'order', 'label'],
+			subqueries: {
+				sameLabel: (row) =>
+					table.query({
+						select: ['id', 'order'],
+						filter: { label: row.label },
+						sort: byOrder,
+					}),
+			},
+			sort: byOrder,
+		})
+		const checkReplayedCrossTable = [countingOther, listingTable].map((query) =>
+			replayWithSubqueries(query, schema),
+		)
+
 		const check = () => {
-			const rows = allRows()
+			const rows = allRows(yTable)
 			const sizeOf = (row: FuzzRow) =>
 				rows.filter(({ group }) => group === row.group).length
 			const byExpectedGroupSize = (a: FuzzRow, b: FuzzRow) =>
@@ -458,13 +588,75 @@ for (const seed of seeds) {
 				assert.deepEqual(ids(rows as FuzzRow[]), ids(query.result))
 			}
 			checkReplayedGroups.forEach((checkReplayed) => checkReplayed())
-			if (throwingInvalid) {
-				assert.throws(() => throwing.result, /the sort comparator threw/)
-				assert.equal(reports.length, 1)
-			} else {
-				assert.deepEqual(ids(throwing.result), expected(rows, all, byOrder))
-				assert.deepEqual(ids(replayedThrowing), ids(throwing.result))
-				assert.equal(reports.length, 0)
+			for (const { query, message, checkReplayed } of mayFail) {
+				const error = invalidErrors.get(query)
+				if (error === undefined) {
+					checkReplayed()
+				} else {
+					assert.throws(
+						() => query.result,
+						(thrown) => thrown === error,
+					)
+					assert.throws(
+						() => query.version,
+						(thrown) => thrown === error,
+					)
+					assert(error instanceof Error && error.cause instanceof Error)
+					assert.match(`${error.message}: ${error.cause.message}`, message)
+				}
+			}
+			// A leaked internal observer would touch an invalid query, whose `version` throws, and add a report
+			const failedErrors = mayFail
+				.map(({ query }) => invalidErrors.get(query))
+				.filter((error) => error !== undefined)
+			assert.equal(reports.length, failedErrors.length)
+			assert.deepEqual(new Set(reports), new Set(failedErrors))
+			const byOrderIds = expected(rows, all, byOrder)
+			if (!invalidErrors.has(throwing)) {
+				assert.deepEqual(ids(throwing.result), byOrderIds)
+			}
+			if (!invalidErrors.has(missedRead)) {
+				assert.deepEqual(ids(missedRead.result), byOrderIds)
+			}
+			for (const query of [generating, generatingWindow]) {
+				if (!invalidErrors.has(query)) {
+					for (const row of query.result) {
+						assert.equal(row.generated, sizeOf(row as FuzzRow))
+					}
+				}
+			}
+			if (!invalidErrors.has(generating)) {
+				assert.deepEqual(ids(generating.result), byOrderIds)
+			}
+			if (!invalidErrors.has(generatingWindow)) {
+				assert.deepEqual(ids(generatingWindow.result), byOrderIds.slice(1, 3))
+			}
+			if (!invalidErrors.has(throwingGroups)) {
+				const expectedOrderCounts = new Map<number, number>()
+				for (const { order } of rows) {
+					expectedOrderCounts.set(
+						order,
+						(expectedOrderCounts.get(order) ?? 0) + 1,
+					)
+				}
+				assert.deepEqual(new Map(throwingGroups.result), expectedOrderCounts)
+			}
+			for (const { window, source, checkReplayed } of windowsOver) {
+				assert.equal(invalidErrors.get(window), invalidErrors.get(source))
+				if (!invalidErrors.has(window)) {
+					assert.deepEqual(ids(window.result), byOrderIds.slice(1, 3))
+					checkReplayed()
+				}
+			}
+			for (const group of groups) {
+				for (const label of labels) {
+					for (const order of orders) {
+						const row = { id: probeId, group, label, order }
+						for (const entry of tableRegistry.queries(row, addedOrRemoved)) {
+							assert.equal(entry.error, undefined)
+						}
+					}
+				}
 			}
 			checkReplayedSubqueries.forEach((checkReplayed) => checkReplayed())
 			assert.equal(replayedNanCount, nanCount.result)
@@ -482,21 +674,47 @@ for (const seed of seeds) {
 				ids(fresh.result),
 				expected(rows, all, byExpectedGroupSize).slice(1, 3),
 			)
+
+			const otherRows = allRows(yOther)
+			const otherCountOf = (row: FuzzRow) =>
+				otherRows.filter(({ group }) => group === row.group).length
+			assert.deepEqual(
+				ids(countingOther.result),
+				expected(
+					rows,
+					all,
+					(a, b) => otherCountOf(a) - otherCountOf(b) || byOrder(a, b),
+				),
+			)
+			for (const row of countingOther.result) {
+				assert.equal(row.otherCount, otherCountOf(row as FuzzRow))
+			}
+			assert.deepEqual(
+				ids(listingTable.result),
+				expected(otherRows, all, byOrder),
+			)
+			for (const row of listingTable.result) {
+				assert.deepEqual(
+					ids(row.sameLabel),
+					expected(rows, ({ label }) => label === row.label, byOrder),
+				)
+			}
+			checkReplayedCrossTable.forEach((checkReplayed) => checkReplayed())
 		}
 
-		// Edits the same rows as the local doc before syncing, so updates conflict
-		const editPeer = () => {
-			const peerIds = Array.from(peerTable.keys())
+		// Peer edits hit the same rows as local ones before syncing, so updates conflict
+		const editRows = (yRows: Y.Map<Y.Map<unknown>>) => {
+			const rowIds = Array.from(yRows.keys())
 			const action = int(4)
-			if (action === 0 || peerIds.length === 0) {
-				peerTable.set(UUID.create(), new Y.Map(Object.entries(randomValues())))
+			if (action === 0 || rowIds.length === 0) {
+				yRows.set(UUID.create(), new Y.Map(Object.entries(randomValues())))
 			} else if (action === 1) {
-				peerTable.delete(pick(peerIds))
+				yRows.delete(pick(rowIds))
 			} else if (action === 2) {
-				peerTable.set(pick(peerIds), new Y.Map(Object.entries(randomValues())))
+				yRows.set(pick(rowIds), new Y.Map(Object.entries(randomValues())))
 			} else {
 				const column = pick(['group', 'label', 'order'] as const)
-				peerTable.get(pick(peerIds))!.set(column, randomValues()[column])
+				yRows.get(pick(rowIds))!.set(column, randomValues()[column])
 			}
 		}
 		const sync = () => {
@@ -506,12 +724,16 @@ for (const seed of seeds) {
 
 		sync()
 		check()
-		for (let step = 0; step < 60; step++) {
+		for (step = 0; step < 60; step++) {
 			if (random() < 0.3) {
 				const edits = 1 + int(3)
 				peer.transact(() => {
 					for (let j = 0; j < edits; j++) {
-						editPeer()
+						editRows(peerTable)
+					}
+					const otherEdits = int(3)
+					for (let j = 0; j < otherEdits; j++) {
+						editRows(peerOther)
 					}
 				})
 			}
@@ -533,6 +755,10 @@ for (const seed of seeds) {
 						const column = pick(['group', 'label', 'order'] as const)
 						table.update(pick(localIds), column, randomValues()[column])
 					}
+				}
+				const otherEdits = int(3)
+				for (let j = 0; j < otherEdits; j++) {
+					editRows(yOther)
 				}
 			})
 			if (random() < 0.5) {

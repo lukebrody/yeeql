@@ -1091,3 +1091,40 @@ for (const sortBySubquery of [false, true]) {
 		checkReplayed()
 	})
 }
+
+for (const cached of [true, false]) {
+	test(`returning rows replay with their old count subquery ${
+		cached ? 'cached' : 'collected'
+	}`, async () => {
+		const query = children.query({
+			subqueries: { siblings: siblingCount },
+			sort: (a, b) => b.siblings - a.siblings || a.order - b.order,
+		})
+		const checkReplayed = replayWithSubqueries(query, child)
+		children.insert({ parentId: UUID.create(), order: 0 })
+		const parentId = UUID.create()
+		const id = children.insert({ parentId, order: 1 })
+		const weakCount = new WeakRef(siblingCount({ parentId }))
+		const heldCount = cached ? weakCount.deref() : undefined
+		children.delete(id)
+
+		if (!cached) {
+			await new Promise((resolve) => setTimeout(resolve, 10))
+			global.gc!()
+			await new Promise((resolve) => setTimeout(resolve, 10))
+			assert.equal(weakCount.deref(), undefined)
+		}
+		doc.transact(() => {
+			children.insert({ parentId, order: 1 })
+			children.insert({ parentId, order: 2 })
+		})
+		if (heldCount !== undefined) {
+			assert.equal(siblingCount({ parentId }), heldCount)
+		}
+		checkReplayed()
+		assert.deepEqual(
+			query.result.map(({ order }) => order),
+			[1, 2, 0],
+		)
+	})
+}

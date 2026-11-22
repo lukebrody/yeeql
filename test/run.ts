@@ -12,7 +12,7 @@ export const docs = new UpdateDocs({
 docs.updateExamples()
 
 const testStream = run({
-	globPatterns: ['test/**/*.test.{ts,tsx}'],
+	globPatterns: ['test/**/!(*.fuzz).test.{ts,tsx}'],
 	isolation: 'none',
 })
 

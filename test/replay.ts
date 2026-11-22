@@ -91,6 +91,10 @@ export function replay(
 	columns: object,
 ) {
 	let replayed = snapshot(query.result, columns)
-	query.observe((change) => (replayed = applyChange(replayed, change, columns)))
+	query.observe((change) => {
+		if (change.kind !== 'invalid') {
+			replayed = applyChange(replayed, change, columns)
+		}
+	})
 	return () => assert.deepEqual(replayed, snapshot(query.result, columns))
 }

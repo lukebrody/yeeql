@@ -235,6 +235,51 @@ test('returning group whose subquery is still cached', () => {
 	assert.deepEqual(changes, [['addGroup', 1, [id]]])
 })
 
+const tick = () => new Promise((resolve) => setTimeout(resolve, 10))
+
+// The registry visits range filters after equality filters, so with the range the group's subquery sees each row first
+for (const filter of [{}, { number: { gte: 0 } }]) {
+	for (const cached of [true, false]) {
+		for (const rowsAdded of [1, 2]) {
+			test(`returning group replays with its old subquery ${
+				cached ? 'cached' : 'collected'
+			}, filter ${JSON.stringify(filter)}, ${rowsAdded} rows`, async () => {
+				const query = table.query({ select: ['id'], filter, groupBy: 'number' })
+				const checkReplayed = replay(query, schema)
+				table.insert({ number: 0, string: 'a' })
+				const id = table.insert({ number: 1, string: 'a' })
+				const weakSubquery = (() => {
+					const subquery = table.query({
+						select: ['id'],
+						filter: { number: 1 },
+					})
+					assert.equal(subquery.result, query.result.get(1))
+					return new WeakRef(subquery)
+				})()
+				const heldSubquery = cached ? weakSubquery.deref() : undefined
+				table.delete(id)
+
+				if (!cached) {
+					await tick()
+					global.gc!()
+					await tick()
+					assert.equal(weakSubquery.deref(), undefined)
+				}
+				doc.transact(() => {
+					for (let i = 0; i < rowsAdded; i++) {
+						table.insert({ number: 1, string: 'a' })
+					}
+				})
+				assert.equal(query.result.get(1).length, rowsAdded)
+				if (heldSubquery !== undefined) {
+					assert.equal(query.result.get(1), heldSubquery.result)
+				}
+				checkReplayed()
+			})
+		}
+	}
+}
+
 test('group added by moving a row reports later rows in addGroup', () => {
 	const query = table.query({ select: ['id'], groupBy: 'number' })
 	const aId = table.insert({ number: 1, string: 'a' })

@@ -432,7 +432,7 @@ test('a subquery generator that throws on an update leaves the subquery working'
 	assert.equal(countA.result, 2)
 	assert.deepEqual(
 		changes.map(({ kind }) => kind),
-		['add', 'subquery', 'invalid'],
+		['add', 'invalid'],
 	)
 })
 

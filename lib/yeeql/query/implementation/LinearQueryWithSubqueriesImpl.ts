@@ -72,8 +72,9 @@ export class LinearQueryWithSubqueriesImpl<
 
 	addRow(row: Row<S>, type: 'add' | 'update'): () => void {
 		const augmentedRow = this.rowSubqueries.add(row)
-		return this.notifyingObservers(() => {
+		const notify = this.notifyingObservers(() => {
 			const addedIndex = insertOrdered(this.result, augmentedRow, this.sort)
+			this.rowsReportedThisTransaction.add(augmentedRow)
 			return {
 				kind: 'add',
 				row: augmentedRow,
@@ -81,7 +82,16 @@ export class LinearQueryWithSubqueriesImpl<
 				type,
 			}
 		})
+		return () => {
+			this.rowsReportedThisTransaction.clear()
+			notify()
+		}
 	}
+
+	// Rows already reported with their live subquery results
+	private readonly rowsReportedThisTransaction = new Set<
+		(typeof this.result)[0]
+	>()
 
 	// Rows on a changing subquery that are still at their old positions
 	private readonly staleRows = new Set<(typeof this.result)[0]>()
@@ -94,7 +104,7 @@ export class LinearQueryWithSubqueriesImpl<
 		return (ready) => {
 			this.staleRows.add(augmentedRow)
 			try {
-				return this.notifyingObservers(() => {
+				const notify = this.notifyingObservers(() => {
 					const change = ready()
 					this.staleRows.delete(augmentedRow)
 					const removedIndex = this.result.indexOf(augmentedRow)
@@ -121,11 +131,15 @@ export class LinearQueryWithSubqueriesImpl<
 					}
 					// A nested sibling's change may have left this false
 					this.changeReported = true
-					if (!subquery.changeReported) {
+					if (
+						!subquery.changeReported ||
+						this.rowsReportedThisTransaction.has(augmentedRow)
+					) {
 						if (insertedIndex === removedIndex) {
 							this.changeReported = false
 						} else {
 							// The subquery's change is already in an earlier one, so report only the move
+							this.rowsReportedThisTransaction.add(augmentedRow)
 							return {
 								kind: 'update',
 								row: augmentedRow,
@@ -146,6 +160,10 @@ export class LinearQueryWithSubqueriesImpl<
 						type: 'update',
 					}
 				})
+				return () => {
+					this.rowsReportedThisTransaction.clear()
+					notify()
+				}
 			} finally {
 				this.staleRows.delete(augmentedRow)
 			}
@@ -177,9 +195,8 @@ export class LinearQueryWithSubqueriesImpl<
 		newValues: Readonly<Partial<Row<S>>>,
 		patch: (row: Row<S>) => void,
 	): () => void {
-		return this.notifyingObservers(() => {
-			const augmentedRow = this.rowSubqueries.get(row)
-
+		const augmentedRow = this.rowSubqueries.get(row)
+		const notify = this.notifyingObservers(() => {
 			const removedIndex = removeOrdered(
 				this.result,
 				augmentedRow,
@@ -191,6 +208,7 @@ export class LinearQueryWithSubqueriesImpl<
 			const augmentedOldValues = this.rowSubqueries.update(row, oldValues)
 
 			const addedIndex = insertOrdered(this.result, augmentedRow, this.sort)
+			this.rowsReportedThisTransaction.add(augmentedRow)
 
 			return {
 				kind: 'update',
@@ -201,6 +219,10 @@ export class LinearQueryWithSubqueriesImpl<
 				type: 'update',
 			}
 		})
+		return () => {
+			this.rowsReportedThisTransaction.clear()
+			notify()
+		}
 	}
 	/* c8 ignore next */
 }

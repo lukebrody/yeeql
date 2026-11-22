@@ -5,6 +5,7 @@ import { test } from 'node:test'
 import assert from 'assert/strict'
 import { compareStrings } from 'common/string'
 import { seededRandom } from 'test/random'
+import { replay as replayWithSubqueries } from 'test/replay'
 
 // FUZZ_SEED reproduces one failing seed, FUZZ_SEEDS runs more
 const seeds =
@@ -243,6 +244,34 @@ for (const seed of seeds) {
 			sort: byGroupSize,
 			limit: 2,
 		})
+		const byLabelGroup = (row: { label: string }) =>
+			table.query({
+				select: ['id', 'order'],
+				filter: { label: row.label },
+				groupBy: 'group',
+				sort: byOrder,
+			})
+		const withGroupedSubquery = table.query({
+			select: ['id', 'order', 'label'],
+			subqueries: { byLabelGroup },
+			sort: byOrder,
+		})
+		const windowWithGroupedSubquery = table.query({
+			select: ['id', 'order', 'label'],
+			subqueries: { byLabelGroup },
+			sort: byOrder,
+			limit: 2,
+			offset: 1,
+		})
+		const sortedByCountWindow = table.query({
+			select: ['id', 'order', 'label'],
+			subqueries: {
+				labelCount: (row) => table.count({ filter: { label: row.label } }),
+			},
+			sort: (a, b) => a.labelCount - b.labelCount || byOrder(a, b),
+			limit: 3,
+			offset: 1,
+		})
 
 		const labelCounts = (row: { group: number }) =>
 			table.count({ groupBy: 'label', filter: { group: row.group } })
@@ -262,6 +291,17 @@ for (const seed of seeds) {
 			limit: 2,
 			offset: 1,
 		})
+		const checkReplayedSubqueries = [
+			sortedBySubquery,
+			subqueryWindow,
+			sortedBySubqueryWindow,
+			groupedBySubquery,
+			withGroupedSubquery,
+			windowWithGroupedSubquery,
+			sortedByCountWindow,
+			sortedByGroupedSubquery,
+			sortedByGroupedSubqueryWindow,
+		].map((query) => replayWithSubqueries(query, schema))
 
 		const replayed = [
 			linear,
@@ -426,6 +466,7 @@ for (const seed of seeds) {
 				assert.deepEqual(ids(replayedThrowing), ids(throwing.result))
 				assert.equal(reports.length, 0)
 			}
+			checkReplayedSubqueries.forEach((checkReplayed) => checkReplayed())
 			assert.equal(replayedNanCount, nanCount.result)
 			assert.deepEqual(replayedGroupedCounts, new Map(groupedCounts.result))
 

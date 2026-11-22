@@ -8,6 +8,7 @@ import { TableSchema } from 'yeeql/table/Schema'
 import { SubqueryGenerators } from 'yeeql/query/subquery'
 import { compareStrings } from 'common/string'
 import { seededRandom } from 'test/random'
+import { replay as replayWithSubqueries } from 'test/replay'
 
 const child = {
 	id: new Field<UUID>(),
@@ -948,5 +949,145 @@ for (const sortBySubquery of [false, true]) {
 			)
 			assert.deepEqual(query.result, sorted)
 		}
+	})
+}
+
+const siblingCount = (row: { parentId: UUID }) =>
+	children.count({ filter: { parentId: row.parentId } })
+
+test('row added in a transaction reports its later count changes in its add', () => {
+	const query = children.query({
+		subqueries: { siblings: siblingCount },
+		sort: (a, b) => a.order - b.order,
+	})
+	const changes: unknown[] = []
+	query.observe((change) => changes.push(change.kind))
+	const checkReplayed = replayWithSubqueries(query, child)
+
+	const parentId = UUID.create()
+	doc.transact(() => {
+		children.insert({ parentId, order: 0 })
+		children.insert({ parentId, order: 1 })
+	})
+	assert.deepEqual(changes, ['add', 'add'])
+	checkReplayed()
+})
+
+test('row added in a transaction reports its later linear subquery changes in its add', () => {
+	const query = children.query({
+		subqueries: {
+			siblings: (row) =>
+				children.query({ select: ['id'], filter: { parentId: row.parentId } }),
+		},
+		sort: (a, b) => a.order - b.order,
+	})
+	const checkReplayed = replayWithSubqueries(query, child)
+
+	const parentId = UUID.create()
+	doc.transact(() => {
+		children.insert({ parentId, order: 0 })
+		children.insert({ parentId, order: 1 })
+	})
+	checkReplayed()
+})
+
+test('row added in a transaction and moved by its subquery reports the move', () => {
+	const query = children.query({
+		subqueries: { siblings: siblingCount },
+		sort: (a, b) => b.siblings - a.siblings || a.order - b.order,
+	})
+	const checkReplayed = replayWithSubqueries(query, child)
+	children.insert({ parentId: UUID.create(), order: 0 })
+
+	const parentId = UUID.create()
+	doc.transact(() => {
+		children.insert({ parentId, order: 1 })
+		children.insert({ parentId, order: 2 })
+	})
+	checkReplayed()
+	assert.deepEqual(
+		query.result.map(({ order }) => order),
+		[1, 2, 0],
+	)
+})
+
+test('row added and removed in a transaction', () => {
+	const query = children.query({
+		subqueries: { siblings: siblingCount },
+		sort: (a, b) => a.order - b.order,
+	})
+	const checkReplayed = replayWithSubqueries(query, child)
+
+	const parentId = UUID.create()
+	doc.transact(() => {
+		const id = children.insert({ parentId, order: 0 })
+		children.insert({ parentId, order: 1 })
+		children.delete(id)
+		children.insert({ parentId, order: 2 })
+	})
+	checkReplayed()
+})
+
+test('rows sharing a subquery with an existing row report only its change', () => {
+	const query = children.query({
+		subqueries: { siblings: siblingCount },
+		sort: (a, b) => a.order - b.order,
+	})
+	const parentId = UUID.create()
+	children.insert({ parentId, order: 1 })
+	const subqueryChangeOrders: number[] = []
+	query.observe(
+		(change) =>
+			change.kind === 'subquery' && subqueryChangeOrders.push(change.row.order),
+	)
+	const checkReplayed = replayWithSubqueries(query, child)
+
+	doc.transact(() => {
+		children.insert({ parentId, order: 0 })
+		children.insert({ parentId, order: 2 })
+	})
+	assert.deepEqual(subqueryChangeOrders, [1, 1])
+	checkReplayed()
+})
+
+test('row updated in a transaction reports its new subquery changes in its update', () => {
+	const query = children.query({
+		subqueries: { siblings: siblingCount },
+		sort: (a, b) => a.order - b.order,
+	})
+	const id = children.insert({ parentId: UUID.create(), order: 0 })
+	const checkReplayed = replayWithSubqueries(query, child)
+
+	const parentId = UUID.create()
+	doc.transact(() => {
+		children.update(id, 'parentId', parentId)
+		children.insert({ parentId, order: 1 })
+	})
+	checkReplayed()
+})
+
+for (const sortBySubquery of [false, true]) {
+	test(`row entering a window in a transaction reports its later subquery changes in its add, sortBySubquery=${sortBySubquery}`, () => {
+		const query = children.query({
+			subqueries: { siblings: siblingCount },
+			sort: sortBySubquery
+				? (a, b) => b.siblings - a.siblings || a.order - b.order
+				: (a, b) => a.order - b.order,
+			limit: 1,
+		})
+		const changes: unknown[] = []
+		query.observe((change) => changes.push(change.kind))
+		const checkReplayed = replayWithSubqueries(query, child)
+		const firstId = children.insert({ parentId: UUID.create(), order: 0 })
+		const parentId = UUID.create()
+		children.insert({ parentId, order: 1 })
+
+		changes.length = 0
+		doc.transact(() => {
+			children.delete(firstId)
+			children.insert({ parentId, order: 2 })
+		})
+		assert.deepEqual(changes, ['remove', 'add'])
+		checkReplayed()
 	})
 }

@@ -114,7 +114,24 @@ export class WindowedQueryImpl<
 						.slice(0, next.indexOf(change.row))
 						.filter((row) => prevRows.has(row)).length
 					this.result.splice(newIndex, 0, change.row)
-					this.changeReported = this.query.changeReported
+					if (
+						change.kind === 'subquery' &&
+						(!this.query.changeReported ||
+							this.rowsAddedThisTransaction.has(change.row))
+					) {
+						if (oldIndex === newIndex) {
+							this.changeReported = false
+						} else {
+							return {
+								kind: 'update',
+								row: change.row,
+								oldIndex,
+								newIndex,
+								oldValues: {},
+								type: 'update',
+							}
+						}
+					}
 					return { ...change, oldIndex, newIndex }
 				}),
 			)
@@ -127,6 +144,7 @@ export class WindowedQueryImpl<
 			notifications.push(
 				this.notifyingObservers(() => {
 					this.result.splice(newIndex, 0, row)
+					this.rowsAddedThisTransaction.add(row)
 					return {
 						kind: 'add',
 						row,
@@ -140,7 +158,13 @@ export class WindowedQueryImpl<
 			)
 		})
 
-		return () => notifications.forEach((notify) => notify())
+		return () => {
+			this.rowsAddedThisTransaction.clear()
+			notifications.forEach((notify) => notify())
+		}
 	}
+
+	// Their `add` has their live subquery results
+	private readonly rowsAddedThisTransaction = new Set<ResultRow<S, Select, Q>>()
 	/* c8 ignore next */
 }

@@ -291,6 +291,86 @@ for (const seed of seeds) {
 			limit: 2,
 			offset: 1,
 		})
+
+		// table.groupBy
+		const groupByLabelCounts = (row: { group: number }) =>
+			table.groupBy({
+				groupBy: 'label',
+				filter: { group: row.group },
+				subquery: (label) =>
+					table.count({ filter: { group: row.group, label } }),
+			})
+		const sortedByGroupBySubquery = table.query({
+			select: ['id', 'order', 'group'],
+			subqueries: { labelCounts: groupByLabelCounts },
+			sort: byXCount,
+		})
+		const nestedGroupBy = table.groupBy({
+			groupBy: 'group',
+			subquery: (group) =>
+				table.query({
+					select: ['id', 'order'],
+					filter: { group },
+					groupBy: 'label',
+					sort: byOrder,
+				}),
+		})
+		const checkReplayedGroupBy = [sortedByGroupBySubquery, nestedGroupBy].map(
+			(query) => replayWithSubqueries(query, schema),
+		)
+		const checkGroupBy = (rows: FuzzRow[]) => {
+			const xCountOf = (row: FuzzRow) =>
+				rows.filter(({ group, label }) => group === row.group && label === 'x')
+					.length
+			assert.deepEqual(
+				ids(sortedByGroupBySubquery.result),
+				expected(
+					rows,
+					() => true,
+					(a, b) => xCountOf(a) - xCountOf(b) || byOrder(a, b),
+				),
+			)
+
+			const expectedNested = new Map<number, Map<string, UUID[]>>()
+			for (const row of rows) {
+				const labels = expectedNested.get(row.group) ?? new Map()
+				expectedNested.set(row.group, labels)
+				labels.set(
+					row.label,
+					expected(
+						rows,
+						({ group, label }) => group === row.group && label === row.label,
+						byOrder,
+					),
+				)
+			}
+			const sortKeys = <K, V>(map: Map<K, V>) =>
+				new Map([...map].sort(([a], [b]) => (a < b ? -1 : 1)))
+			assert.deepEqual(
+				sortKeys(
+					new Map(
+						Array.from(nestedGroupBy.result, ([group, labels]) => [
+							group,
+							sortKeys(
+								new Map(
+									Array.from(labels, ([label, rows]) => [label, ids(rows)]),
+								),
+							),
+						]),
+					),
+				),
+				sortKeys(
+					new Map(
+						Array.from(expectedNested, ([group, labels]) => [
+							group,
+							sortKeys(labels),
+						]),
+					),
+				),
+			)
+			checkReplayedGroupBy.forEach((checkReplayed) => checkReplayed())
+		}
+
 		const checkReplayedSubqueries = [
 			sortedBySubquery,
 			subqueryWindow,
@@ -469,6 +549,7 @@ for (const seed of seeds) {
 			checkReplayedSubqueries.forEach((checkReplayed) => checkReplayed())
 			assert.equal(replayedNanCount, nanCount.result)
 			assert.deepEqual(replayedGroupedCounts, new Map(groupedCounts.result))
+			checkGroupBy(rows)
 
 			// Built mid-run, from rows that already went through updates
 			const fresh = table.query({

@@ -109,3 +109,90 @@ test('a throwing observer does not stop the group change', (t) => {
 	)
 	assert.equal(reported.mock.callCount(), 1)
 })
+
+test('a group removed, re-added and removed in one transaction stops observing its subquery', () => {
+	const windowed = table.query({
+		groupBy: 'string',
+		sort: (a, b) => a.number - b.number,
+		offset: 1,
+	})
+	const windowedSpy = mock.fn()
+	windowed.observe(windowedSpy)
+	const leaving = table.insert({ number: 0, string: 'x' })
+	const entering = table.insert({ number: 1, string: 'y' })
+	const alsoLeaving = table.insert({ number: 2, string: 'x' })
+	doc.transact(() => {
+		table.update(leaving, 'string', 'z')
+		table.update(entering, 'string', 'x')
+		table.update(alsoLeaving, 'string', 'z')
+	})
+	assert.equal(windowed.result.has('x'), false)
+
+	table.insert({ number: 3, string: 'x' })
+	windowedSpy.mock.resetCalls()
+	table.insert({ number: 4, string: 'x' })
+	assert.equal(windowedSpy.mock.callCount(), 1)
+})
+
+const throwingSort = (a: { number: number }, b: { number: number }) => {
+	if (a.number === 666 || b.number === 666) {
+		throw new Error('sort')
+	}
+	return a.number - b.number
+}
+
+const groupZeroByString = () =>
+	table.groupBy({
+		groupBy: 'string',
+		filter: { number: 0 },
+		subquery: (string) =>
+			table.query({ filter: { string }, sort: throwingSort }),
+	})
+
+test("a grouped query invalidated by a sibling group stops observing a removed group's subquery", (t) => {
+	t.mock.method(globalThis, 'queueMicrotask', () => undefined)
+	const grouped = groupZeroByString()
+	const removed = table.insert({ number: 0, string: 'x' })
+	table.insert({ number: 0, string: 'y' })
+	doc.transact(() => {
+		table.delete(removed)
+		table.insert({ number: 666, string: 'y' })
+		table.insert({ number: 1, string: 'x' })
+	})
+	assert.throws(() => grouped.result, /the sort comparator threw/)
+})
+
+for (const batched of [true, false]) {
+	test(`a removed group's failing subquery leaves the grouped query valid, batched=${batched}`, (t) => {
+		t.mock.method(globalThis, 'queueMicrotask', () => undefined)
+		const grouped = groupZeroByString()
+		const removed = table.insert({ number: 0, string: 'x' })
+		table.insert({ number: 0, string: 'y' })
+		table.insert({ number: 1, string: 'x' })
+		const remove = () => table.delete(removed)
+		const fail = () => table.insert({ number: 666, string: 'x' })
+		if (batched) {
+			doc.transact(() => {
+				remove()
+				fail()
+			})
+		} else {
+			remove()
+			fail()
+		}
+		assert.deepEqual(Array.from(grouped.result.keys()), ['y'])
+	})
+}
+
+test("a removed group's subquery is unobserved after the transaction", () => {
+	const grouped = table.groupBy({
+		groupBy: 'string',
+		filter: { number: 0 },
+		subquery: (string) => table.count({ filter: { string } }),
+	})
+	const removed = table.insert({ number: 0, string: 'x' })
+	table.delete(removed)
+	const version = grouped.version
+	table.insert({ number: 1, string: 'x' })
+	assert.equal(grouped.version, version)
+})

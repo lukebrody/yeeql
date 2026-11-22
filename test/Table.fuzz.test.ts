@@ -305,6 +305,13 @@ for (const seed of seeds) {
 			subqueries: { labelCounts: groupByLabelCounts },
 			sort: byXCount,
 		})
+		const sortedByGroupBySubqueryWindow = table.query({
+			select: ['id', 'order', 'group'],
+			subqueries: { labelCounts: groupByLabelCounts },
+			sort: byXCount,
+			limit: 2,
+			offset: 1,
+		})
 		const nestedGroupBy = table.groupBy({
 			groupBy: 'group',
 			subquery: (group) =>
@@ -315,20 +322,27 @@ for (const seed of seeds) {
 					sort: byOrder,
 				}),
 		})
-		const checkReplayedGroupBy = [sortedByGroupBySubquery, nestedGroupBy].map(
-			(query) => replayWithSubqueries(query, schema),
-		)
+		const checkReplayedGroupBy = [
+			sortedByGroupBySubquery,
+			sortedByGroupBySubqueryWindow,
+			nestedGroupBy,
+		].map((query) => replayWithSubqueries(query, schema))
 		const checkGroupBy = (rows: FuzzRow[]) => {
 			const xCountOf = (row: FuzzRow) =>
 				rows.filter(({ group, label }) => group === row.group && label === 'x')
 					.length
+			const expectedSortedByGroupBy = expected(
+				rows,
+				() => true,
+				(a, b) => xCountOf(a) - xCountOf(b) || byOrder(a, b),
+			)
 			assert.deepEqual(
 				ids(sortedByGroupBySubquery.result),
-				expected(
-					rows,
-					() => true,
-					(a, b) => xCountOf(a) - xCountOf(b) || byOrder(a, b),
-				),
+				expectedSortedByGroupBy,
+			)
+			assert.deepEqual(
+				ids(sortedByGroupBySubqueryWindow.result),
+				expectedSortedByGroupBy.slice(1, 3),
 			)
 
 			const expectedNested = new Map<number, Map<string, UUID[]>>()

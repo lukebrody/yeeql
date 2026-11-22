@@ -132,7 +132,12 @@ export class GroupedQueryImpl<
 				}
 			})
 		}
-		query.internalObserve(observer, (error) => this.invalidate(error))
+		query.internalObserve(observer, (error) =>
+			// A removed group's subquery no longer affects this query
+			this.queries.get(group)?.query === query
+				? this.invalidate(error)
+				: () => undefined,
+		)
 		this.queries.set(group, { query, observer })
 		return query
 	}
@@ -214,9 +219,7 @@ export class GroupedQueryImpl<
 				}
 			})
 			return () => {
-				if (this.removedGroups.get(group) === query) {
-					this.unobserveRemovedGroup(group)
-				}
+				this.unobserveRemovedGroup(group)
 				notify()
 			}
 		} else {
